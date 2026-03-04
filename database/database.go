@@ -4,21 +4,29 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
+var loadEnvOnce sync.Once
+
 // Connect opens a connection to the PostgreSQL database using the DATABASE_URL
 // environment variable, or falls back to individual PG* variables.
 // Returns a configured *gorm.DB instance or an error.
 func Connect() (*gorm.DB, error) {
+	loadEnvOnce.Do(func() {
+		_ = godotenv.Load()
+	})
+
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		// Build DSN from individual environment variables
 		host := getEnvOrDefault("PGHOST", "localhost")
-		port := getEnvOrDefault("PGPORT", "5432")
+		port := getEnvOrDefault("PGPORT", "5433")
 		user := getEnvOrDefault("PGUSER", "postgres")
 		password := getEnvOrDefault("PGPASSWORD", "postgres")
 		dbname := getEnvOrDefault("PGDATABASE", "fitness_tracker")
