@@ -113,6 +113,33 @@ def test_before_create_assigns_uuid_for_all_models() -> None:
                 panic("weekly adjustment before_create failed")
             }
 
+            programEnrollment := models.ProgramEnrollment{
+                UserID:           uuid.MustParse("33333333-3333-3333-3333-333333333333"),
+                WorkoutProgramID: uuid.MustParse("44444444-4444-4444-4444-444444444444"),
+            }
+            if err := programEnrollment.BeforeCreate(nil); err != nil || programEnrollment.ID == uuid.Nil {
+                panic("program enrollment before_create failed")
+            }
+
+            programProgress := models.ProgramProgress{
+                ProgramEnrollmentID: uuid.MustParse("55555555-5555-5555-5555-555555555555"),
+                WeekNumber:          1,
+                DayNumber:           1,
+            }
+            if err := programProgress.BeforeCreate(nil); err != nil || programProgress.ID == uuid.Nil {
+                panic("program progress before_create failed")
+            }
+
+            workoutSet := models.WorkoutSet{
+                WorkoutExerciseID: uuid.MustParse("66666666-6666-6666-6666-666666666666"),
+                SetNumber:         1,
+                Reps:              8,
+                Weight:            100,
+            }
+            if err := workoutSet.BeforeCreate(nil); err != nil || workoutSet.ID == uuid.Nil {
+                panic("workout set before_create failed")
+            }
+
             friendship := models.Friendship{
                 UserID:   uuid.MustParse("11111111-1111-1111-1111-111111111111"),
                 FriendID: uuid.MustParse("22222222-2222-2222-2222-222222222222"),
@@ -201,6 +228,83 @@ def test_friendship_allows_distinct_users() -> None:
 
             if err := friendship.BeforeCreate(nil); err != nil {
                 panic(err)
+            }
+
+            fmt.Println("ok")
+        }
+        """
+    )
+
+    output = assert_go_success(program)
+    assert output == "ok"
+
+
+def test_friendship_defaults_requester_to_initiator() -> None:
+    program = textwrap.dedent(
+        """
+        package main
+
+        import (
+            "fmt"
+            "fitness-tracker/models"
+            "github.com/google/uuid"
+        )
+
+        func main() {
+            initiator := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+            recipient := uuid.MustParse("99999999-9999-9999-9999-999999999999")
+
+            friendship := models.Friendship{UserID: initiator, FriendID: recipient}
+
+            if err := friendship.BeforeCreate(nil); err != nil {
+                panic(err)
+            }
+            if friendship.RequesterID != initiator {
+                panic("requester id did not default to initiator")
+            }
+
+            fmt.Println("ok")
+        }
+        """
+    )
+
+    output = assert_go_success(program)
+    assert output == "ok"
+
+
+def test_friendship_preserves_requester_after_canonicalization() -> None:
+    program = textwrap.dedent(
+        """
+        package main
+
+        import (
+            "fmt"
+            "fitness-tracker/models"
+            "github.com/google/uuid"
+        )
+
+        func main() {
+            requester := uuid.MustParse("ffffffff-ffff-ffff-ffff-ffffffffffff")
+            addressee := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+
+            friendship := models.Friendship{
+                UserID:      requester,
+                FriendID:    addressee,
+                RequesterID: requester,
+            }
+
+            if err := friendship.BeforeCreate(nil); err != nil {
+                panic(err)
+            }
+
+            if friendship.UserID != addressee {
+                panic("expected canonicalized user_id")
+            }
+            if friendship.FriendID != requester {
+                panic("expected canonicalized friend_id")
+            }
+            if friendship.RequesterID != requester {
+                panic("requester id changed during canonicalization")
             }
 
             fmt.Println("ok")

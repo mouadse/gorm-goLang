@@ -20,6 +20,9 @@ type WorkoutProgram struct {
 
 	// Belongs-to
 	Creator User `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+
+	// Has-many
+	ProgramEnrollments []ProgramEnrollment `gorm:"foreignKey:WorkoutProgramID" json:"program_enrollments,omitempty"`
 }
 
 // BeforeCreate sets a new UUID before inserting.

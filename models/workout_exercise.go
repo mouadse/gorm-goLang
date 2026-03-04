@@ -26,6 +26,9 @@ type WorkoutExercise struct {
 	// Belongs-to
 	Workout  Workout  `gorm:"foreignKey:WorkoutID" json:"workout,omitempty"`
 	Exercise Exercise `gorm:"foreignKey:ExerciseID" json:"exercise,omitempty"`
+
+	// Has-many
+	WorkoutSets []WorkoutSet `gorm:"foreignKey:WorkoutExerciseID" json:"workout_sets,omitempty"`
 }
 
 // BeforeCreate sets a new UUID before inserting.

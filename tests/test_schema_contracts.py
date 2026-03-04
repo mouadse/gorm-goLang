@@ -107,6 +107,35 @@ def test_food_brand_should_be_not_null_for_unique_name_brand_rule() -> None:
     assert "not null" in brand_tag
 
 
+def test_meal_allows_multiple_meals_same_type_per_day() -> None:
+    user_tag = get_model_gorm_tag("Meal", "UserID")
+    meal_type_tag = get_model_gorm_tag("Meal", "MealType")
+    date_tag = get_model_gorm_tag("Meal", "Date")
+
+    assert "index:idx_meals_user_date_type" in user_tag
+    assert "index:idx_meals_user_date_type" in meal_type_tag
+    assert "index:idx_meals_user_date_type" in date_tag
+    assert "uniqueIndex:idx_user_date_type" not in user_tag
+    assert "uniqueIndex:idx_user_date_type" not in meal_type_tag
+    assert "uniqueIndex:idx_user_date_type" not in date_tag
+
+
+def test_friendship_tracks_requester_in_schema() -> None:
+    requester_tag = get_model_gorm_tag("Friendship", "RequesterID")
+    assert "not null" in requester_tag
+    assert "check:requester_id IN (user_id, friend_id)" in requester_tag
+
+
+def test_program_progress_has_unique_enrollment_week_day() -> None:
+    enrollment_tag = get_model_gorm_tag("ProgramProgress", "ProgramEnrollmentID")
+    week_tag = get_model_gorm_tag("ProgramProgress", "WeekNumber")
+    day_tag = get_model_gorm_tag("ProgramProgress", "DayNumber")
+
+    assert "uniqueIndex:idx_enrollment_week_day" in enrollment_tag
+    assert "uniqueIndex:idx_enrollment_week_day" in week_tag
+    assert "uniqueIndex:idx_enrollment_week_day" in day_tag
+
+
 def test_connect_should_not_exit_process_on_invalid_dsn() -> None:
     program = textwrap.dedent(
         """
@@ -131,7 +160,9 @@ def test_connect_should_not_exit_process_on_invalid_dsn() -> None:
         """
     )
 
-    output = assert_go_success(program, env_overrides={"DATABASE_URL": "postgres://%zz"})
+    output = assert_go_success(
+        program, env_overrides={"DATABASE_URL": "postgres://%zz"}
+    )
     assert output == "connect returned"
 
 
