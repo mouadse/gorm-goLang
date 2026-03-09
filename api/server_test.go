@@ -343,6 +343,32 @@ func TestNestedCreateRoutesRejectMismatchedIDs(t *testing.T) {
 	}
 }
 
+func TestCreateWorkoutReturnsNotFoundForMissingExercise(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+
+	user := requestJSON[models.User](t, server, http.MethodPost, "/v1/users", map[string]any{
+		"email": "missing-exercise@example.com",
+		"name":  "Missing Exercise",
+	}, http.StatusCreated)
+
+	errBody := requestError(t, server, http.MethodPost, "/v1/workouts", map[string]any{
+		"user_id": user.ID,
+		"type":    "push",
+		"exercises": []map[string]any{
+			{
+				"exercise_id": "10000000-0000-0000-0000-000000000001",
+				"reps":        8,
+			},
+		},
+	}, http.StatusNotFound)
+
+	if errBody["error"] != "exercise not found" {
+		t.Fatalf("expected exercise not found error, got %q", errBody["error"])
+	}
+}
+
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
 
@@ -396,6 +422,29 @@ func expectStatus(t *testing.T, handler http.Handler, method, path string, body 
 	if recorder.Code != wantStatus {
 		t.Fatalf("%s %s: expected status %d, got %d, body=%s", method, path, wantStatus, recorder.Code, recorder.Body.String())
 	}
+}
+
+func requestError(t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) map[string]string {
+	t.Helper()
+
+	req := httptest.NewRequest(method, path, encodeBody(t, body))
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != wantStatus {
+		t.Fatalf("%s %s: expected status %d, got %d, body=%s", method, path, wantStatus, recorder.Code, recorder.Body.String())
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
+		t.Fatalf("%s %s: decode error response: %v", method, path, err)
+	}
+
+	return result
 }
 
 func encodeBody(t *testing.T, body any) *bytes.Reader {

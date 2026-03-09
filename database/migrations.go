@@ -8,6 +8,18 @@ import (
 	"gorm.io/gorm"
 )
 
+var obsoleteTables = []string{
+	"meal_foods",
+	"foods",
+	"friendships",
+	"messages",
+	"notifications",
+	"weekly_adjustments",
+	"program_progresses",
+	"program_enrollments",
+	"workout_programs",
+}
+
 // Migrate runs all schema migrations required by the application.
 func Migrate(db *gorm.DB) error {
 	log.Println("running database migrations...")
@@ -29,7 +41,23 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	if err := dropObsoleteTables(db); err != nil {
+		return err
+	}
+
 	log.Println("all migrations completed successfully")
+	return nil
+}
+
+func dropObsoleteTables(db *gorm.DB) error {
+	for _, table := range obsoleteTables {
+		if db.Migrator().HasTable(table) {
+			if err := db.Migrator().DropTable(table); err != nil {
+				return fmt.Errorf("drop obsolete table %s: %w", table, err)
+			}
+		}
+	}
+
 	return nil
 }
 

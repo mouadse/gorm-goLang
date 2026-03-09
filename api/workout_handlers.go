@@ -130,6 +130,10 @@ func (s *Server) handleCreateWorkout(w http.ResponseWriter, r *http.Request) {
 
 		return nil
 	}); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("exercise not found"))
+			return
+		}
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}

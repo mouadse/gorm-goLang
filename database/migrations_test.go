@@ -34,7 +34,37 @@ func TestMigrateCreatesOnlyCoreTables(t *testing.T) {
 		}
 	}
 
-	removedTables := []string{
+	for _, table := range legacyTables() {
+		if db.Migrator().HasTable(table) {
+			t.Fatalf("expected table %q to be absent", table)
+		}
+	}
+}
+
+func TestMigrateDropsLegacyTablesOnExistingDatabase(t *testing.T) {
+	t.Parallel()
+
+	db := openTestDB(t)
+
+	for _, table := range legacyTables() {
+		if err := db.Exec("CREATE TABLE " + table + " (id INTEGER PRIMARY KEY)").Error; err != nil {
+			t.Fatalf("create legacy table %q: %v", table, err)
+		}
+	}
+
+	if err := database.Migrate(db); err != nil {
+		t.Fatalf("migrate database: %v", err)
+	}
+
+	for _, table := range legacyTables() {
+		if db.Migrator().HasTable(table) {
+			t.Fatalf("expected legacy table %q to be dropped", table)
+		}
+	}
+}
+
+func legacyTables() []string {
+	return []string{
 		"foods",
 		"meal_foods",
 		"friendships",
@@ -44,12 +74,6 @@ func TestMigrateCreatesOnlyCoreTables(t *testing.T) {
 		"workout_programs",
 		"program_enrollments",
 		"program_progresses",
-	}
-
-	for _, table := range removedTables {
-		if db.Migrator().HasTable(table) {
-			t.Fatalf("expected table %q to be absent", table)
-		}
 	}
 }
 
