@@ -9,7 +9,7 @@ import (
 
 // Exercise represents a predefined exercise in the library.
 type Exercise struct {
-	ID           uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ID           uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	Name         string         `gorm:"type:varchar(255);not null;uniqueIndex:idx_exercises_name,where:deleted_at IS NULL" json:"name"`
 	MuscleGroup  string         `gorm:"type:varchar(100)" json:"muscle_group"`
 	Equipment    string         `gorm:"type:varchar(100)" json:"equipment"`

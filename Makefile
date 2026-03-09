@@ -8,7 +8,7 @@ help:
 	@echo "  make down     - Stop and remove containers"
 	@echo "  make seed     - Run database migrations and seed dummy data"
 	@echo "  make api      - Start the API server"
-	@echo "  make test     - Run API tests (requires containers to be running)"
+	@echo "  make test     - Run Go tests and the race detector"
 	@echo "  make db-shell - Open psql shell in the database"
 	@echo "  make logs     - Show container logs"
 	@echo ""
@@ -47,6 +47,12 @@ seed:
 api:
 	@echo "🚀 Starting API server..."
 	go run main.go
+
+test:
+	@echo "🧪 Running Go tests..."
+	GOCACHE=/tmp/go-cache go test ./...
+	@echo "🧪 Running race detector..."
+	GOCACHE=/tmp/go-cache go test -race ./...
 
 # Combined workflows
 dev: up

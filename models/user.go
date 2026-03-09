@@ -9,7 +9,7 @@ import (
 
 // User represents a platform user with fitness profile data.
 type User struct {
-	ID            uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ID            uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	Email         string         `gorm:"type:varchar(255);uniqueIndex:idx_users_email,where:deleted_at IS NULL;not null" json:"email"`
 	PasswordHash  string         `gorm:"type:varchar(255);not null" json:"-"`
 	Name          string         `gorm:"type:varchar(255);not null" json:"name"`
@@ -26,16 +26,9 @@ type User struct {
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Has-many relationships
-	Workouts           []Workout           `gorm:"foreignKey:UserID" json:"workouts,omitempty"`
-	Meals              []Meal              `gorm:"foreignKey:UserID" json:"meals,omitempty"`
-	WeightEntries      []WeightEntry       `gorm:"foreignKey:UserID" json:"weight_entries,omitempty"`
-	Friendships        []Friendship        `gorm:"foreignKey:UserID" json:"friendships,omitempty"`
-	SentMessages       []Message           `gorm:"foreignKey:SenderID" json:"sent_messages,omitempty"`
-	ReceivedMessages   []Message           `gorm:"foreignKey:ReceiverID" json:"received_messages,omitempty"`
-	Notifications      []Notification      `gorm:"foreignKey:UserID" json:"notifications,omitempty"`
-	WeeklyAdjustments  []WeeklyAdjustment  `gorm:"foreignKey:UserID" json:"weekly_adjustments,omitempty"`
-	WorkoutPrograms    []WorkoutProgram    `gorm:"foreignKey:CreatedBy" json:"workout_programs,omitempty"`
-	ProgramEnrollments []ProgramEnrollment `gorm:"foreignKey:UserID" json:"program_enrollments,omitempty"`
+	Workouts      []Workout     `gorm:"foreignKey:UserID" json:"workouts,omitempty"`
+	Meals         []Meal        `gorm:"foreignKey:UserID" json:"meals,omitempty"`
+	WeightEntries []WeightEntry `gorm:"foreignKey:UserID" json:"weight_entries,omitempty"`
 }
 
 // BeforeCreate sets a new UUID before inserting.

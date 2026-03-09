@@ -10,7 +10,7 @@ import (
 
 // WorkoutSet stores set-by-set workout logging details.
 type WorkoutSet struct {
-	ID                uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ID                uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	WorkoutExerciseID uuid.UUID      `gorm:"type:uuid;not null;index;uniqueIndex:idx_workout_exercise_set_number,priority:1,where:deleted_at IS NULL" json:"workout_exercise_id"`
 	SetNumber         int            `gorm:"type:int;not null;uniqueIndex:idx_workout_exercise_set_number,priority:2,where:deleted_at IS NULL" json:"set_number"`
 	Reps              int            `gorm:"type:int;not null" json:"reps"`

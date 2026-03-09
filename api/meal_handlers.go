@@ -2,10 +2,8 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"fitness-tracker/models"
 	"gorm.io/gorm"
@@ -19,6 +17,7 @@ type createMealRequest struct {
 }
 
 type updateMealRequest struct {
+	UserID   *string `json:"user_id"`
 	MealType *string `json:"meal_type"`
 	Date     *string `json:"date"`
 	Notes    *string `json:"notes"`
@@ -31,7 +30,23 @@ func (s *Server) handleCreateMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := parseRequiredUUID("user_id", req.UserID)
+	userID, err := resolveScopedUUID(r, "user_id", "user_id", req.UserID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	exists, err := recordExists(s.db, &models.User{}, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if !exists {
+		writeError(w, http.StatusNotFound, errors.New("user not found"))
+		return
+	}
+
+	mealType, err := requireNonBlank("meal_type", req.MealType)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -45,14 +60,9 @@ func (s *Server) handleCreateMeal(w http.ResponseWriter, r *http.Request) {
 
 	meal := models.Meal{
 		UserID:   userID,
-		MealType: strings.TrimSpace(req.MealType),
+		MealType: mealType,
 		Date:     mealDate,
-		Notes:    req.Notes,
-	}
-
-	if meal.MealType == "" {
-		writeError(w, http.StatusBadRequest, errors.New("meal_type is required"))
-		return
+		Notes:    strings.TrimSpace(req.Notes),
 	}
 
 	if err := s.db.Create(&meal).Error; err != nil {
@@ -64,18 +74,28 @@ func (s *Server) handleCreateMeal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListMeals(w http.ResponseWriter, r *http.Request) {
-	userID, err := parsePathUUID(r, "user_id")
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
+	query := s.db.Model(&models.Meal{})
+
+	if pathUserID := strings.TrimSpace(r.PathValue("user_id")); pathUserID != "" {
+		userID, err := parseRequiredUUID("user_id", pathUserID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		query = query.Where("user_id = ?", userID)
+	} else if userIDParam := strings.TrimSpace(r.URL.Query().Get("user_id")); userIDParam != "" {
+		userID, err := parseRequiredUUID("user_id", userIDParam)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		query = query.Where("user_id = ?", userID)
 	}
 
-	query := s.db.Where("user_id = ?", userID)
-
 	if dateParam := strings.TrimSpace(r.URL.Query().Get("date")); dateParam != "" {
-		parsedDate, err := time.Parse("2006-01-02", dateParam)
+		parsedDate, err := parseDate(dateParam)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, fmt.Errorf("date must be YYYY-MM-DD"))
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 		query = query.Where("date = ?", parsedDate)
@@ -91,7 +111,27 @@ func (s *Server) handleListMeals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, meals)
+	writeJSON(w, http.StatusOK, ensureSlice(meals))
+}
+
+func (s *Server) handleGetMeal(w http.ResponseWriter, r *http.Request) {
+	mealID, err := parsePathUUID(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	var meal models.Meal
+	if err := s.db.First(&meal, "id = ?", mealID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("meal not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, meal)
 }
 
 func (s *Server) handleUpdateMeal(w http.ResponseWriter, r *http.Request) {
@@ -117,26 +157,46 @@ func (s *Server) handleUpdateMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.UserID != nil {
+		userID, err := parseRequiredUUID("user_id", *req.UserID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		exists, err := recordExists(s.db, &models.User{}, userID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if !exists {
+			writeError(w, http.StatusNotFound, errors.New("user not found"))
+			return
+		}
+
+		meal.UserID = userID
+	}
+
 	if req.MealType != nil {
-		mealType := strings.TrimSpace(*req.MealType)
-		if mealType == "" {
-			writeError(w, http.StatusBadRequest, errors.New("meal_type cannot be empty"))
+		mealType, err := requireNonBlank("meal_type", *req.MealType)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 		meal.MealType = mealType
 	}
 
 	if req.Date != nil {
-		parsedDate, err := time.Parse("2006-01-02", strings.TrimSpace(*req.Date))
+		parsedDate, err := parseDate(*req.Date)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, fmt.Errorf("date must be YYYY-MM-DD"))
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		meal.Date = parsedDate.UTC()
+		meal.Date = parsedDate
 	}
 
 	if req.Notes != nil {
-		meal.Notes = *req.Notes
+		meal.Notes = strings.TrimSpace(*req.Notes)
 	}
 
 	if err := s.db.Save(&meal).Error; err != nil {

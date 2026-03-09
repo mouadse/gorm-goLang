@@ -31,36 +31,66 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /healthz", s.handleHealth)
+	s.mux.HandleFunc("GET /openapi.yaml", s.handleOpenAPISpec)
+	s.mux.HandleFunc("GET /docs", s.handleSwaggerUI)
+	s.mux.HandleFunc("GET /docs/", s.handleSwaggerUI)
 
-	// Workout + set-by-set logging
+	// Users
+	s.mux.HandleFunc("POST /v1/users", s.handleCreateUser)
+	s.mux.HandleFunc("GET /v1/users", s.handleListUsers)
+	s.mux.HandleFunc("GET /v1/users/{id}", s.handleGetUser)
+	s.mux.HandleFunc("PATCH /v1/users/{id}", s.handleUpdateUser)
+	s.mux.HandleFunc("DELETE /v1/users/{id}", s.handleDeleteUser)
+
+	// Exercises
+	s.mux.HandleFunc("POST /v1/exercises", s.handleCreateExercise)
+	s.mux.HandleFunc("GET /v1/exercises", s.handleListExercises)
+	s.mux.HandleFunc("GET /v1/exercises/{id}", s.handleGetExercise)
+	s.mux.HandleFunc("PATCH /v1/exercises/{id}", s.handleUpdateExercise)
+	s.mux.HandleFunc("DELETE /v1/exercises/{id}", s.handleDeleteExercise)
+
+	// Weight entries
+	s.mux.HandleFunc("POST /v1/weight-entries", s.handleCreateWeightEntry)
+	s.mux.HandleFunc("GET /v1/weight-entries", s.handleListWeightEntries)
+	s.mux.HandleFunc("GET /v1/users/{user_id}/weight-entries", s.handleListWeightEntries)
+	s.mux.HandleFunc("POST /v1/users/{user_id}/weight-entries", s.handleCreateWeightEntry)
+	s.mux.HandleFunc("GET /v1/weight-entries/{id}", s.handleGetWeightEntry)
+	s.mux.HandleFunc("PATCH /v1/weight-entries/{id}", s.handleUpdateWeightEntry)
+	s.mux.HandleFunc("DELETE /v1/weight-entries/{id}", s.handleDeleteWeightEntry)
+
+	// Workouts
 	s.mux.HandleFunc("POST /v1/workouts", s.handleCreateWorkout)
+	s.mux.HandleFunc("GET /v1/workouts", s.handleListWorkouts)
+	s.mux.HandleFunc("GET /v1/users/{user_id}/workouts", s.handleListWorkouts)
+	s.mux.HandleFunc("POST /v1/users/{user_id}/workouts", s.handleCreateWorkout)
 	s.mux.HandleFunc("GET /v1/workouts/{id}", s.handleGetWorkout)
+	s.mux.HandleFunc("PATCH /v1/workouts/{id}", s.handleUpdateWorkout)
+	s.mux.HandleFunc("DELETE /v1/workouts/{id}", s.handleDeleteWorkout)
+
+	// Workout exercises
+	s.mux.HandleFunc("POST /v1/workout-exercises", s.handleCreateWorkoutExercise)
+	s.mux.HandleFunc("GET /v1/workout-exercises", s.handleListWorkoutExercises)
+	s.mux.HandleFunc("GET /v1/workouts/{id}/exercises", s.handleListWorkoutExercises)
 	s.mux.HandleFunc("POST /v1/workouts/{id}/exercises", s.handleAddWorkoutExercise)
+	s.mux.HandleFunc("GET /v1/workout-exercises/{id}", s.handleGetWorkoutExercise)
+	s.mux.HandleFunc("PATCH /v1/workout-exercises/{id}", s.handleUpdateWorkoutExercise)
+	s.mux.HandleFunc("DELETE /v1/workout-exercises/{id}", s.handleDeleteWorkoutExercise)
+
+	// Workout sets
+	s.mux.HandleFunc("POST /v1/workout-sets", s.handleCreateWorkoutSet)
+	s.mux.HandleFunc("GET /v1/workout-sets", s.handleListWorkoutSets)
 	s.mux.HandleFunc("GET /v1/workout-exercises/{id}/sets", s.handleListWorkoutSets)
 	s.mux.HandleFunc("POST /v1/workout-exercises/{id}/sets", s.handleCreateWorkoutSet)
+	s.mux.HandleFunc("GET /v1/workout-sets/{id}", s.handleGetWorkoutSet)
 	s.mux.HandleFunc("PATCH /v1/workout-sets/{id}", s.handleUpdateWorkoutSet)
 	s.mux.HandleFunc("DELETE /v1/workout-sets/{id}", s.handleDeleteWorkoutSet)
 
-	// Program enrollment + progress
-	s.mux.HandleFunc("POST /v1/program-enrollments", s.handleCreateProgramEnrollment)
-	s.mux.HandleFunc("GET /v1/users/{user_id}/program-enrollments", s.handleListProgramEnrollments)
-	s.mux.HandleFunc("GET /v1/program-enrollments/{id}", s.handleGetProgramEnrollment)
-	s.mux.HandleFunc("PATCH /v1/program-enrollments/{id}", s.handleUpdateProgramEnrollment)
-	s.mux.HandleFunc("POST /v1/program-enrollments/{id}/progress", s.handleCreateProgramProgress)
-	s.mux.HandleFunc("GET /v1/program-enrollments/{id}/progress", s.handleListProgramProgress)
-	s.mux.HandleFunc("PATCH /v1/program-progress/{id}", s.handleUpdateProgramProgress)
-
-	// Friendship directionality
-	s.mux.HandleFunc("POST /v1/friendships/requests", s.handleCreateFriendRequest)
-	s.mux.HandleFunc("GET /v1/users/{user_id}/friendships/incoming", s.handleListIncomingFriendRequests)
-	s.mux.HandleFunc("GET /v1/users/{user_id}/friendships/outgoing", s.handleListOutgoingFriendRequests)
-	s.mux.HandleFunc("GET /v1/users/{user_id}/friends", s.handleListFriends)
-	s.mux.HandleFunc("PATCH /v1/friendships/{id}/accept", s.handleAcceptFriendRequest)
-	s.mux.HandleFunc("DELETE /v1/friendships/{id}", s.handleDeleteFriendship)
-
-	// Meals (now supports multiple meals of same type/day)
+	// Meals
 	s.mux.HandleFunc("POST /v1/meals", s.handleCreateMeal)
+	s.mux.HandleFunc("GET /v1/meals", s.handleListMeals)
 	s.mux.HandleFunc("GET /v1/users/{user_id}/meals", s.handleListMeals)
+	s.mux.HandleFunc("POST /v1/users/{user_id}/meals", s.handleCreateMeal)
+	s.mux.HandleFunc("GET /v1/meals/{id}", s.handleGetMeal)
 	s.mux.HandleFunc("PATCH /v1/meals/{id}", s.handleUpdateMeal)
 	s.mux.HandleFunc("DELETE /v1/meals/{id}", s.handleDeleteMeal)
 }

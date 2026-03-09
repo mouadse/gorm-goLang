@@ -1,0 +1,1658 @@
+openapi: 3.0.3
+info:
+  title: Fitness Tracker API
+  version: 1.0.0
+  description: |
+    Lean Go backend for the core fitness tracking loop: users, exercise library,
+    workouts, workout exercises, workout sets, meals, and weight entries.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Health
+  - name: Users
+  - name: Exercises
+  - name: Workouts
+  - name: Workout Exercises
+  - name: Workout Sets
+  - name: Meals
+  - name: Weight Entries
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /v1/users:
+    get:
+      tags: [Users]
+      summary: List users
+      operationId: listUsers
+      parameters:
+        - in: query
+          name: email
+          schema:
+            type: string
+          description: Exact email filter.
+        - in: query
+          name: name
+          schema:
+            type: string
+          description: Case-sensitive partial name filter.
+      responses:
+        "200":
+          description: Users in descending creation order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Users]
+      summary: Create user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: Created user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/Error"
+  /v1/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user
+      operationId: getUser
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: User detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Users]
+      summary: Update user
+      operationId: updateUser
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Users]
+      summary: Delete user
+      operationId: deleteUser
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v1/exercises:
+    get:
+      tags: [Exercises]
+      summary: List exercises
+      operationId: listExercises
+      parameters:
+        - in: query
+          name: name
+          schema:
+            type: string
+        - in: query
+          name: muscle_group
+          schema:
+            type: string
+        - in: query
+          name: equipment
+          schema:
+            type: string
+        - in: query
+          name: difficulty
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Exercises in ascending name order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Exercise"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Exercises]
+      summary: Create exercise
+      operationId: createExercise
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExerciseRequest"
+      responses:
+        "201":
+          description: Created exercise.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exercise"
+        "400":
+          $ref: "#/components/responses/Error"
+  /v1/exercises/{id}:
+    get:
+      tags: [Exercises]
+      summary: Get exercise
+      operationId: getExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Exercise detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exercise"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Exercises]
+      summary: Update exercise
+      operationId: updateExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateExerciseRequest"
+      responses:
+        "200":
+          description: Updated exercise.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Exercise"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Exercises]
+      summary: Delete exercise
+      operationId: deleteExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v1/weight-entries:
+    get:
+      tags: [Weight Entries]
+      summary: List weight entries
+      operationId: listWeightEntries
+      parameters:
+        - in: query
+          name: user_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Weight entries in descending date order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeightEntry"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Weight Entries]
+      summary: Create weight entry
+      operationId: createWeightEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWeightEntryRequest"
+      responses:
+        "201":
+          description: Created weight entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeightEntry"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/weight-entries:
+    get:
+      tags: [Weight Entries]
+      summary: List weight entries for a user
+      operationId: listUserWeightEntries
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Weight entries for the requested user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeightEntry"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Weight Entries]
+      summary: Create weight entry for a user
+      operationId: createUserWeightEntry
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWeightEntryRequest"
+      responses:
+        "201":
+          description: Created weight entry for the requested user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeightEntry"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/weight-entries/{id}:
+    get:
+      tags: [Weight Entries]
+      summary: Get weight entry
+      operationId: getWeightEntry
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Weight entry detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeightEntry"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Weight Entries]
+      summary: Update weight entry
+      operationId: updateWeightEntry
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWeightEntryRequest"
+      responses:
+        "200":
+          description: Updated weight entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeightEntry"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Weight Entries]
+      summary: Delete weight entry
+      operationId: deleteWeightEntry
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v1/workouts:
+    get:
+      tags: [Workouts]
+      summary: List workouts
+      operationId: listWorkouts
+      parameters:
+        - in: query
+          name: user_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: type
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Workouts in descending date order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Workout"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workouts]
+      summary: Create workout
+      operationId: createWorkout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkoutRequest"
+      responses:
+        "201":
+          description: Created workout with nested exercises and sets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/workouts:
+    get:
+      tags: [Workouts]
+      summary: List workouts for a user
+      operationId: listUserWorkouts
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: type
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Workouts for the requested user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Workout"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workouts]
+      summary: Create workout for a user
+      operationId: createUserWorkout
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkoutRequest"
+      responses:
+        "201":
+          description: Created workout for the requested user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/workouts/{id}:
+    get:
+      tags: [Workouts]
+      summary: Get workout
+      operationId: getWorkout
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Workout detail with nested exercises and sets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workouts]
+      summary: Update workout
+      operationId: updateWorkout
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkoutRequest"
+      responses:
+        "200":
+          description: Updated workout with nested exercises and sets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workouts]
+      summary: Delete workout
+      operationId: deleteWorkout
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v1/workout-exercises:
+    get:
+      tags: [Workout Exercises]
+      summary: List workout exercises
+      operationId: listWorkoutExercises
+      parameters:
+        - in: query
+          name: workout_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: exercise_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Workout exercises with nested exercise and set details.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutExercise"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workout Exercises]
+      summary: Create workout exercise
+      operationId: createWorkoutExercise
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkoutExerciseRequest"
+      responses:
+        "201":
+          description: Created workout exercise.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutExercise"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/workouts/{id}/exercises:
+    get:
+      tags: [Workout Exercises]
+      summary: List workout exercises for a workout
+      operationId: listWorkoutExercisesForWorkout
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - in: query
+          name: exercise_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Workout exercises for the requested workout.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutExercise"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workout Exercises]
+      summary: Add exercise to workout
+      operationId: addWorkoutExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkoutExerciseRequest"
+      responses:
+        "201":
+          description: Created workout exercise for the given workout.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutExercise"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/workout-exercises/{id}:
+    get:
+      tags: [Workout Exercises]
+      summary: Get workout exercise
+      operationId: getWorkoutExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Workout exercise detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutExercise"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workout Exercises]
+      summary: Update workout exercise
+      operationId: updateWorkoutExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkoutExerciseRequest"
+      responses:
+        "200":
+          description: Updated workout exercise.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutExercise"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workout Exercises]
+      summary: Delete workout exercise
+      operationId: deleteWorkoutExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v1/workout-sets:
+    get:
+      tags: [Workout Sets]
+      summary: List workout sets
+      operationId: listWorkoutSets
+      parameters:
+        - in: query
+          name: workout_exercise_id
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Workout sets in ascending set number order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutSet"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workout Sets]
+      summary: Create workout set
+      operationId: createWorkoutSet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkoutSetRequest"
+      responses:
+        "201":
+          description: Created workout set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutSet"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/workout-exercises/{id}/sets:
+    get:
+      tags: [Workout Sets]
+      summary: List sets for a workout exercise
+      operationId: listWorkoutSetsForExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Workout sets for the requested workout exercise.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutSet"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workout Sets]
+      summary: Create set for a workout exercise
+      operationId: createWorkoutSetForExercise
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkoutSetRequest"
+      responses:
+        "201":
+          description: Created workout set for the given workout exercise.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutSet"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/workout-sets/{id}:
+    get:
+      tags: [Workout Sets]
+      summary: Get workout set
+      operationId: getWorkoutSet
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Workout set detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutSet"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workout Sets]
+      summary: Update workout set
+      operationId: updateWorkoutSet
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkoutSetRequest"
+      responses:
+        "200":
+          description: Updated workout set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutSet"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workout Sets]
+      summary: Delete workout set
+      operationId: deleteWorkoutSet
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v1/meals:
+    get:
+      tags: [Meals]
+      summary: List meals
+      operationId: listMeals
+      parameters:
+        - in: query
+          name: user_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: meal_type
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Meals in descending date order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meal"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Meals]
+      summary: Create meal
+      operationId: createMeal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMealRequest"
+      responses:
+        "201":
+          description: Created meal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/meals:
+    get:
+      tags: [Meals]
+      summary: List meals for a user
+      operationId: listUserMeals
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: meal_type
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Meals for the requested user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meal"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Meals]
+      summary: Create meal for a user
+      operationId: createUserMeal
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMealRequest"
+      responses:
+        "201":
+          description: Created meal for the requested user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/meals/{id}:
+    get:
+      tags: [Meals]
+      summary: Get meal
+      operationId: getMeal
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Meal detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Meals]
+      summary: Update meal
+      operationId: updateMeal
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMealRequest"
+      responses:
+        "200":
+          description: Updated meal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Meals]
+      summary: Delete meal
+      operationId: deleteMeal
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+components:
+  parameters:
+    ID:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserID:
+      in: path
+      name: user_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Error:
+      description: Error response.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NoContent:
+      description: Resource deleted successfully.
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - avatar
+        - age
+        - weight
+        - height
+        - goal
+        - activity_level
+        - tdee
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        avatar:
+          type: string
+        age:
+          type: integer
+        date_of_birth:
+          type: string
+          format: date-time
+          nullable: true
+        weight:
+          type: number
+          format: double
+        height:
+          type: number
+          format: double
+        goal:
+          type: string
+        activity_level:
+          type: string
+        tdee:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    UserSummary:
+      type: object
+      required: [id, email, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+    Exercise:
+      type: object
+      required:
+        - id
+        - name
+        - muscle_group
+        - equipment
+        - difficulty
+        - instructions
+        - video_url
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        muscle_group:
+          type: string
+        equipment:
+          type: string
+        difficulty:
+          type: string
+        instructions:
+          type: string
+        video_url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ExerciseSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    WorkoutSet:
+      type: object
+      required:
+        - id
+        - workout_exercise_id
+        - set_number
+        - reps
+        - weight
+        - rpe
+        - rest_seconds
+        - completed
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        workout_exercise_id:
+          type: string
+          format: uuid
+        set_number:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+          format: double
+        rpe:
+          type: number
+          format: double
+        rest_seconds:
+          type: integer
+        completed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    WorkoutExercise:
+      type: object
+      required:
+        - id
+        - workout_id
+        - exercise_id
+        - order
+        - sets
+        - reps
+        - weight
+        - rest_time
+        - notes
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        workout_id:
+          type: string
+          format: uuid
+        exercise_id:
+          type: string
+          format: uuid
+        order:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+          format: double
+        rest_time:
+          type: integer
+        notes:
+          type: string
+        exercise:
+          $ref: "#/components/schemas/ExerciseSummary"
+        workout_sets:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutSet"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Workout:
+      type: object
+      required:
+        - id
+        - user_id
+        - date
+        - duration
+        - notes
+        - type
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+        notes:
+          type: string
+        type:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        workout_exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutExercise"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Meal:
+      type: object
+      required:
+        - id
+        - user_id
+        - meal_type
+        - date
+        - notes
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        meal_type:
+          type: string
+        date:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    WeightEntry:
+      type: object
+      required:
+        - id
+        - user_id
+        - weight
+        - date
+        - notes
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        weight:
+          type: number
+          format: double
+        date:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateUserRequest:
+      type: object
+      required: [email, name]
+      properties:
+        email:
+          type: string
+          format: email
+        password_hash:
+          type: string
+          description: Optional. Defaults to a placeholder hash when omitted or blank.
+        name:
+          type: string
+        avatar:
+          type: string
+        age:
+          type: integer
+          minimum: 0
+        date_of_birth:
+          type: string
+          format: date
+        weight:
+          type: number
+          format: double
+          minimum: 0
+        height:
+          type: number
+          format: double
+          minimum: 0
+        goal:
+          type: string
+        activity_level:
+          type: string
+        tdee:
+          type: integer
+          minimum: 0
+    UpdateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        avatar:
+          type: string
+        age:
+          type: integer
+          minimum: 0
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        weight:
+          type: number
+          format: double
+          minimum: 0
+        height:
+          type: number
+          format: double
+          minimum: 0
+        goal:
+          type: string
+        activity_level:
+          type: string
+        tdee:
+          type: integer
+          minimum: 0
+    CreateExerciseRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        muscle_group:
+          type: string
+        equipment:
+          type: string
+        difficulty:
+          type: string
+        instructions:
+          type: string
+        video_url:
+          type: string
+    UpdateExerciseRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        muscle_group:
+          type: string
+        equipment:
+          type: string
+        difficulty:
+          type: string
+        instructions:
+          type: string
+        video_url:
+          type: string
+    CreateWeightEntryRequest:
+      type: object
+      required: [user_id, weight]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        weight:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+        date:
+          type: string
+          format: date
+          description: Optional. Defaults to the current UTC day.
+        notes:
+          type: string
+    UpdateWeightEntryRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        weight:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+    CreateMealRequest:
+      type: object
+      required: [user_id, meal_type]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        meal_type:
+          type: string
+        date:
+          type: string
+          format: date
+          description: Optional. Defaults to the current UTC day.
+        notes:
+          type: string
+    UpdateMealRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        meal_type:
+          type: string
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+    CreateWorkoutSetRequest:
+      type: object
+      properties:
+        workout_exercise_id:
+          type: string
+          format: uuid
+          description: Optional when creating via `/v1/workout-exercises/{id}/sets`.
+        set_number:
+          type: integer
+          minimum: 1
+          description: Optional. The API auto-assigns the next set number when omitted or zero.
+        reps:
+          type: integer
+          minimum: 0
+        weight:
+          type: number
+          format: double
+          minimum: 0
+        rpe:
+          type: number
+          format: double
+          minimum: 0
+        rest_seconds:
+          type: integer
+          minimum: 0
+        completed:
+          type: boolean
+          description: Optional. Defaults to true when omitted.
+    UpdateWorkoutSetRequest:
+      type: object
+      properties:
+        set_number:
+          type: integer
+          minimum: 1
+        reps:
+          type: integer
+          minimum: 0
+        weight:
+          type: number
+          format: double
+          minimum: 0
+        rpe:
+          type: number
+          format: double
+          minimum: 0
+        rest_seconds:
+          type: integer
+          minimum: 0
+        completed:
+          type: boolean
+    CreateWorkoutExerciseRequest:
+      type: object
+      required: [exercise_id]
+      properties:
+        workout_id:
+          type: string
+          format: uuid
+          description: Optional when creating via `/v1/workouts/{id}/exercises`.
+        exercise_id:
+          type: string
+          format: uuid
+        order:
+          type: integer
+          minimum: 1
+          description: Optional. The API auto-assigns the next order when omitted or zero.
+        sets:
+          type: integer
+          minimum: 0
+        reps:
+          type: integer
+          minimum: 0
+        weight:
+          type: number
+          format: double
+          minimum: 0
+        rest_time:
+          type: integer
+          minimum: 0
+        notes:
+          type: string
+        set_entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateWorkoutSetRequest"
+    UpdateWorkoutExerciseRequest:
+      type: object
+      properties:
+        exercise_id:
+          type: string
+          format: uuid
+        order:
+          type: integer
+          minimum: 1
+        sets:
+          type: integer
+          minimum: 0
+        reps:
+          type: integer
+          minimum: 0
+        weight:
+          type: number
+          format: double
+          minimum: 0
+        rest_time:
+          type: integer
+          minimum: 0
+        notes:
+          type: string
+    CreateWorkoutRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+          description: Optional. Defaults to the current UTC day.
+        duration:
+          type: integer
+          minimum: 0
+        notes:
+          type: string
+        type:
+          type: string
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateWorkoutExerciseRequest"
+    UpdateWorkoutRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        duration:
+          type: integer
+          minimum: 0
+        notes:
+          type: string
+        type:
+          type: string

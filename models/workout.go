@@ -9,7 +9,7 @@ import (
 
 // Workout represents a single workout session logged by a user.
 type Workout struct {
-	ID        uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ID        uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID    uuid.UUID      `gorm:"type:uuid;not null;index" json:"user_id"`
 	Date      time.Time      `gorm:"type:date;not null" json:"date"`
 	Duration  int            `gorm:"type:int" json:"duration"`

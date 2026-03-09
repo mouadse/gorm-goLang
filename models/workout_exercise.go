@@ -10,7 +10,7 @@ import (
 // WorkoutExercise is a join table between Workouts and Exercises,
 // capturing sets, reps, weight, and rest time for each exercise in a workout.
 type WorkoutExercise struct {
-	ID         uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ID         uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	WorkoutID  uuid.UUID      `gorm:"type:uuid;not null;index" json:"workout_id"`
 	ExerciseID uuid.UUID      `gorm:"type:uuid;not null;index" json:"exercise_id"`
 	Order      int            `gorm:"type:int;not null;default:0" json:"order"`
