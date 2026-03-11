@@ -33,7 +33,18 @@ The best 80/20 direction is:
 
 That fits the actual schema much better than trying to build coaching, social, food database, or program management features immediately.
 
-## 3. Recommended priority order
+## 3. Guardrails from the current ORM
+
+These rules should constrain product decisions:
+
+- Build around the current private, self-serve ownership model because protected routes are scoped to the authenticated user
+- Treat workouts as the core product because `Workout`, `WorkoutExercise`, and `WorkoutSet` already form a complete training hierarchy
+- Derive insights from existing records instead of inventing new tracking tables too early
+- Keep meal logging intentionally lightweight because `Meal` only stores `user_id`, `meal_type`, `date`, and `notes`
+- Treat `WeightEntry` as the source of truth for progress trends and `User.Weight` as a profile snapshot
+- Avoid roadmap drift into social, programs, food catalog, or notifications because those tables were explicitly removed from the codebase
+
+## 4. Recommended priority order
 
 ### P0: Make the core loop excellent
 
@@ -260,7 +271,7 @@ Implementation scope:
 - No schema changes
 - High UX leverage for low engineering cost
 
-## 4. Concrete next build sequence
+## 5. Concrete next build sequence
 
 ### Sprint 1
 
@@ -293,7 +304,19 @@ Success metric:
 
 - A user can answer “Am I progressing?” from existing data without exporting anything
 
-## 5. Business logic rules to enforce now
+## 6. Immediate engineering backlog
+
+These are the next implementation steps I would queue immediately:
+
+- Frontend: add post-auth onboarding with a profile completion gate before the main app shell
+- Frontend: build a single primary workout flow for create workout -> add exercises -> log sets -> review session
+- Frontend: add workout history, workout detail, exercise history, weight chart, meal timeline, and dashboard screens
+- Backend: add read-model endpoints or service-layer aggregations for dashboard summaries, exercise history, PRs, weekly volume, and activity calendar data
+- Backend: keep using existing CRUD for writes and add new aggregate responses only where the UI needs them
+- Backend: preserve ownership checks and current validation rules on every new read model
+- QA: extend `api/server_test.go` with tests for any new aggregate endpoint, especially ownership, date filtering, and empty-state responses
+
+## 7. Business logic rules to enforce now
 
 - Users can only read and write their own workouts, meals, and weight entries
 - Exercise reads can stay public, but writes should stay authenticated
@@ -304,7 +327,7 @@ Success metric:
 - Treat `User.Weight` as profile metadata, not the authoritative trend history table
 - Prefer `DateOfBirth` over `Age` for future calculations; keep `Age` only for backward compatibility
 
-## 6. Features to avoid right now because the schema does not support them cleanly
+## 8. Features to avoid right now because the schema does not support them cleanly
 
 - Macro and calorie tracking
 - Food database and ingredient-level nutrition
@@ -319,7 +342,7 @@ Success metric:
 
 These are not good 80/20 bets for the current database because the required models were removed or do not exist.
 
-## 7. Final recommendation
+## 9. Final recommendation
 
 The strongest version of this product, given the current ORM, is:
 
