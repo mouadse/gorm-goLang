@@ -35,6 +35,10 @@ func (s *Server) handleCreateMeal(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := authorizeUser(r, userID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
 
 	exists, err := recordExists(s.db, &models.User{}, userID)
 	if err != nil {
@@ -74,23 +78,16 @@ func (s *Server) handleCreateMeal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListMeals(w http.ResponseWriter, r *http.Request) {
-	query := s.db.Model(&models.Meal{})
-
-	if pathUserID := strings.TrimSpace(r.PathValue("user_id")); pathUserID != "" {
-		userID, err := parseRequiredUUID("user_id", pathUserID)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
+	userID, err := scopedAuthenticatedUserID(r)
+	if err != nil {
+		status := http.StatusBadRequest
+		if err.Error() == "forbidden" {
+			status = http.StatusForbidden
 		}
-		query = query.Where("user_id = ?", userID)
-	} else if userIDParam := strings.TrimSpace(r.URL.Query().Get("user_id")); userIDParam != "" {
-		userID, err := parseRequiredUUID("user_id", userIDParam)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		query = query.Where("user_id = ?", userID)
+		writeError(w, status, err)
+		return
 	}
+	query := s.db.Model(&models.Meal{}).Where("user_id = ?", userID)
 
 	if dateParam := strings.TrimSpace(r.URL.Query().Get("date")); dateParam != "" {
 		parsedDate, err := parseDate(dateParam)
@@ -121,6 +118,20 @@ func (s *Server) handleGetMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ownerID, err := s.mealOwnerID(mealID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("meal not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+
 	var meal models.Meal
 	if err := s.db.First(&meal, "id = ?", mealID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -138,6 +149,20 @@ func (s *Server) handleUpdateMeal(w http.ResponseWriter, r *http.Request) {
 	mealID, err := parsePathUUID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	ownerID, err := s.mealOwnerID(mealID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("meal not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -171,6 +196,10 @@ func (s *Server) handleUpdateMeal(w http.ResponseWriter, r *http.Request) {
 		}
 		if !exists {
 			writeError(w, http.StatusNotFound, errors.New("user not found"))
+			return
+		}
+		if err := authorizeUser(r, userID); err != nil {
+			writeError(w, http.StatusForbidden, err)
 			return
 		}
 
@@ -211,6 +240,20 @@ func (s *Server) handleDeleteMeal(w http.ResponseWriter, r *http.Request) {
 	mealID, err := parsePathUUID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	ownerID, err := s.mealOwnerID(mealID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("meal not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 

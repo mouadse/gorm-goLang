@@ -18,6 +18,7 @@ WEIGHT_ENTRY_ID = str(uuid.uuid4())
 MEAL_ID = str(uuid.uuid4())
 WORKOUT_SET_ID = str(uuid.uuid4())
 WORKOUT_SET_ID_2 = str(uuid.uuid4())
+BCRYPT_HASH = "$2a$10$9sTz8JqF8mA3r6wGkCjH7uHmp8yM5M6Q6u2mFfB8v0V1nC9Yj4y1K"
 
 
 def run_query(sql, expect_error=False):
@@ -120,7 +121,7 @@ def main():
             "Insert User",
             f"""
             INSERT INTO users (id, email, password_hash, name, age, weight, height, goal, activity_level, tdee, created_at, updated_at)
-            VALUES ('{USER_ID}', 'testuser_{USER_ID}@example.com', 'hashed_pw', 'Test User', 30, 80.5, 180.0, 'muscle_gain', 'active', 2800, NOW(), NOW())
+            VALUES ('{USER_ID}', 'testuser_{USER_ID}@example.com', '{BCRYPT_HASH}', 'Test User', 30, 80.5, 180.0, 'muscle_gain', 'active', 2800, NOW(), NOW())
             RETURNING email;
             """,
             expected_output_contains=f"testuser_{USER_ID}@example.com",
@@ -131,7 +132,7 @@ def main():
             "Unique Email Constraint (Expect Error)",
             f"""
             INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-            VALUES ('{uuid.uuid4()}', 'testuser_{USER_ID}@example.com', 'hashed_pw', 'Test User 2', NOW(), NOW());
+            VALUES ('{uuid.uuid4()}', 'testuser_{USER_ID}@example.com', '{BCRYPT_HASH}', 'Test User 2', NOW(), NOW());
             """,
             expect_error=True,
         )
@@ -243,7 +244,7 @@ def main():
             "Insert Same Email After Soft Delete",
             f"""
             INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-            VALUES ('{USER_ID_2}', 'testuser_{USER_ID}@example.com', 'hashed_pw', 'Test User Reborn', NOW(), NOW())
+            VALUES ('{USER_ID_2}', 'testuser_{USER_ID}@example.com', '{BCRYPT_HASH}', 'Test User Reborn', NOW(), NOW())
             RETURNING name;
             """,
             expected_output_contains="Test User Reborn",

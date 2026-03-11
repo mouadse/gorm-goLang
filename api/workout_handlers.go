@@ -80,6 +80,10 @@ func (s *Server) handleCreateWorkout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := authorizeUser(r, userID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
 
 	exists, err := recordExists(s.db, &models.User{}, userID)
 	if err != nil {
@@ -148,23 +152,16 @@ func (s *Server) handleCreateWorkout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
-	query := s.db.Model(&models.Workout{})
-
-	if pathUserID := strings.TrimSpace(r.PathValue("user_id")); pathUserID != "" {
-		userID, err := parseRequiredUUID("user_id", pathUserID)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
+	userID, err := scopedAuthenticatedUserID(r)
+	if err != nil {
+		status := http.StatusBadRequest
+		if err.Error() == "forbidden" {
+			status = http.StatusForbidden
 		}
-		query = query.Where("user_id = ?", userID)
-	} else if userIDParam := strings.TrimSpace(r.URL.Query().Get("user_id")); userIDParam != "" {
-		userID, err := parseRequiredUUID("user_id", userIDParam)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
-			return
-		}
-		query = query.Where("user_id = ?", userID)
+		writeError(w, status, err)
+		return
 	}
+	query := s.db.Model(&models.Workout{}).Where("user_id = ?", userID)
 
 	if dateParam := strings.TrimSpace(r.URL.Query().Get("date")); dateParam != "" {
 		workoutDate, err := parseDate(dateParam)
@@ -195,6 +192,20 @@ func (s *Server) handleGetWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ownerID, err := s.workoutOwnerID(workoutID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+
 	workout, err := s.loadWorkout(workoutID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -212,6 +223,20 @@ func (s *Server) handleUpdateWorkout(w http.ResponseWriter, r *http.Request) {
 	workoutID, err := parsePathUUID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	ownerID, err := s.workoutOwnerID(workoutID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -245,6 +270,10 @@ func (s *Server) handleUpdateWorkout(w http.ResponseWriter, r *http.Request) {
 		}
 		if !exists {
 			writeError(w, http.StatusNotFound, errors.New("user not found"))
+			return
+		}
+		if err := authorizeUser(r, userID); err != nil {
+			writeError(w, http.StatusForbidden, err)
 			return
 		}
 
@@ -297,6 +326,20 @@ func (s *Server) handleDeleteWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ownerID, err := s.workoutOwnerID(workoutID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		var workout models.Workout
 		if err := tx.Select("id").First(&workout, "id = ?", workoutID).Error; err != nil {
@@ -337,6 +380,19 @@ func (s *Server) handleAddWorkoutExercise(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	ownerID, err := s.workoutOwnerID(workoutID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout or exercise not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
 
 	workoutExercise, err := s.createWorkoutExercise(workoutID, req)
 	if err != nil {
@@ -352,7 +408,15 @@ func (s *Server) handleAddWorkoutExercise(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleListWorkoutExercises(w http.ResponseWriter, r *http.Request) {
+	currentUserID, err := authenticatedUserID(r)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	query := s.db.Model(&models.WorkoutExercise{}).
+		Joins("JOIN workouts ON workouts.id = workout_exercises.workout_id").
+		Where("workouts.user_id = ?", currentUserID).
 		Preload("Exercise").
 		Preload("WorkoutSets", func(db *gorm.DB) *gorm.DB {
 			return db.Order("set_number asc")
@@ -364,11 +428,37 @@ func (s *Server) handleListWorkoutExercises(w http.ResponseWriter, r *http.Reque
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
+		ownerID, err := s.workoutOwnerID(workoutID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				writeError(w, http.StatusNotFound, errors.New("workout not found"))
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if err := authorizeUser(r, ownerID); err != nil {
+			writeError(w, http.StatusForbidden, err)
+			return
+		}
 		query = query.Where("workout_id = ?", workoutID)
 	} else if workoutIDParam := strings.TrimSpace(r.URL.Query().Get("workout_id")); workoutIDParam != "" {
 		workoutID, err := parseRequiredUUID("workout_id", workoutIDParam)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		ownerID, err := s.workoutOwnerID(workoutID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				writeError(w, http.StatusNotFound, errors.New("workout not found"))
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if err := authorizeUser(r, ownerID); err != nil {
+			writeError(w, http.StatusForbidden, err)
 			return
 		}
 		query = query.Where("workout_id = ?", workoutID)
@@ -384,7 +474,7 @@ func (s *Server) handleListWorkoutExercises(w http.ResponseWriter, r *http.Reque
 	}
 
 	var workoutExercises []models.WorkoutExercise
-	if err := query.Order("\"order\" asc, created_at asc").Find(&workoutExercises).Error; err != nil {
+	if err := query.Order("workout_exercises.\"order\" asc, workout_exercises.created_at asc").Find(&workoutExercises).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -396,6 +486,20 @@ func (s *Server) handleGetWorkoutExercise(w http.ResponseWriter, r *http.Request
 	workoutExerciseID, err := parsePathUUID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	ownerID, err := s.workoutExerciseOwnerID(workoutExerciseID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout exercise not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -416,6 +520,20 @@ func (s *Server) handleUpdateWorkoutExercise(w http.ResponseWriter, r *http.Requ
 	workoutExerciseID, err := parsePathUUID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	ownerID, err := s.workoutExerciseOwnerID(workoutExerciseID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout exercise not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -520,6 +638,20 @@ func (s *Server) handleDeleteWorkoutExercise(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	ownerID, err := s.workoutExerciseOwnerID(workoutExerciseID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout exercise not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		var workoutExercise models.WorkoutExercise
 		if err := tx.Select("id").First(&workoutExercise, "id = ?", workoutExerciseID).Error; err != nil {
@@ -545,12 +677,34 @@ func (s *Server) handleDeleteWorkoutExercise(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) handleListWorkoutSets(w http.ResponseWriter, r *http.Request) {
-	query := s.db.Model(&models.WorkoutSet{})
+	currentUserID, err := authenticatedUserID(r)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	query := s.db.Model(&models.WorkoutSet{}).
+		Joins("JOIN workout_exercises ON workout_exercises.id = workout_sets.workout_exercise_id").
+		Joins("JOIN workouts ON workouts.id = workout_exercises.workout_id").
+		Where("workouts.user_id = ?", currentUserID)
 
 	if pathWorkoutExerciseID := strings.TrimSpace(r.PathValue("id")); pathWorkoutExerciseID != "" && strings.Contains(r.URL.Path, "/workout-exercises/") && strings.HasSuffix(r.URL.Path, "/sets") {
 		workoutExerciseID, err := parseRequiredUUID("workout_exercise_id", pathWorkoutExerciseID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		ownerID, err := s.workoutExerciseOwnerID(workoutExerciseID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				writeError(w, http.StatusNotFound, errors.New("workout exercise not found"))
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if err := authorizeUser(r, ownerID); err != nil {
+			writeError(w, http.StatusForbidden, err)
 			return
 		}
 		query = query.Where("workout_exercise_id = ?", workoutExerciseID)
@@ -560,11 +714,24 @@ func (s *Server) handleListWorkoutSets(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
+		ownerID, err := s.workoutExerciseOwnerID(workoutExerciseID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				writeError(w, http.StatusNotFound, errors.New("workout exercise not found"))
+				return
+			}
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if err := authorizeUser(r, ownerID); err != nil {
+			writeError(w, http.StatusForbidden, err)
+			return
+		}
 		query = query.Where("workout_exercise_id = ?", workoutExerciseID)
 	}
 
 	var sets []models.WorkoutSet
-	if err := query.Order("set_number asc").Find(&sets).Error; err != nil {
+	if err := query.Order("workout_sets.set_number asc").Find(&sets).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -582,6 +749,19 @@ func (s *Server) handleCreateWorkoutSet(w http.ResponseWriter, r *http.Request) 
 	workoutExerciseID, err := resolveWorkoutExerciseID(r, req.WorkoutExerciseID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	ownerID, err := s.workoutExerciseOwnerID(workoutExerciseID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout exercise not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -605,6 +785,20 @@ func (s *Server) handleGetWorkoutSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ownerID, err := s.workoutSetOwnerID(setID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout set not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+
 	var set models.WorkoutSet
 	if err := s.db.First(&set, "id = ?", setID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -622,6 +816,20 @@ func (s *Server) handleUpdateWorkoutSet(w http.ResponseWriter, r *http.Request) 
 	setID, err := parsePathUUID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	ownerID, err := s.workoutSetOwnerID(setID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout set not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -692,6 +900,20 @@ func (s *Server) handleDeleteWorkoutSet(w http.ResponseWriter, r *http.Request) 
 	setID, err := parsePathUUID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	ownerID, err := s.workoutSetOwnerID(setID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			writeError(w, http.StatusNotFound, errors.New("workout set not found"))
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := authorizeUser(r, ownerID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 

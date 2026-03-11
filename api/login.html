@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fitness Tracker Login</title>
+  <style>
+    :root {
+      --bg: #f3efe7;
+      --panel: #fffdf8;
+      --ink: #181512;
+      --muted: #6b635a;
+      --accent: #c2592a;
+      --border: #d8cfc4;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at top left, rgba(194, 89, 42, 0.15), transparent 35%),
+        linear-gradient(135deg, #f8f3ea, var(--bg));
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    .card {
+      width: min(100%, 420px);
+      padding: 28px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      box-shadow: 0 18px 50px rgba(24, 21, 18, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    p {
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 14px;
+      font-size: 0.95rem;
+    }
+
+    input {
+      width: 100%;
+      margin-top: 6px;
+      padding: 12px 13px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px 14px;
+      border: 0;
+      background: var(--ink);
+      color: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    pre {
+      margin: 16px 0 0;
+      padding: 12px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      background: #fbf7f0;
+      color: var(--ink);
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .links {
+      margin-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.9rem;
+    }
+
+    a {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Login</h1>
+    <p>Seed users log in with password <strong>password123</strong>.</p>
+    <form id="login-form">
+      <label>
+        Email
+        <input type="email" name="email" value="alex@example.com" required>
+      </label>
+      <label>
+        Password
+        <input type="password" name="password" value="password123" required>
+      </label>
+      <button type="submit">Sign in</button>
+    </form>
+    <pre id="result">Submit the form to call POST /v1/auth/login.</pre>
+    <div class="links">
+      <a href="/register">Need an account?</a>
+      <a href="/docs">API docs</a>
+    </div>
+  </main>
+
+  <script>
+    const form = document.getElementById("login-form");
+    const result = document.getElementById("result");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const payload = {
+        email: form.email.value,
+        password: form.password.value,
+      };
+
+      const response = await fetch("/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const body = await response.json().catch(() => ({}));
+      if (body.token) {
+        localStorage.setItem("fitness_tracker_token", body.token);
+      }
+
+      result.textContent = JSON.stringify({
+        status: response.status,
+        body,
+        saved_token: body.token || null,
+      }, null, 2);
+    });
+  </script>
+</body>
+</html>

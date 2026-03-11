@@ -12,11 +12,9 @@ import (
 	"gorm.io/gorm"
 )
 
-const placeholderPasswordHash = "pending-auth"
-
 type createUserRequest struct {
 	Email         string  `json:"email"`
-	PasswordHash  string  `json:"password_hash"`
+	Password      string  `json:"password"`
 	Name          string  `json:"name"`
 	Avatar        string  `json:"avatar"`
 	Age           int     `json:"age"`
@@ -48,44 +46,8 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, err := requireNonBlank("email", req.Email)
+	user, err := s.createLocalUser(req)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	name, err := requireNonBlank("name", req.Name)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	dateOfBirth, err := parseOptionalBirthDate(req.DateOfBirth)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	if req.Age < 0 || req.TDEE < 0 || req.Weight < 0 || req.Height < 0 {
-		writeError(w, http.StatusBadRequest, errors.New("numeric profile fields cannot be negative"))
-		return
-	}
-
-	user := models.User{
-		Email:         email,
-		PasswordHash:  defaultPasswordHash(req.PasswordHash),
-		Name:          name,
-		Avatar:        strings.TrimSpace(req.Avatar),
-		Age:           req.Age,
-		DateOfBirth:   dateOfBirth,
-		Weight:        req.Weight,
-		Height:        req.Height,
-		Goal:          strings.TrimSpace(req.Goal),
-		ActivityLevel: strings.TrimSpace(req.ActivityLevel),
-		TDEE:          req.TDEE,
-	}
-
-	if err := s.db.Create(&user).Error; err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -94,10 +56,16 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
-	query := s.db.Model(&models.User{})
+	currentUserID, err := authenticatedUserID(r)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	query := s.db.Model(&models.User{}).Where("id = ?", currentUserID)
 
 	if email := strings.TrimSpace(r.URL.Query().Get("email")); email != "" {
-		query = query.Where("email = ?", email)
+		query = query.Where("email = ?", strings.ToLower(email))
 	}
 
 	if name := strings.TrimSpace(r.URL.Query().Get("name")); name != "" {
@@ -117,6 +85,11 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := parsePathUUID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := authorizeUser(r, userID); err != nil {
+		writeError(w, http.StatusForbidden, err)
 		return
 	}
 
@@ -140,6 +113,11 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := authorizeUser(r, userID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+
 	var req updateUserRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -157,7 +135,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Email != nil {
-		email, err := requireNonBlank("email", *req.Email)
+		email, err := normalizeEmail(*req.Email)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
@@ -242,6 +220,11 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := authorizeUser(r, userID); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
+
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		var user models.User
 		if err := tx.Select("id").First(&user, "id = ?", userID).Error; err != nil {
@@ -285,15 +268,6 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
-
-func defaultPasswordHash(passwordHash string) string {
-	passwordHash = strings.TrimSpace(passwordHash)
-	if passwordHash == "" {
-		return placeholderPasswordHash
-	}
-	return passwordHash
-}
-
 func parseOptionalBirthDate(raw string) (*time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

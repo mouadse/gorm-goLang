@@ -6,32 +6,39 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"fitness-tracker/api"
 	"fitness-tracker/database"
 	"fitness-tracker/models"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+func TestMain(m *testing.M) {
+	if err := os.Setenv("JWT_SECRET", "test-jwt-secret"); err != nil {
+		panic(err)
+	}
+	os.Exit(m.Run())
+}
 
 func TestCoreCRUDFlow(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
 
-	user := requestJSON[models.User](t, server, http.MethodPost, "/v1/users", map[string]any{
-		"email": "alex@example.com",
-		"name":  "Alex",
-	}, http.StatusCreated)
+	userAuth := registerTestUser(t, server, "alex@example.com", "Alex", "password123")
+	user := userAuth.User
 
-	exercise := requestJSON[models.Exercise](t, server, http.MethodPost, "/v1/exercises", map[string]any{
+	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.Token, http.MethodPost, "/v1/exercises", map[string]any{
 		"name":         "Bench Press",
 		"muscle_group": "Chest",
 		"equipment":    "Barbell",
 	}, http.StatusCreated)
 
-	workout := requestJSON[models.Workout](t, server, http.MethodPost, "/v1/workouts", map[string]any{
+	workout := requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id":  user.ID,
 		"date":     "2026-03-07",
 		"duration": 55,
@@ -53,7 +60,7 @@ func TestCoreCRUDFlow(t *testing.T) {
 		},
 	}, http.StatusCreated)
 
-	loadedWorkout := requestJSON[models.Workout](t, server, http.MethodGet, "/v1/workouts/"+workout.ID.String(), nil, http.StatusOK)
+	loadedWorkout := requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodGet, "/v1/workouts/"+workout.ID.String(), nil, http.StatusOK)
 	if len(loadedWorkout.WorkoutExercises) != 1 {
 		t.Fatalf("expected 1 workout exercise, got %d", len(loadedWorkout.WorkoutExercises))
 	}
@@ -61,12 +68,12 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected 2 workout sets, got %d", len(loadedWorkout.WorkoutExercises[0].WorkoutSets))
 	}
 
-	requestJSON[models.Workout](t, server, http.MethodPatch, "/v1/workouts/"+workout.ID.String(), map[string]any{
+	requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodPatch, "/v1/workouts/"+workout.ID.String(), map[string]any{
 		"duration": 60,
 		"notes":    "Updated heavy day",
 	}, http.StatusOK)
 
-	addedWorkoutExercise := requestJSON[models.WorkoutExercise](t, server, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/exercises", map[string]any{
+	addedWorkoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.Token, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/exercises", map[string]any{
 		"exercise_id": exercise.ID,
 		"order":       2,
 		"sets":        4,
@@ -77,12 +84,12 @@ func TestCoreCRUDFlow(t *testing.T) {
 		},
 	}, http.StatusCreated)
 
-	listedWorkoutExercises := requestJSON[[]models.WorkoutExercise](t, server, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/exercises", nil, http.StatusOK)
+	listedWorkoutExercises := requestJSONAuth[[]models.WorkoutExercise](t, server, userAuth.Token, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/exercises", nil, http.StatusOK)
 	if len(listedWorkoutExercises) != 2 {
 		t.Fatalf("expected 2 workout exercises, got %d", len(listedWorkoutExercises))
 	}
 
-	updatedWorkoutExercise := requestJSON[models.WorkoutExercise](t, server, http.MethodPatch, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String(), map[string]any{
+	updatedWorkoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.Token, http.MethodPatch, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String(), map[string]any{
 		"notes": "Accessory volume",
 		"sets":  5,
 	}, http.StatusOK)
@@ -90,7 +97,7 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected workout exercise sets to be updated")
 	}
 
-	set := requestJSON[models.WorkoutSet](t, server, http.MethodPost, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String()+"/sets", map[string]any{
+	set := requestJSONAuth[models.WorkoutSet](t, server, userAuth.Token, http.MethodPost, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String()+"/sets", map[string]any{
 		"reps":         12,
 		"weight":       20,
 		"rest_seconds": 60,
@@ -99,62 +106,62 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected auto-assigned set number 2, got %d", set.SetNumber)
 	}
 
-	updatedSet := requestJSON[models.WorkoutSet](t, server, http.MethodPatch, "/v1/workout-sets/"+set.ID.String(), map[string]any{
+	updatedSet := requestJSONAuth[models.WorkoutSet](t, server, userAuth.Token, http.MethodPatch, "/v1/workout-sets/"+set.ID.String(), map[string]any{
 		"completed": false,
 	}, http.StatusOK)
 	if updatedSet.Completed {
 		t.Fatalf("expected updated set to be incomplete")
 	}
 
-	meal := requestJSON[models.Meal](t, server, http.MethodPost, "/v1/meals", map[string]any{
+	meal := requestJSONAuth[models.Meal](t, server, userAuth.Token, http.MethodPost, "/v1/meals", map[string]any{
 		"user_id":   user.ID,
 		"meal_type": "dinner",
 		"date":      "2026-03-07",
 		"notes":     "Post-workout meal",
 	}, http.StatusCreated)
 
-	weightEntry := requestJSON[models.WeightEntry](t, server, http.MethodPost, "/v1/weight-entries", map[string]any{
+	weightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.Token, http.MethodPost, "/v1/weight-entries", map[string]any{
 		"user_id": user.ID,
 		"weight":  82.4,
 		"date":    "2026-03-07",
 		"notes":   "Morning weigh-in",
 	}, http.StatusCreated)
 
-	loadedMeal := requestJSON[models.Meal](t, server, http.MethodGet, "/v1/meals/"+meal.ID.String(), nil, http.StatusOK)
+	loadedMeal := requestJSONAuth[models.Meal](t, server, userAuth.Token, http.MethodGet, "/v1/meals/"+meal.ID.String(), nil, http.StatusOK)
 	if loadedMeal.MealType != "dinner" {
 		t.Fatalf("expected meal type dinner, got %q", loadedMeal.MealType)
 	}
 
-	listedMeals := requestJSON[[]models.Meal](t, server, http.MethodGet, "/v1/users/"+user.ID.String()+"/meals", nil, http.StatusOK)
+	listedMeals := requestJSONAuth[[]models.Meal](t, server, userAuth.Token, http.MethodGet, "/v1/users/"+user.ID.String()+"/meals", nil, http.StatusOK)
 	if len(listedMeals) != 1 {
 		t.Fatalf("expected 1 meal, got %d", len(listedMeals))
 	}
 
-	loadedWeightEntry := requestJSON[models.WeightEntry](t, server, http.MethodGet, "/v1/weight-entries/"+weightEntry.ID.String(), nil, http.StatusOK)
+	loadedWeightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.Token, http.MethodGet, "/v1/weight-entries/"+weightEntry.ID.String(), nil, http.StatusOK)
 	if loadedWeightEntry.Weight != 82.4 {
 		t.Fatalf("expected weight entry to round-trip")
 	}
 
-	listedWeightEntries := requestJSON[[]models.WeightEntry](t, server, http.MethodGet, "/v1/users/"+user.ID.String()+"/weight-entries", nil, http.StatusOK)
+	listedWeightEntries := requestJSONAuth[[]models.WeightEntry](t, server, userAuth.Token, http.MethodGet, "/v1/users/"+user.ID.String()+"/weight-entries", nil, http.StatusOK)
 	if len(listedWeightEntries) != 1 {
 		t.Fatalf("expected 1 weight entry, got %d", len(listedWeightEntries))
 	}
 
-	requestJSON[models.Meal](t, server, http.MethodPatch, "/v1/meals/"+meal.ID.String(), map[string]any{
+	requestJSONAuth[models.Meal](t, server, userAuth.Token, http.MethodPatch, "/v1/meals/"+meal.ID.String(), map[string]any{
 		"notes": "Updated meal notes",
 	}, http.StatusOK)
 
-	requestJSON[models.WeightEntry](t, server, http.MethodPatch, "/v1/weight-entries/"+weightEntry.ID.String(), map[string]any{
+	requestJSONAuth[models.WeightEntry](t, server, userAuth.Token, http.MethodPatch, "/v1/weight-entries/"+weightEntry.ID.String(), map[string]any{
 		"weight": 81.9,
 	}, http.StatusOK)
 
-	expectStatus(t, server, http.MethodDelete, "/v1/workout-sets/"+set.ID.String(), nil, http.StatusNoContent)
-	expectStatus(t, server, http.MethodDelete, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String(), nil, http.StatusNoContent)
-	expectStatus(t, server, http.MethodDelete, "/v1/meals/"+meal.ID.String(), nil, http.StatusNoContent)
-	expectStatus(t, server, http.MethodDelete, "/v1/weight-entries/"+weightEntry.ID.String(), nil, http.StatusNoContent)
-	expectStatus(t, server, http.MethodDelete, "/v1/workouts/"+workout.ID.String(), nil, http.StatusNoContent)
-	expectStatus(t, server, http.MethodDelete, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusNoContent)
-	expectStatus(t, server, http.MethodDelete, "/v1/users/"+user.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/workout-sets/"+set.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/meals/"+meal.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/weight-entries/"+weightEntry.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/workouts/"+workout.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/users/"+user.ID.String(), nil, http.StatusNoContent)
 }
 
 func TestCreateUserRejectsUnknownFields(t *testing.T) {
@@ -163,6 +170,7 @@ func TestCreateUserRejectsUnknownFields(t *testing.T) {
 	server := newTestServer(t)
 	expectStatus(t, server, http.MethodPost, "/v1/users", map[string]any{
 		"email":       "alex@example.com",
+		"password":    "password123",
 		"name":        "Alex",
 		"unknown_key": true,
 	}, http.StatusBadRequest)
@@ -200,6 +208,19 @@ func TestDocsEndpoints(t *testing.T) {
 	if !bytes.Contains(docsRecorder.Body.Bytes(), []byte(`url: "/openapi.yaml"`)) {
 		t.Fatalf("GET /docs: expected Swagger UI to reference /openapi.yaml")
 	}
+
+	for _, path := range []string{"/login", "/register"} {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		recorder := httptest.NewRecorder()
+		server.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("GET %s: expected status 200, got %d", path, recorder.Code)
+		}
+		if got := recorder.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
+			t.Fatalf("GET %s: unexpected content type %q", path, got)
+		}
+	}
 }
 
 func TestUserScopedCreateRoutes(t *testing.T) {
@@ -207,16 +228,14 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 
 	server := newTestServer(t)
 
-	user := requestJSON[models.User](t, server, http.MethodPost, "/v1/users", map[string]any{
-		"email": "scoped@example.com",
-		"name":  "Scoped User",
-	}, http.StatusCreated)
+	userAuth := registerTestUser(t, server, "scoped@example.com", "Scoped User", "password123")
+	user := userAuth.User
 
-	exercise := requestJSON[models.Exercise](t, server, http.MethodPost, "/v1/exercises", map[string]any{
+	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.Token, http.MethodPost, "/v1/exercises", map[string]any{
 		"name": "Front Squat",
 	}, http.StatusCreated)
 
-	workout := requestJSON[models.Workout](t, server, http.MethodPost, "/v1/users/"+user.ID.String()+"/workouts", map[string]any{
+	workout := requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodPost, "/v1/users/"+user.ID.String()+"/workouts", map[string]any{
 		"date":     "2026-03-08",
 		"duration": 42,
 		"type":     "legs",
@@ -232,7 +251,7 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 		t.Fatalf("expected scoped workout to inherit user id")
 	}
 
-	meal := requestJSON[models.Meal](t, server, http.MethodPost, "/v1/users/"+user.ID.String()+"/meals", map[string]any{
+	meal := requestJSONAuth[models.Meal](t, server, userAuth.Token, http.MethodPost, "/v1/users/"+user.ID.String()+"/meals", map[string]any{
 		"meal_type": "lunch",
 		"date":      "2026-03-08",
 		"notes":     "Scoped meal",
@@ -241,7 +260,7 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 		t.Fatalf("expected scoped meal to inherit user id")
 	}
 
-	weightEntry := requestJSON[models.WeightEntry](t, server, http.MethodPost, "/v1/users/"+user.ID.String()+"/weight-entries", map[string]any{
+	weightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.Token, http.MethodPost, "/v1/users/"+user.ID.String()+"/weight-entries", map[string]any{
 		"weight": 79.3,
 		"date":   "2026-03-08",
 	}, http.StatusCreated)
@@ -249,7 +268,7 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 		t.Fatalf("expected scoped weight entry to inherit user id")
 	}
 
-	workouts := requestJSON[[]models.Workout](t, server, http.MethodGet, "/v1/users/"+user.ID.String()+"/workouts", nil, http.StatusOK)
+	workouts := requestJSONAuth[[]models.Workout](t, server, userAuth.Token, http.MethodGet, "/v1/users/"+user.ID.String()+"/workouts", nil, http.StatusOK)
 	if len(workouts) != 1 {
 		t.Fatalf("expected 1 scoped workout, got %d", len(workouts))
 	}
@@ -260,29 +279,25 @@ func TestNestedCreateRoutesRejectMismatchedIDs(t *testing.T) {
 
 	server := newTestServer(t)
 
-	user := requestJSON[models.User](t, server, http.MethodPost, "/v1/users", map[string]any{
-		"email": "mismatch@example.com",
-		"name":  "Mismatch User",
-	}, http.StatusCreated)
-	otherUser := requestJSON[models.User](t, server, http.MethodPost, "/v1/users", map[string]any{
-		"email": "other@example.com",
-		"name":  "Other User",
-	}, http.StatusCreated)
+	userAuth := registerTestUser(t, server, "mismatch@example.com", "Mismatch User", "password123")
+	user := userAuth.User
+	otherAuth := registerTestUser(t, server, "other@example.com", "Other User", "password123")
+	otherUser := otherAuth.User
 
-	exercise := requestJSON[models.Exercise](t, server, http.MethodPost, "/v1/exercises", map[string]any{
+	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.Token, http.MethodPost, "/v1/exercises", map[string]any{
 		"name": "Pull Up",
 	}, http.StatusCreated)
 
-	workout := requestJSON[models.Workout](t, server, http.MethodPost, "/v1/workouts", map[string]any{
+	workout := requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id": user.ID,
 		"type":    "pull",
 	}, http.StatusCreated)
-	otherWorkout := requestJSON[models.Workout](t, server, http.MethodPost, "/v1/workouts", map[string]any{
+	otherWorkout := requestJSONAuth[models.Workout](t, server, otherAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id": otherUser.ID,
 		"type":    "push",
 	}, http.StatusCreated)
 
-	workoutExercise := requestJSON[models.WorkoutExercise](t, server, http.MethodPost, "/v1/workout-exercises", map[string]any{
+	workoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.Token, http.MethodPost, "/v1/workout-exercises", map[string]any{
 		"workout_id":  workout.ID,
 		"exercise_id": exercise.ID,
 		"reps":        8,
@@ -338,7 +353,7 @@ func TestNestedCreateRoutesRejectMismatchedIDs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expectStatus(t, server, http.MethodPost, tt.path, tt.body, http.StatusBadRequest)
+			expectStatusAuth(t, server, userAuth.Token, http.MethodPost, tt.path, tt.body, http.StatusBadRequest)
 		})
 	}
 }
@@ -348,12 +363,10 @@ func TestCreateWorkoutReturnsNotFoundForMissingExercise(t *testing.T) {
 
 	server := newTestServer(t)
 
-	user := requestJSON[models.User](t, server, http.MethodPost, "/v1/users", map[string]any{
-		"email": "missing-exercise@example.com",
-		"name":  "Missing Exercise",
-	}, http.StatusCreated)
+	userAuth := registerTestUser(t, server, "missing-exercise@example.com", "Missing Exercise", "password123")
+	user := userAuth.User
 
-	errBody := requestError(t, server, http.MethodPost, "/v1/workouts", map[string]any{
+	errBody := requestErrorAuth(t, server, userAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id": user.ID,
 		"type":    "push",
 		"exercises": []map[string]any{
@@ -369,7 +382,120 @@ func TestCreateWorkoutReturnsNotFoundForMissingExercise(t *testing.T) {
 	}
 }
 
+func TestProtectedRoutesRequireAuth(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	expectStatus(t, server, http.MethodGet, "/v1/users", nil, http.StatusUnauthorized)
+	expectStatus(t, server, http.MethodGet, "/v1/workouts", nil, http.StatusUnauthorized)
+	expectStatus(t, server, http.MethodPost, "/v1/exercises", map[string]any{"name": "Unauthorized Exercise"}, http.StatusUnauthorized)
+}
+
+func TestExerciseReadRoutesStayPublicWhileWritesRequireAuth(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	expectStatus(t, server, http.MethodGet, "/v1/exercises", nil, http.StatusOK)
+
+	userAuth := registerTestUser(t, server, "exercises@example.com", "Exercise Owner", "password123")
+	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.Token, http.MethodPost, "/v1/exercises", map[string]any{
+		"name": "Seal Row",
+	}, http.StatusCreated)
+
+	expectStatus(t, server, http.MethodGet, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusOK)
+	expectStatus(t, server, http.MethodPatch, "/v1/exercises/"+exercise.ID.String(), map[string]any{"difficulty": "Advanced"}, http.StatusUnauthorized)
+	expectStatus(t, server, http.MethodDelete, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusUnauthorized)
+}
+
+func TestLoginMatchesLegacyEmailCaseAndBackfillsStoredEmail(t *testing.T) {
+	t.Parallel()
+
+	db, server := newTestApp(t)
+
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+
+	user := models.User{
+		Email:        "Legacy.User@Example.COM",
+		PasswordHash: string(passwordHash),
+		Name:         "Legacy User",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create legacy user: %v", err)
+	}
+
+	auth := requestJSON[authEnvelope](t, server, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "legacy.user@example.com",
+		"password": "password123",
+	}, http.StatusOK)
+	if auth.User.ID != user.ID {
+		t.Fatalf("expected login to return legacy user %s, got %s", user.ID, auth.User.ID)
+	}
+
+	var stored models.User
+	if err := db.First(&stored, "id = ?", user.ID).Error; err != nil {
+		t.Fatalf("reload user: %v", err)
+	}
+	if stored.Email != "legacy.user@example.com" {
+		t.Fatalf("expected email to be normalized on login, got %q", stored.Email)
+	}
+}
+
+func TestLoginRejectsLegacyPlaceholderHashesWithMigrationError(t *testing.T) {
+	t.Parallel()
+
+	db, server := newTestApp(t)
+
+	user := models.User{
+		Email:        "placeholder@example.com",
+		PasswordHash: "pending-auth",
+		Name:         "Placeholder User",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create placeholder user: %v", err)
+	}
+
+	errBody := requestError(t, server, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    user.Email,
+		"password": "password123",
+	}, http.StatusConflict)
+	if errBody["error"] != "account requires password reset before login" {
+		t.Fatalf("expected migration error, got %q", errBody["error"])
+	}
+}
+
+func TestProtectedRoutesRejectWrongUser(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+
+	ownerAuth := registerTestUser(t, server, "owner@example.com", "Owner", "password123")
+	otherAuth := registerTestUser(t, server, "viewer@example.com", "Viewer", "password123")
+
+	workout := requestJSONAuth[models.Workout](t, server, ownerAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
+		"user_id": ownerAuth.User.ID,
+		"type":    "push",
+	}, http.StatusCreated)
+
+	expectStatusAuth(t, server, otherAuth.Token, http.MethodGet, "/v1/users/"+ownerAuth.User.ID.String(), nil, http.StatusForbidden)
+	expectStatusAuth(t, server, otherAuth.Token, http.MethodGet, "/v1/workouts/"+workout.ID.String(), nil, http.StatusForbidden)
+}
+
+type authEnvelope struct {
+	Token string      `json:"token"`
+	User  models.User `json:"user"`
+}
+
 func newTestServer(t *testing.T) http.Handler {
+	t.Helper()
+
+	_, handler := newTestApp(t)
+	return handler
+}
+
+func newTestApp(t *testing.T) (*gorm.DB, http.Handler) {
 	t.Helper()
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())
@@ -382,15 +508,46 @@ func newTestServer(t *testing.T) http.Handler {
 		t.Fatalf("migrate database: %v", err)
 	}
 
-	return api.NewServer(db).Handler()
+	return db, api.NewServer(db).Handler()
 }
 
 func requestJSON[T any](t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) T {
 	t.Helper()
 
+	return requestJSONAuth[T](t, handler, "", method, path, body, wantStatus)
+}
+
+func expectStatus(t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) {
+	t.Helper()
+
+	expectStatusAuth(t, handler, "", method, path, body, wantStatus)
+}
+
+func requestError(t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) map[string]string {
+	t.Helper()
+
+	return requestErrorAuth(t, handler, "", method, path, body, wantStatus)
+}
+
+func registerTestUser(t *testing.T, handler http.Handler, email, name, password string) authEnvelope {
+	t.Helper()
+
+	return requestJSON[authEnvelope](t, handler, http.MethodPost, "/v1/auth/register", map[string]any{
+		"email":    email,
+		"name":     name,
+		"password": password,
+	}, http.StatusCreated)
+}
+
+func requestJSONAuth[T any](t *testing.T, handler http.Handler, token, method, path string, body any, wantStatus int) T {
+	t.Helper()
+
 	req := httptest.NewRequest(method, path, encodeBody(t, body))
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	recorder := httptest.NewRecorder()
@@ -408,12 +565,15 @@ func requestJSON[T any](t *testing.T, handler http.Handler, method, path string,
 	return result
 }
 
-func expectStatus(t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) {
+func expectStatusAuth(t *testing.T, handler http.Handler, token, method, path string, body any, wantStatus int) {
 	t.Helper()
 
 	req := httptest.NewRequest(method, path, encodeBody(t, body))
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	recorder := httptest.NewRecorder()
@@ -424,12 +584,15 @@ func expectStatus(t *testing.T, handler http.Handler, method, path string, body 
 	}
 }
 
-func requestError(t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) map[string]string {
+func requestErrorAuth(t *testing.T, handler http.Handler, token, method, path string, body any, wantStatus int) map[string]string {
 	t.Helper()
 
 	req := httptest.NewRequest(method, path, encodeBody(t, body))
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	recorder := httptest.NewRecorder()

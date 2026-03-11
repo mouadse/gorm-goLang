@@ -19,6 +19,9 @@ func main() {
 	if err := database.Migrate(db); err != nil {
 		log.Fatalf("migration failed: %v", err)
 	}
+	if err := api.ValidateJWTConfig(); err != nil {
+		log.Fatalf("auth configuration invalid: %v", err)
+	}
 
 	port := getEnvOrDefault("PORT", "8080")
 	addr := fmt.Sprintf(":%s", port)

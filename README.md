@@ -60,7 +60,7 @@ Removed from the codebase:
 ```bash
 make up
 go run seed/main.go
-go run .
+JWT_SECRET=replace-with-a-long-random-secret go run .
 ```
 
 API default address: `http://localhost:8080`
@@ -69,6 +69,8 @@ Interactive API docs:
 
 - Swagger UI: `http://localhost:8080/docs`
 - OpenAPI spec: `http://localhost:8080/openapi.yaml`
+- Register test page: `http://localhost:8080/register`
+- Login test page: `http://localhost:8080/login`
 
 ## Configuration
 
@@ -82,6 +84,9 @@ Environment variables:
 - `PGDATABASE` default `fitness_tracker`
 - `PGSSLMODE` default `disable`
 - `PORT` default `8080`
+- `JWT_SECRET` required and must be set to a long random secret
+
+Seeded users can log in with password `password123`.
 
 ## API Surface
 
@@ -96,6 +101,11 @@ Environment variables:
 - `GET /v1/users/{id}`
 - `PATCH /v1/users/{id}`
 - `DELETE /v1/users/{id}`
+
+### Auth
+
+- `POST /v1/auth/register`
+- `POST /v1/auth/login`
 
 ### Exercises
 

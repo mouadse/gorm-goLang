@@ -8,6 +8,7 @@ import (
 	"fitness-tracker/database"
 	"fitness-tracker/models"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -85,6 +86,11 @@ func seedExercises(db *gorm.DB) ([]models.Exercise, error) {
 func seedUsers(db *gorm.DB) ([]models.User, error) {
 	log.Println("  seeding users...")
 
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create birth dates for users
 	alexDOB := time.Date(1992, 3, 15, 0, 0, 0, 0, time.UTC)
 	sarahDOB := time.Date(1995, 7, 22, 0, 0, 0, 0, time.UTC)
@@ -92,10 +98,10 @@ func seedUsers(db *gorm.DB) ([]models.User, error) {
 	emilyDOB := time.Date(1998, 1, 30, 0, 0, 0, 0, time.UTC)
 
 	seeds := []models.User{
-		{Email: "alex@example.com", PasswordHash: "auth-disabled", Name: "Alex Johnson", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex", Goal: "build_muscle", ActivityLevel: "moderately_active", Weight: 78, Height: 181, TDEE: 2600, DateOfBirth: &alexDOB, Age: ageFromDateOfBirth(alexDOB)},
-		{Email: "sarah@example.com", PasswordHash: "auth-disabled", Name: "Sarah Williams", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah", Goal: "lose_fat", ActivityLevel: "lightly_active", Weight: 64, Height: 165, TDEE: 1850, DateOfBirth: &sarahDOB, Age: ageFromDateOfBirth(sarahDOB)},
-		{Email: "mike@example.com", PasswordHash: "auth-disabled", Name: "Mike Chen", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike", Goal: "maintain", ActivityLevel: "active", Weight: 82, Height: 178, TDEE: 2750, DateOfBirth: &mikeDOB, Age: ageFromDateOfBirth(mikeDOB)},
-		{Email: "emily@example.com", PasswordHash: "auth-disabled", Name: "Emily Davis", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emily", Goal: "build_muscle", ActivityLevel: "moderately_active", Weight: 59, Height: 163, TDEE: 2100, DateOfBirth: &emilyDOB, Age: ageFromDateOfBirth(emilyDOB)},
+		{Email: "alex@example.com", PasswordHash: string(passwordHash), Name: "Alex Johnson", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex", Goal: "build_muscle", ActivityLevel: "moderately_active", Weight: 78, Height: 181, TDEE: 2600, DateOfBirth: &alexDOB, Age: ageFromDateOfBirth(alexDOB)},
+		{Email: "sarah@example.com", PasswordHash: string(passwordHash), Name: "Sarah Williams", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah", Goal: "lose_fat", ActivityLevel: "lightly_active", Weight: 64, Height: 165, TDEE: 1850, DateOfBirth: &sarahDOB, Age: ageFromDateOfBirth(sarahDOB)},
+		{Email: "mike@example.com", PasswordHash: string(passwordHash), Name: "Mike Chen", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike", Goal: "maintain", ActivityLevel: "active", Weight: 82, Height: 178, TDEE: 2750, DateOfBirth: &mikeDOB, Age: ageFromDateOfBirth(mikeDOB)},
+		{Email: "emily@example.com", PasswordHash: string(passwordHash), Name: "Emily Davis", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emily", Goal: "build_muscle", ActivityLevel: "moderately_active", Weight: 59, Height: 163, TDEE: 2100, DateOfBirth: &emilyDOB, Age: ageFromDateOfBirth(emilyDOB)},
 	}
 
 	users := make([]models.User, 0, len(seeds))

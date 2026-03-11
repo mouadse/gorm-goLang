@@ -16,14 +16,22 @@ tests_failed_names = []
 class APIClient:
     """Thin HTTP client that tracks test results."""
 
-    def request(self, method, url, data=None):
+    def __init__(self):
+        self.auth_token = None
+
+    def request(self, method, url, data=None, headers=None):
         """Send an HTTP request and return (status_code, parsed_body | None)."""
         req = urllib.request.Request(url, method=method)
+        headers = headers or {}
         if data is not None:
             json_data = json.dumps(data).encode("utf-8")
-            req.add_header("Content-Type", "application/json")
-            req.add_header("Content-Length", len(json_data))
+            headers.setdefault("Content-Type", "application/json")
+            headers.setdefault("Content-Length", str(len(json_data)))
             req.data = json_data
+        if self.auth_token and "Authorization" not in headers:
+            headers["Authorization"] = f"Bearer {self.auth_token}"
+        for key, value in headers.items():
+            req.add_header(key, value)
 
         try:
             response = urllib.request.urlopen(req)
@@ -39,12 +47,12 @@ class APIClient:
         except Exception as e:
             return None, str(e)
 
-    def run_test(self, name, method, url, data=None, expect_status=None):
+    def run_test(self, name, method, url, data=None, expect_status=None, headers=None):
         """Run a single test, print result, and track pass/fail."""
         global tests_run, tests_passed, tests_failed_names
         tests_run += 1
 
-        status, body = self.request(method, url, data)
+        status, body = self.request(method, url, data, headers=headers)
         passed = True
         reason = ""
 
@@ -98,11 +106,11 @@ def main():
     # -----------------------------------------------------------------------
     # 1. Users
     # -----------------------------------------------------------------------
-    print("\n=== Users – Happy Path ===")
+    print("\n=== Auth - Happy Path ===")
     email = f"testuser_{uid}@example.com"
-    user_data = {
+    register_data = {
         "email": email,
-        "password_hash": "dummyhash",
+        "password": "password123",
         "name": "Test User",
         "avatar": "http://example.com/avatar.jpg",
         "age": 25,
@@ -114,11 +122,32 @@ def main():
         "tdee": 2500,
     }
 
-    _, user = client.run_test("Create User", "POST", f"{API_URL}/users", data=user_data, expect_status=201)
+    _, register_response = client.run_test("Register", "POST", f"{API_URL}/auth/register", data=register_data, expect_status=201)
+    if not register_response or "user" not in register_response or "token" not in register_response:
+        print("Cannot proceed without a registered user and token. Aborting.")
+        sys.exit(1)
+
+    client.auth_token = register_response["token"]
+    user = register_response["user"]
+    user_id = user["id"]
+
+    client.run_test("Login", "POST", f"{API_URL}/auth/login", data={
+        "email": email,
+        "password": "password123",
+    }, expect_status=200)
+    client.run_test("Login wrong password", "POST", f"{API_URL}/auth/login", data={
+        "email": email,
+        "password": "wrongpass123",
+    }, expect_status=401)
+
+    anon_client = APIClient()
+    anon_client.run_test("Protected route without token", "GET", f"{API_URL}/users", expect_status=401)
+
     if not user or "id" not in user:
         print("Cannot proceed without a user. Aborting.")
         sys.exit(1)
-    user_id = user["id"]
+
+    print("\n=== Users - Happy Path ===")
 
     client.run_test("Get User", "GET", f"{API_URL}/users/{user_id}", expect_status=200)
     client.run_test("List Users", "GET", f"{API_URL}/users", expect_status=200)
@@ -128,21 +157,22 @@ def main():
     }, expect_status=200)
     client.run_test("PATCH User empty body (no-op)", "PATCH", f"{API_URL}/users/{user_id}", data={}, expect_status=200)
 
-    print("\n=== Users – Validation / Edge Cases ===")
-    client.run_test("Create user blank email", "POST", f"{API_URL}/users", data={"email": "", "name": "X"}, expect_status=400)
-    client.run_test("Create user missing email", "POST", f"{API_URL}/users", data={"name": "X"}, expect_status=400)
-    client.run_test("Create user blank name", "POST", f"{API_URL}/users", data={"email": "a@b.com", "name": ""}, expect_status=400)
-    client.run_test("Create user missing name", "POST", f"{API_URL}/users", data={"email": "a@b.com"}, expect_status=400)
-    client.run_test("Create user negative age", "POST", f"{API_URL}/users", data={"email": "neg@b.com", "name": "N", "age": -1}, expect_status=400)
-    client.run_test("Create user negative weight", "POST", f"{API_URL}/users", data={"email": "neg@b.com", "name": "N", "weight": -5}, expect_status=400)
-    client.run_test("Create user negative height", "POST", f"{API_URL}/users", data={"email": "neg@b.com", "name": "N", "height": -1}, expect_status=400)
-    client.run_test("Create user negative tdee", "POST", f"{API_URL}/users", data={"email": "neg@b.com", "name": "N", "tdee": -100}, expect_status=400)
-    client.run_test("Create user invalid date_of_birth", "POST", f"{API_URL}/users", data={"email": "bad@b.com", "name": "N", "date_of_birth": "not-a-date"}, expect_status=400)
-    client.run_test("Create user duplicate email", "POST", f"{API_URL}/users", data={"email": email, "name": "Dup"}, expect_status=400)
-    client.run_test("Get non-existent user", "GET", f"{API_URL}/users/{NONEXISTENT_UUID}", expect_status=404)
+    print("\n=== Users - Validation / Edge Cases ===")
+    client.run_test("Create user blank email", "POST", f"{API_URL}/users", data={"email": "", "password": "password123", "name": "X"}, expect_status=400)
+    client.run_test("Create user missing email", "POST", f"{API_URL}/users", data={"password": "password123", "name": "X"}, expect_status=400)
+    client.run_test("Create user blank name", "POST", f"{API_URL}/users", data={"email": "a@b.com", "password": "password123", "name": ""}, expect_status=400)
+    client.run_test("Create user missing name", "POST", f"{API_URL}/users", data={"email": "a@b.com", "password": "password123"}, expect_status=400)
+    client.run_test("Create user short password", "POST", f"{API_URL}/users", data={"email": "short@b.com", "password": "short", "name": "Short"}, expect_status=400)
+    client.run_test("Create user negative age", "POST", f"{API_URL}/users", data={"email": "neg@b.com", "password": "password123", "name": "N", "age": -1}, expect_status=400)
+    client.run_test("Create user negative weight", "POST", f"{API_URL}/users", data={"email": "neg@b.com", "password": "password123", "name": "N", "weight": -5}, expect_status=400)
+    client.run_test("Create user negative height", "POST", f"{API_URL}/users", data={"email": "neg@b.com", "password": "password123", "name": "N", "height": -1}, expect_status=400)
+    client.run_test("Create user negative tdee", "POST", f"{API_URL}/users", data={"email": "neg@b.com", "password": "password123", "name": "N", "tdee": -100}, expect_status=400)
+    client.run_test("Create user invalid date_of_birth", "POST", f"{API_URL}/users", data={"email": "bad@b.com", "password": "password123", "name": "N", "date_of_birth": "not-a-date"}, expect_status=400)
+    client.run_test("Create user duplicate email", "POST", f"{API_URL}/users", data={"email": email, "password": "password123", "name": "Dup"}, expect_status=400)
+    client.run_test("Get non-existent user", "GET", f"{API_URL}/users/{NONEXISTENT_UUID}", expect_status=403)
     client.run_test("Get user invalid UUID", "GET", f"{API_URL}/users/not-a-uuid", expect_status=400)
-    client.run_test("Update non-existent user", "PATCH", f"{API_URL}/users/{NONEXISTENT_UUID}", data={"name": "X"}, expect_status=404)
-    client.run_test("Delete non-existent user", "DELETE", f"{API_URL}/users/{NONEXISTENT_UUID}", expect_status=404)
+    client.run_test("Update non-existent user", "PATCH", f"{API_URL}/users/{NONEXISTENT_UUID}", data={"name": "X"}, expect_status=403)
+    client.run_test("Delete non-existent user", "DELETE", f"{API_URL}/users/{NONEXISTENT_UUID}", expect_status=403)
     client.run_test("Update user blank name", "PATCH", f"{API_URL}/users/{user_id}", data={"name": "  "}, expect_status=400)
     client.run_test("Update user negative weight", "PATCH", f"{API_URL}/users/{user_id}", data={"weight": -1}, expect_status=400)
     client.run_test("Update user negative height", "PATCH", f"{API_URL}/users/{user_id}", data={"height": -1}, expect_status=400)
@@ -150,7 +180,7 @@ def main():
     client.run_test("Update user negative tdee", "PATCH", f"{API_URL}/users/{user_id}", data={"tdee": -10}, expect_status=400)
     client.run_test("Update user invalid DOB", "PATCH", f"{API_URL}/users/{user_id}", data={"date_of_birth": "bad"}, expect_status=400)
 
-    print("\n=== Users – Query Filters ===")
+    print("\n=== Users - Query Filters ===")
     client.run_test("List users filter by email", "GET", f"{API_URL}/users?email={email}", expect_status=200)
     client.run_test("List users filter by name", "GET", f"{API_URL}/users?name=Updated", expect_status=200)
 
@@ -219,7 +249,7 @@ def main():
     print("\n=== Weight Entries – Validation / Edge Cases ===")
     client.run_test("Create weight entry weight=0", "POST", f"{API_URL}/weight-entries", data={"user_id": user_id, "weight": 0, "date": today}, expect_status=400)
     client.run_test("Create weight entry weight=-1", "POST", f"{API_URL}/weight-entries", data={"user_id": user_id, "weight": -1, "date": today}, expect_status=400)
-    client.run_test("Create weight entry non-existent user", "POST", f"{API_URL}/weight-entries", data={"user_id": NONEXISTENT_UUID, "weight": 70, "date": today}, expect_status=404)
+    client.run_test("Create weight entry non-existent user", "POST", f"{API_URL}/weight-entries", data={"user_id": NONEXISTENT_UUID, "weight": 70, "date": today}, expect_status=403)
     client.run_test("Create weight entry invalid date", "POST", f"{API_URL}/weight-entries", data={"user_id": user_id, "weight": 70, "date": "bad-date"}, expect_status=400)
     client.run_test("Create weight entry missing user_id", "POST", f"{API_URL}/weight-entries", data={"weight": 70, "date": today}, expect_status=400)
     client.run_test("Create weight entry duplicate date", "POST", f"{API_URL}/weight-entries", data={"user_id": user_id, "weight": 77, "date": today}, expect_status=400)
@@ -277,7 +307,7 @@ def main():
 
     print("\n=== Workouts – Validation / Edge Cases ===")
     client.run_test("Create workout negative duration", "POST", f"{API_URL}/workouts", data={"user_id": user_id, "date": today, "duration": -10}, expect_status=400)
-    client.run_test("Create workout non-existent user", "POST", f"{API_URL}/workouts", data={"user_id": NONEXISTENT_UUID, "date": today, "duration": 30}, expect_status=404)
+    client.run_test("Create workout non-existent user", "POST", f"{API_URL}/workouts", data={"user_id": NONEXISTENT_UUID, "date": today, "duration": 30}, expect_status=403)
     client.run_test("Create workout missing user_id", "POST", f"{API_URL}/workouts", data={"date": today, "duration": 30}, expect_status=400)
     client.run_test("Create workout invalid date", "POST", f"{API_URL}/workouts", data={"user_id": user_id, "date": "bad"}, expect_status=400)
     client.run_test("Get non-existent workout", "GET", f"{API_URL}/workouts/{NONEXISTENT_UUID}", expect_status=404)
@@ -496,7 +526,7 @@ def main():
     print("\n=== Meals – Validation / Edge Cases ===")
     client.run_test("Create meal blank meal_type", "POST", f"{API_URL}/meals", data={"user_id": user_id, "meal_type": "", "date": today}, expect_status=400)
     client.run_test("Create meal missing meal_type", "POST", f"{API_URL}/meals", data={"user_id": user_id, "date": today}, expect_status=400)
-    client.run_test("Create meal non-existent user", "POST", f"{API_URL}/meals", data={"user_id": NONEXISTENT_UUID, "meal_type": "Dinner", "date": today}, expect_status=404)
+    client.run_test("Create meal non-existent user", "POST", f"{API_URL}/meals", data={"user_id": NONEXISTENT_UUID, "meal_type": "Dinner", "date": today}, expect_status=403)
     client.run_test("Create meal invalid date", "POST", f"{API_URL}/meals", data={"user_id": user_id, "meal_type": "Dinner", "date": "bad"}, expect_status=400)
     client.run_test("Create meal missing user_id", "POST", f"{API_URL}/meals", data={"meal_type": "Dinner", "date": today}, expect_status=400)
     client.run_test("Get non-existent meal", "GET", f"{API_URL}/meals/{NONEXISTENT_UUID}", expect_status=404)
@@ -542,28 +572,31 @@ def main():
     print("\n=== Cascade Delete ===")
     # Create a separate user with sub-resources, then delete the user
     cascade_email = f"cascade_{uid}@example.com"
-    _, cascade_user = client.run_test("Create cascade test user", "POST", f"{API_URL}/users",
-                                       data={"email": cascade_email, "name": "Cascade"}, expect_status=201)
-    if cascade_user and "id" in cascade_user:
-        cu_id = cascade_user["id"]
+    cascade_client = APIClient()
+    _, cascade_auth = cascade_client.run_test("Create cascade test user", "POST", f"{API_URL}/auth/register",
+                                              data={"email": cascade_email, "name": "Cascade", "password": "password123"},
+                                              expect_status=201)
+    if cascade_auth and "user" in cascade_auth and "token" in cascade_auth:
+        cascade_client.auth_token = cascade_auth["token"]
+        cu_id = cascade_auth["user"]["id"]
         # Add a meal
-        _, cm = client.run_test("Create cascading meal", "POST", f"{API_URL}/meals",
-                                 data={"user_id": cu_id, "meal_type": "Dinner", "date": today}, expect_status=201)
+        _, cm = cascade_client.run_test("Create cascading meal", "POST", f"{API_URL}/meals",
+                                        data={"user_id": cu_id, "meal_type": "Dinner", "date": today}, expect_status=201)
         # Add a weight entry
-        _, cw = client.run_test("Create cascading weight entry", "POST", f"{API_URL}/weight-entries",
-                                 data={"user_id": cu_id, "weight": 70, "date": today}, expect_status=201)
+        _, cw = cascade_client.run_test("Create cascading weight entry", "POST", f"{API_URL}/weight-entries",
+                                        data={"user_id": cu_id, "weight": 70, "date": today}, expect_status=201)
         # Add a workout
-        _, cwk = client.run_test("Create cascading workout", "POST", f"{API_URL}/workouts",
-                                  data={"user_id": cu_id, "date": today, "duration": 30, "type": "legs"}, expect_status=201)
+        _, cwk = cascade_client.run_test("Create cascading workout", "POST", f"{API_URL}/workouts",
+                                         data={"user_id": cu_id, "date": today, "duration": 30, "type": "legs"}, expect_status=201)
         # Delete the user (should cascade)
-        client.run_test("Delete cascade user", "DELETE", f"{API_URL}/users/{cu_id}", expect_status=204)
+        cascade_client.run_test("Delete cascade user", "DELETE", f"{API_URL}/users/{cu_id}", expect_status=204)
         # Verify sub-resources are gone
         if cm and "id" in cm:
-            client.run_test("Cascaded meal gone", "GET", f"{API_URL}/meals/{cm['id']}", expect_status=404)
+            cascade_client.run_test("Cascaded meal gone", "GET", f"{API_URL}/meals/{cm['id']}", expect_status=404)
         if cw and "id" in cw:
-            client.run_test("Cascaded weight entry gone", "GET", f"{API_URL}/weight-entries/{cw['id']}", expect_status=404)
+            cascade_client.run_test("Cascaded weight entry gone", "GET", f"{API_URL}/weight-entries/{cw['id']}", expect_status=404)
         if cwk and "id" in cwk:
-            client.run_test("Cascaded workout gone", "GET", f"{API_URL}/workouts/{cwk['id']}", expect_status=404)
+            cascade_client.run_test("Cascaded workout gone", "GET", f"{API_URL}/workouts/{cwk['id']}", expect_status=404)
 
     # -----------------------------------------------------------------------
     # 11. Cleanup
