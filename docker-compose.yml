@@ -1,4 +1,28 @@
 services:
+  # Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fitness-app
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
+      - JWT_SECRET=your-secret-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fitness-network
+
+  # Database
   postgres:
     image: postgres:16-alpine
     container_name: fitness-postgres
@@ -15,7 +39,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - fitness-network
 
+  # Database Admin UI
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: fitness-pgadmin
@@ -28,6 +55,66 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - fitness-network
+
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: fitness-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - fitness-network
+
+  # Grafana - Visualization & Dashboards
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: fitness-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - fitness-network
 
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  fitness-network:
+    driver: bridge

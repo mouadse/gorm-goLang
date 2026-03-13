@@ -7,29 +7,38 @@ import (
 	"net/http"
 	"strings"
 
+	"fitness-tracker/metrics"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type Server struct {
-	db  *gorm.DB
-	mux *http.ServeMux
+	db      *gorm.DB
+	mux     *http.ServeMux
+	metrics *metrics.Metrics
 }
 
 func NewServer(db *gorm.DB) *Server {
+	m := metrics.New()
+
 	server := &Server{
-		db:  db,
-		mux: http.NewServeMux(),
+		db:      db,
+		mux:     http.NewServeMux(),
+		metrics: m,
 	}
 	server.registerRoutes()
 	return server
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.mux
+	return s.metrics.Middleware(s.mux)
 }
 
 func (s *Server) registerRoutes() {
+	// Metrics endpoint (not instrumented to avoid recursion)
+	s.mux.Handle("GET /metrics", s.metrics.Handler())
+
 	protected := func(pattern string, handler http.HandlerFunc) {
 		s.mux.Handle(pattern, Authenticate(http.HandlerFunc(handler)))
 	}
