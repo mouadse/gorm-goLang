@@ -100,7 +100,9 @@ def main():
     print(f"Successfully connected to '{CONTAINER_NAME}' PostgreSQL instance.\n")
 
     # Clean up just in case previous tests aborted
-    run_query(f"DELETE FROM workout_sets WHERE workout_exercise_id IN (SELECT id FROM workout_exercises WHERE workout_id = '{WORKOUT_ID}');")
+    run_query(
+        f"DELETE FROM workout_sets WHERE workout_exercise_id IN (SELECT id FROM workout_exercises WHERE workout_id = '{WORKOUT_ID}');"
+    )
     run_query(f"DELETE FROM workout_exercises WHERE workout_id = '{WORKOUT_ID}';")
     run_query(f"DELETE FROM workouts WHERE id = '{WORKOUT_ID}';")
     run_query(f"DELETE FROM meals WHERE user_id = '{USER_ID}';")
