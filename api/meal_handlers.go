@@ -103,9 +103,13 @@ func (s *Server) handleListMeals(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var meals []models.Meal
-	if err := query.Order("date desc, created_at desc").Find(&meals).Error; err != nil {
+	if err := query.Preload("Items.Food").Order("date desc, created_at desc").Find(&meals).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	for i := range meals {
+		meals[i].CalculateTotals()
 	}
 
 	writeJSON(w, http.StatusOK, ensureSlice(meals))
@@ -133,7 +137,7 @@ func (s *Server) handleGetMeal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var meal models.Meal
-	if err := s.db.First(&meal, "id = ?", mealID).Error; err != nil {
+	if err := s.db.Preload("Items.Food").First(&meal, "id = ?", mealID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			writeError(w, http.StatusNotFound, errors.New("meal not found"))
 			return
@@ -141,6 +145,8 @@ func (s *Server) handleGetMeal(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	meal.CalculateTotals()
 
 	writeJSON(w, http.StatusOK, meal)
 }
@@ -233,6 +239,10 @@ func (s *Server) handleUpdateMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Preload items to calculate totals for the response
+	s.db.Preload("Items.Food").First(&meal, "id = ?", meal.ID)
+	meal.CalculateTotals()
+
 	writeJSON(w, http.StatusOK, meal)
 }
 
@@ -257,13 +267,25 @@ func (s *Server) handleDeleteMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := s.db.Delete(&models.Meal{}, "id = ?", mealID)
-	if result.Error != nil {
-		writeError(w, http.StatusInternalServerError, result.Error)
-		return
-	}
-	if result.RowsAffected == 0 {
-		writeError(w, http.StatusNotFound, errors.New("meal not found"))
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("meal_id = ?", mealID).Delete(&models.MealFood{}).Error; err != nil {
+			return err
+		}
+		result := tx.Delete(&models.Meal{}, "id = ?", mealID)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("meal not found")
+		}
+		return nil
+	})
+	if err != nil {
+		if err.Error() == "meal not found" {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 

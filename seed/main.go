@@ -36,11 +36,16 @@ func main() {
 		log.Fatalf("failed to seed users: %v", err)
 	}
 
+	foods, err := seedFoods(db)
+	if err != nil {
+		log.Fatalf("failed to seed foods: %v", err)
+	}
+
 	if err := seedWorkouts(db, source, users, exercises); err != nil {
 		log.Fatalf("failed to seed workouts: %v", err)
 	}
 
-	if err := seedMeals(db, source, users); err != nil {
+	if err := seedMeals(db, source, users, foods); err != nil {
 		log.Fatalf("failed to seed meals: %v", err)
 	}
 
@@ -188,7 +193,33 @@ func seedWorkouts(db *gorm.DB, source *rand.Rand, users []models.User, exercises
 	return nil
 }
 
-func seedMeals(db *gorm.DB, source *rand.Rand, users []models.User) error {
+func seedFoods(db *gorm.DB) ([]models.Food, error) {
+	log.Println("  seeding foods...")
+
+	seeds := []models.Food{
+		{Name: "Chicken Breast", Brand: "Generic", ServingSize: 100, ServingUnit: "g", Calories: 165, Protein: 31, Carbohydrates: 0, Fat: 3.6},
+		{Name: "White Rice", Brand: "Generic", ServingSize: 100, ServingUnit: "g", Calories: 130, Protein: 2.7, Carbohydrates: 28, Fat: 0.3},
+		{Name: "Broccoli", Brand: "Generic", ServingSize: 100, ServingUnit: "g", Calories: 34, Protein: 2.8, Carbohydrates: 7, Fat: 0.4},
+		{Name: "Greek Yogurt", Brand: "Chobani", ServingSize: 170, ServingUnit: "g", Calories: 100, Protein: 18, Carbohydrates: 6, Fat: 0},
+		{Name: "Almonds", Brand: "Generic", ServingSize: 28, ServingUnit: "g", Calories: 160, Protein: 6, Carbohydrates: 6, Fat: 14},
+		{Name: "Oatmeal", Brand: "Quaker", ServingSize: 40, ServingUnit: "g", Calories: 150, Protein: 5, Carbohydrates: 27, Fat: 3},
+		{Name: "Egg", Brand: "Generic", ServingSize: 50, ServingUnit: "g", Calories: 70, Protein: 6, Carbohydrates: 0.4, Fat: 5},
+		{Name: "Peanut Butter", Brand: "Jif", ServingSize: 32, ServingUnit: "g", Calories: 190, Protein: 7, Carbohydrates: 8, Fat: 16},
+	}
+
+	foods := make([]models.Food, 0, len(seeds))
+	for _, seed := range seeds {
+		var food models.Food
+		if err := db.Where("name = ? AND brand = ?", seed.Name, seed.Brand).Assign(seed).FirstOrCreate(&food).Error; err != nil {
+			return nil, err
+		}
+		foods = append(foods, food)
+	}
+
+	return foods, nil
+}
+
+func seedMeals(db *gorm.DB, source *rand.Rand, users []models.User, foods []models.Food) error {
 	log.Println("  seeding meals...")
 
 	baseDate := time.Now().UTC().Truncate(24 * time.Hour)
@@ -209,10 +240,29 @@ func seedMeals(db *gorm.DB, source *rand.Rand, users []models.User) error {
 				Notes:    mealNotes[source.Intn(len(mealNotes))],
 			}
 
+			var persistedMeal models.Meal
 			if err := db.Where("user_id = ? AND date = ? AND meal_type = ?", user.ID, mealDate, meal.MealType).
 				Assign(meal).
-				FirstOrCreate(&models.Meal{}).Error; err != nil {
+				FirstOrCreate(&persistedMeal).Error; err != nil {
 				return err
+			}
+			meal = persistedMeal
+
+			// Add 2-3 food items to each meal
+			numItems := 2 + source.Intn(2)
+			for i := 0; i < numItems; i++ {
+				food := foods[source.Intn(len(foods))]
+				mealFood := models.MealFood{
+					MealID:   meal.ID,
+					FoodID:   food.ID,
+					Quantity: float64(1 + source.Intn(3)), // 1-3 servings
+				}
+
+				if err := db.Where("meal_id = ? AND food_id = ?", meal.ID, food.ID).
+					Assign(mealFood).
+					FirstOrCreate(&models.MealFood{}).Error; err != nil {
+					return err
+				}
 			}
 		}
 	}

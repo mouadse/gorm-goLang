@@ -58,6 +58,8 @@ func (s *Server) registerRoutes() {
 	protected("GET /v1/users/{id}", s.handleGetUser)
 	protected("PATCH /v1/users/{id}", s.handleUpdateUser)
 	protected("DELETE /v1/users/{id}", s.handleDeleteUser)
+	protected("GET /v1/users/{user_id}/summary", s.handleGetDailySummary)
+	protected("GET /v1/summary", s.handleGetDailySummary)
 
 	// Exercises
 	protected("POST /v1/exercises", s.handleCreateExercise)
@@ -110,6 +112,21 @@ func (s *Server) registerRoutes() {
 	protected("GET /v1/meals/{id}", s.handleGetMeal)
 	protected("PATCH /v1/meals/{id}", s.handleUpdateMeal)
 	protected("DELETE /v1/meals/{id}", s.handleDeleteMeal)
+
+	// Foods
+	s.mux.HandleFunc("GET /v1/foods", s.handleListFoods)
+	s.mux.HandleFunc("GET /v1/foods/{id}", s.handleGetFood)
+	protected("POST /v1/foods", s.handleCreateFood)
+	protected("PATCH /v1/foods/{id}", s.handleUpdateFood)
+	protected("DELETE /v1/foods/{id}", s.handleDeleteFood)
+
+	// Meal foods
+	protected("POST /v1/meal-foods", s.handleCreateMealFood)
+	protected("GET /v1/meals/{id}/foods", s.handleListMealFoods)
+	protected("POST /v1/meals/{id}/foods", s.handleCreateMealFood)
+	protected("GET /v1/meal-foods/{id}", s.handleGetMealFood)
+	protected("PATCH /v1/meal-foods/{id}", s.handleUpdateMealFood)
+	protected("DELETE /v1/meal-foods/{id}", s.handleDeleteMealFood)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

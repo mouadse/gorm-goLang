@@ -26,6 +26,8 @@ func TestMigrateCreatesOnlyCoreTables(t *testing.T) {
 		"workout_exercises",
 		"workout_sets",
 		"meals",
+		"foods",
+		"meal_foods",
 	}
 
 	for _, table := range expectedTables {
@@ -65,8 +67,6 @@ func TestMigrateDropsLegacyTablesOnExistingDatabase(t *testing.T) {
 
 func legacyTables() []string {
 	return []string{
-		"foods",
-		"meal_foods",
 		"friendships",
 		"messages",
 		"notifications",

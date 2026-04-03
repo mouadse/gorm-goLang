@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,43 @@ type User struct {
 	Workouts      []Workout     `gorm:"foreignKey:UserID" json:"workouts,omitempty"`
 	Meals         []Meal        `gorm:"foreignKey:UserID" json:"meals,omitempty"`
 	WeightEntries []WeightEntry `gorm:"foreignKey:UserID" json:"weight_entries,omitempty"`
+}
+
+// CalculateTDEE estimates the Total Daily Energy Expenditure using the Mifflin-St Jeor Equation.
+// It uses a simplified approach for activity levels.
+func (u *User) CalculateTDEE() int {
+	if u.Weight == 0 || u.Height == 0 || u.DateOfBirth == nil {
+		return u.TDEE
+	}
+
+	// Calculate Age
+	now := time.Now().UTC()
+	age := now.Year() - u.DateOfBirth.Year()
+	if now.Month() < u.DateOfBirth.Month() || (now.Month() == u.DateOfBirth.Month() && now.Day() < u.DateOfBirth.Day()) {
+		age--
+	}
+
+	// BMR = 10 * weight (kg) + 6.25 * height (cm) - 5 * age (y) + s
+	// s is +5 for males and -161 for females.
+	// Since we don't have gender in the model, we'll use a neutral average or assume one.
+	// Let's assume +5 for now or just average.
+	bmr := 10*u.Weight + 6.25*u.Height - 5*float64(age) + 5
+
+	// Activity multipliers
+	multipliers := map[string]float64{
+		"sedentary":         1.2,
+		"lightly_active":    1.375,
+		"moderately_active": 1.55,
+		"active":            1.725,
+		"very_active":       1.9,
+	}
+
+	multiplier, ok := multipliers[strings.ToLower(u.ActivityLevel)]
+	if !ok {
+		multiplier = 1.2 // default to sedentary
+	}
+
+	return int(bmr * multiplier)
 }
 
 // BeforeCreate sets a new UUID before inserting.

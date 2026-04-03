@@ -203,6 +203,8 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		user.TDEE = *req.TDEE
+	} else if req.Weight != nil || req.Height != nil || req.ActivityLevel != nil || req.DateOfBirth != nil {
+		user.TDEE = user.CalculateTDEE()
 	}
 
 	if err := s.db.Save(&user).Error; err != nil {
@@ -245,6 +247,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 			if err := tx.Where("id IN ?", workoutIDs).Delete(&models.Workout{}).Error; err != nil {
 				return err
 			}
+		}
+
+		if err := tx.Where("meal_id IN (SELECT id FROM meals WHERE user_id = ?)", userID).Delete(&models.MealFood{}).Error; err != nil {
+			return err
 		}
 
 		if err := tx.Where("user_id = ?", userID).Delete(&models.Meal{}).Error; err != nil {

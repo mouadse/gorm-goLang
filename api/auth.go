@@ -146,6 +146,10 @@ func (s *Server) createLocalUser(req createUserRequest) (models.User, error) {
 		TDEE:          req.TDEE,
 	}
 
+	if user.TDEE == 0 {
+		user.TDEE = user.CalculateTDEE()
+	}
+
 	if err := s.db.Create(&user).Error; err != nil {
 		return models.User{}, err
 	}

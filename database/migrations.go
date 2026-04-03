@@ -9,8 +9,6 @@ import (
 )
 
 var obsoleteTables = []string{
-	"meal_foods",
-	"foods",
 	"friendships",
 	"messages",
 	"notifications",
@@ -32,6 +30,8 @@ func Migrate(db *gorm.DB) error {
 		&models.WorkoutExercise{},
 		&models.WorkoutSet{},
 		&models.Meal{},
+		&models.Food{},
+		&models.MealFood{},
 	)
 	if err != nil {
 		return err
