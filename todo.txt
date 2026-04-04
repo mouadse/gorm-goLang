@@ -5,18 +5,19 @@
 PHASE 0: ARCHITECTURE HARDENING
 ================================================================================
 
-[ ] 1. Service Layer
-    - Create services/ or internal/services/ directory
-    - Move analytics, nutrition target logic, integration rules, exports, and auth session logic out of handlers
-    - Keep handlers thin: parse request, authorize, call service, serialize response
-    - Make business logic unit-testable
-    - Clear separation between repository/query code and business rules
+[x] 1. Service Layer
+    - [x] Create services/ or internal/services/ directory
+    - [x] Move analytics, nutrition target logic, integration rules, exports, and auth session logic out of handlers
+    - [x] Keep handlers thin: parse request, authorize, call service, serialize response
+    - [x] Make business logic unit-testable
+    - [x] Clear separation between repository/query code and business rules
     Files:
       - services/workout_analytics.go
       - services/nutrition_targets.go
       - services/integration_rules.go
       - services/auth_sessions.go
       - services/exports.go
+      - services/services_test.go
 
 ================================================================================
 PHASE 1: AUTHENTICATION COMPLETION

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"fitness-tracker/models"
+	"fitness-tracker/services"
 	"gorm.io/gorm"
 )
 
@@ -32,6 +33,10 @@ func Migrate(db *gorm.DB) error {
 		&models.Meal{},
 		&models.Food{},
 		&models.MealFood{},
+		&services.RefreshToken{},
+		&services.UserSession{},
+		&services.ExportJob{},
+		&services.DeletionRequest{},
 	)
 	if err != nil {
 		return err

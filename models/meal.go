@@ -29,21 +29,24 @@ type Meal struct {
 	TotalProtein  float64 `gorm:"-" json:"total_protein"`
 	TotalCarbs    float64 `gorm:"-" json:"total_carbs"`
 	TotalFat      float64 `gorm:"-" json:"total_fat"`
+	TotalFiber    float64 `gorm:"-" json:"total_fiber"`
 }
 
 // CalculateTotals computes the sum of all macros from the meal's items.
 func (m *Meal) CalculateTotals() {
-	var calories, protein, carbs, fat float64
+	var calories, protein, carbs, fat, fiber float64
 	for _, item := range m.Items {
 		calories += item.Food.Calories * item.Quantity
 		protein += item.Food.Protein * item.Quantity
 		carbs += item.Food.Carbohydrates * item.Quantity
 		fat += item.Food.Fat * item.Quantity
+		fiber += item.Food.Fiber * item.Quantity
 	}
 	m.TotalCalories = calories
 	m.TotalProtein = protein
 	m.TotalCarbs = carbs
 	m.TotalFat = fat
+	m.TotalFiber = fiber
 }
 
 // BeforeCreate sets a new UUID before inserting.

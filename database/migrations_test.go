@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestMigrateCreatesOnlyCoreTables(t *testing.T) {
+func TestMigrateCreatesRequiredTables(t *testing.T) {
 	t.Parallel()
 
 	db := openTestDB(t)
@@ -28,6 +28,10 @@ func TestMigrateCreatesOnlyCoreTables(t *testing.T) {
 		"meals",
 		"foods",
 		"meal_foods",
+		"refresh_tokens",
+		"user_sessions",
+		"export_jobs",
+		"deletion_requests",
 	}
 
 	for _, table := range expectedTables {
