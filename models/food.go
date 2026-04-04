@@ -10,8 +10,11 @@ import (
 // Food represents a food item in the database with its nutritional information.
 type Food struct {
 	ID            uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
+	FdcID         *int           `gorm:"uniqueIndex:idx_foods_fdc_id,where:fdc_id IS NOT NULL" json:"fdc_id,omitempty"` // USDA FoodData Central ID (nullable for user-created foods)
 	Name          string         `gorm:"type:varchar(255);not null;index" json:"name"`
 	Brand         string         `gorm:"type:varchar(255)" json:"brand"`
+	Category      string         `gorm:"type:varchar(255)" json:"category"`              // e.g. "Fruits", "Poultry Products"
+	Source        string         `gorm:"type:varchar(50);not null;default:'user'" json:"source"` // "usda" or "user"
 	ServingSize   float64        `gorm:"type:decimal(10,2);not null" json:"serving_size"`   // e.g. 100
 	ServingUnit   string         `gorm:"type:varchar(50);not null" json:"serving_unit"`   // e.g. g, ml, oz
 	Calories      float64        `gorm:"type:decimal(10,2);not null" json:"calories"`      // per serving

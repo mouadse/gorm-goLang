@@ -89,6 +89,14 @@ func (s *Server) handleListFoods(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("brand ILIKE ?", "%"+brand+"%")
 	}
 
+	if category := strings.TrimSpace(r.URL.Query().Get("category")); category != "" {
+		query = query.Where("category ILIKE ?", "%"+category+"%")
+	}
+
+	if source := strings.TrimSpace(r.URL.Query().Get("source")); source != "" {
+		query = query.Where("source = ?", source)
+	}
+
 	var foods []models.Food
 	if err := query.Order("name asc").Find(&foods).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
@@ -97,6 +105,7 @@ func (s *Server) handleListFoods(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, ensureSlice(foods))
 }
+
 
 func (s *Server) handleGetFood(w http.ResponseWriter, r *http.Request) {
 	id, err := parsePathUUID(r, "id")

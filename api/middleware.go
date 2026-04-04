@@ -62,6 +62,31 @@ func Authenticate(db *gorm.DB, next http.Handler) http.Handler {
 	})
 }
 
+// RequireAdmin ensures the authenticated user has the "admin" role.
+// Must be chained after Authenticate.
+func RequireAdmin(db *gorm.DB, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, err := authenticatedUserID(r)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		var role string
+		if err := db.Model(&models.User{}).Select("role").Where("id = ?", userID).Scan(&role).Error; err != nil {
+			writeError(w, http.StatusInternalServerError, errors.New("failed to check user privileges"))
+			return
+		}
+
+		if role != "admin" {
+			writeError(w, http.StatusForbidden, errors.New("admin privileges required"))
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func authenticatedUserID(r *http.Request) (uuid.UUID, error) {
 	value := r.Context().Value(authenticatedUserIDKey)
 	userID, ok := value.(uuid.UUID)
