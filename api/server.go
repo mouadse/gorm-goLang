@@ -15,20 +15,24 @@ import (
 )
 
 type Server struct {
-	db      *gorm.DB
-	mux     *http.ServeMux
-	metrics *metrics.Metrics
-	authSvc *services.AuthService
+	db           *gorm.DB
+	mux          *http.ServeMux
+	metrics      *metrics.Metrics
+	authSvc      *services.AuthService
+	analyticsSvc *services.WorkoutAnalyticsService
+	adherenceSvc *services.AdherenceService
 }
 
 func NewServer(db *gorm.DB) *Server {
 	m := metrics.New()
 
 	server := &Server{
-		db:      db,
-		mux:     http.NewServeMux(),
-		metrics: m,
-		authSvc: services.NewAuthService(db),
+		db:           db,
+		mux:          http.NewServeMux(),
+		metrics:      m,
+		authSvc:      services.NewAuthService(db),
+		analyticsSvc: services.NewWorkoutAnalyticsService(db),
+		adherenceSvc: services.NewAdherenceService(db),
 	}
 	server.registerRoutes()
 	return server
@@ -68,12 +72,19 @@ func (s *Server) registerRoutes() {
 	protected("GET /v1/users/{user_id}/summary", s.handleGetDailySummary)
 	protected("GET /v1/summary", s.handleGetDailySummary)
 
+	// Phase 2: Analytics & Adherence
+	protected("GET /v1/users/{user_id}/records", s.handleGetUserRecords)
+	protected("GET /v1/users/{user_id}/workout-stats", s.handleGetUserWorkoutStats)
+	protected("GET /v1/users/{user_id}/activity-calendar", s.handleGetUserActivityCalendar)
+	protected("GET /v1/users/{user_id}/streaks", s.handleGetUserStreaks)
+
 	// Exercises
 	protected("POST /v1/exercises", s.handleCreateExercise)
 	s.mux.HandleFunc("GET /v1/exercises", s.handleListExercises)
 	s.mux.HandleFunc("GET /v1/exercises/{id}", s.handleGetExercise)
 	protected("PATCH /v1/exercises/{id}", s.handleUpdateExercise)
 	protected("DELETE /v1/exercises/{id}", s.handleDeleteExercise)
+	protected("GET /v1/exercises/{id}/history", s.handleGetExerciseHistory)
 
 	// Weight entries
 	protected("POST /v1/weight-entries", s.handleCreateWeightEntry)

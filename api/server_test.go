@@ -626,3 +626,24 @@ func encodeBody(t *testing.T, body any) *bytes.Reader {
 
 	return bytes.NewReader(payload)
 }
+
+func requestJSONAuthRaw(t *testing.T, handler http.Handler, token, method, path string, body any, wantStatus int) []byte {
+	t.Helper()
+
+	req := httptest.NewRequest(method, path, encodeBody(t, body))
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+
+	if recorder.Code != wantStatus {
+		t.Fatalf("%s %s: expected status %d, got %d, body=%s", method, path, wantStatus, recorder.Code, recorder.Body.String())
+	}
+
+	return recorder.Body.Bytes()
+}

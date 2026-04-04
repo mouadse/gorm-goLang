@@ -14,10 +14,10 @@ import (
 
 // WorkoutSetData represents a completed set with its performance metrics.
 type WorkoutSetData struct {
-	Weight    float64
-	Reps      int
-	RPE       float64
-	Completed bool
+	Weight    float64 `json:"weight"`
+	Reps      int     `json:"reps"`
+	RPE       float64 `json:"rpe"`
+	Completed bool    `json:"completed"`
 }
 
 // WorkoutExerciseSession represents a single exercise within a workout session.

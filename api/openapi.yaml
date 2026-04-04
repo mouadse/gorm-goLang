@@ -131,6 +131,105 @@ paths:
           $ref: "#/components/responses/Error"
         "500":
           $ref: "#/components/responses/Error"
+
+  /v1/users/{user_id}/records:
+    get:
+      tags: [Analytics]
+      summary: Get user personal records
+      operationId: getUserRecords
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+      responses:
+        "200":
+          description: List of personal records.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonalRecord"
+        "400":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /v1/users/{user_id}/workout-stats:
+    get:
+      tags: [Analytics]
+      summary: Get user workout stats
+      operationId: getUserWorkoutStats
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+      responses:
+        "200":
+          description: Workout statistics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutStats"
+        "400":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /v1/users/{user_id}/activity-calendar:
+    get:
+      tags: [Adherence]
+      summary: Get user activity calendar
+      operationId: getActivityCalendar
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - in: query
+          name: start
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Map of dates to activity types.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+        "400":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
+  /v1/users/{user_id}/streaks:
+    get:
+      tags: [Adherence]
+      summary: Get user streaks and adherence summary
+      operationId: getUserStreaks
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+          description: Reference date for streak calculation (defaults to today).
+      responses:
+        "200":
+          description: Streaks and adherence summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreaksResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+
   /v1/exercises:
     get:
       tags: [Exercises]
@@ -240,6 +339,31 @@ paths:
         "409":
           $ref: "#/components/responses/Error"
         "500":
+          $ref: "#/components/responses/Error"
+
+  /v1/exercises/{id}/history:
+    get:
+      tags: [Exercises]
+      summary: Get exercise history
+      operationId: getExerciseHistory
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ordered past sessions for the exercise.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExerciseHistoryEntry"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
           $ref: "#/components/responses/Error"
   /v1/weight-entries:
     get:
@@ -1056,6 +1180,108 @@ components:
       properties:
         error:
           type: string
+    PersonalRecord:
+      type: object
+      required: [type, exercise_id, exercise_name, value, date, workout_id]
+      properties:
+        type:
+          type: string
+          enum: [heaviest_set, best_1rm, best_volume, best_reps]
+        exercise_id:
+          type: string
+          format: uuid
+        exercise_name:
+          type: string
+        value:
+          type: number
+        date:
+          type: string
+          format: date-time
+        workout_id:
+          type: string
+          format: uuid
+        set_id:
+          type: string
+          format: uuid
+          nullable: true
+    WorkoutStats:
+      type: object
+      required: [total_workouts, total_duration, total_volume, total_sets, avg_workout_duration, workout_types]
+      properties:
+        total_workouts:
+          type: integer
+        total_duration:
+          type: integer
+        total_volume:
+          type: number
+        total_sets:
+          type: integer
+        avg_workout_duration:
+          type: number
+        workout_types:
+          type: object
+          additionalProperties:
+            type: integer
+    StreaksResponse:
+      type: object
+      required: [streaks, adherence_summary]
+      properties:
+        streaks:
+          $ref: "#/components/schemas/Streaks"
+        adherence_summary:
+          $ref: "#/components/schemas/AdherenceSummary"
+    Streaks:
+      type: object
+      required: [workout_streak, meal_streak, weigh_in_streak]
+      properties:
+        workout_streak:
+          type: integer
+        meal_streak:
+          type: integer
+        weigh_in_streak:
+          type: integer
+    AdherenceSummary:
+      type: object
+      required: [days_7, days_30, days_90]
+      properties:
+        days_7:
+          type: number
+        days_30:
+          type: number
+        days_90:
+          type: number
+    ExerciseHistoryEntry:
+      type: object
+      required: [date, workout_id, workout_type, sets, volume, estimated_1rm]
+      properties:
+        date:
+          type: string
+          format: date-time
+        workout_id:
+          type: string
+          format: uuid
+        workout_type:
+          type: string
+        sets:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutSetData"
+        volume:
+          type: number
+        estimated_1rm:
+          type: number
+    WorkoutSetData:
+      type: object
+      required: [weight, reps, rpe, completed]
+      properties:
+        weight:
+          type: number
+        reps:
+          type: integer
+        rpe:
+          type: number
+        completed:
+          type: boolean
     User:
       type: object
       required:

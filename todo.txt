@@ -48,48 +48,48 @@ PHASE 1: AUTHENTICATION COMPLETION
 PHASE 2: WORKOUT ANALYTICS FOUNDATION
 ================================================================================
 
-[ ] 3. Workout Analytics Services
+[x] 3. Workout Analytics Services
     Business Logic:
-      - Previous workout comparison for same exercise
-      - Personal record detection (heaviest set, best estimated 1RM, best volume set, best rep performance)
-      - Estimated 1RM using Epley formula
-      - Completed-set volume calculation (reps * weight)
-      - Per exercise session volume (sum of completed set volumes)
-      - Per workout volume (sum of exercise session volumes)
-      - Per week volume (sum of workout volumes)
-      - Weekly workout frequency
-      - Workout-type frequency
+      - [x] Previous workout comparison for same exercise
+      - [x] Personal record detection (heaviest set, best estimated 1RM, best volume set, best rep performance)
+      - [x] Estimated 1RM using Epley formula
+      - [x] Completed-set volume calculation (reps * weight)
+      - [x] Per exercise session volume (sum of completed set volumes)
+      - [x] Per workout volume (sum of exercise session volumes)
+      - [x] Per week volume (sum of workout volumes)
+      - [x] Weekly workout frequency
+      - [x] Workout-type frequency
     Files:
       - services/workout_analytics.go
       - DTOs for derived workout data
 
-[ ] 4. Workout Read-Model Endpoints
+[x] 4. Workout Read-Model Endpoints
     Endpoints:
-      - GET /v1/users/{user_id}/records
-      - GET /v1/users/{user_id}/workout-stats
-      - GET /v1/exercises/{id}/history
-      - GET /v1/users/{user_id}/activity-calendar
+      - [x] GET /v1/users/{user_id}/records
+      - [x] GET /v1/users/{user_id}/workout-stats
+      - [x] GET /v1/exercises/{id}/history
+      - [x] GET /v1/users/{user_id}/activity-calendar
     Business Rules:
-      - Records include heaviest set, best estimated 1RM, best volume set, best rep performance
-      - Exercise history includes ordered past sessions with related sets
-      - Activity calendar marks workout, meal, and weight-entry days
+      - [x] Records include heaviest set, best estimated 1RM, best volume set, best rep performance
+      - [x] Exercise history includes ordered past sessions with related sets
+      - [x] Activity calendar marks workout, meal, and weight-entry days
     Tests:
-      - Fixed fixture data with exact expected PR outputs
-      - Date-range filtering
-      - Authorization boundaries
+      - [x] Fixed fixture data with exact expected PR outputs
+      - [x] Date-range filtering
+      - [x] Authorization boundaries
 
-[ ] 5. Streaks & Adherence Logic
+[x] 5. Streaks & Adherence Logic
     Business Logic (derived from existing date data, no new tables):
-      - Workout streak = consecutive weeks with at least one workout
-      - Meal streak = consecutive days with at least one meal
-      - Weigh-in streak = consecutive days or weeks with a weight entry
-      - Adherence summaries for last 7, 30, and 90 days
+      - [x] Workout streak = consecutive weeks with at least one workout
+      - [x] Meal streak = consecutive days with at least one meal
+      - [x] Weigh-in streak = consecutive days or weeks with a weight entry
+      - [x] Adherence summaries for last 7, 30, and 90 days
     Endpoints:
-      - GET /v1/users/{user_id}/streaks
-      - Or include streaks in dashboard/stat endpoints
+      - [x] GET /v1/users/{user_id}/streaks
+      - [x] Or include streaks in dashboard/stat endpoints
     Tests:
-      - Gap-day and gap-week behavior
-      - Timezone-safe date handling
+      - [x] Gap-day and gap-week behavior
+      - [x] Timezone-safe date handling
 
 ================================================================================
 PHASE 3: WORKOUT DOMAIN EXPANSION
