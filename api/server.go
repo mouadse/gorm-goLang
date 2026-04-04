@@ -145,6 +145,21 @@ func (s *Server) registerRoutes() {
 	protected("GET /v1/meal-foods/{id}", s.handleGetMealFood)
 	protected("PATCH /v1/meal-foods/{id}", s.handleUpdateMealFood)
 	protected("DELETE /v1/meal-foods/{id}", s.handleDeleteMealFood)
+
+	// Workout cardio entries
+	protected("GET /v1/workouts/{id}/cardio", s.handleListWorkoutCardio)
+	protected("POST /v1/workouts/{id}/cardio", s.handleCreateCardioEntry)
+	protected("GET /v1/workout-cardio/{id}", s.handleGetCardioEntry)
+	protected("PATCH /v1/workout-cardio/{id}", s.handleUpdateCardioEntry)
+	protected("DELETE /v1/workout-cardio/{id}", s.handleDeleteCardioEntry)
+
+	// Workout templates
+	protected("POST /v1/workout-templates", s.handleCreateTemplate)
+	protected("GET /v1/workout-templates", s.handleListTemplates)
+	protected("GET /v1/workout-templates/{id}", s.handleGetTemplate)
+	protected("PATCH /v1/workout-templates/{id}", s.handleUpdateTemplate)
+	protected("DELETE /v1/workout-templates/{id}", s.handleDeleteTemplate)
+	protected("POST /v1/workout-templates/{id}/apply", s.handleApplyTemplate)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

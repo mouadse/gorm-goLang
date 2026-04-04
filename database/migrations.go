@@ -30,9 +30,19 @@ func Migrate(db *gorm.DB) error {
 		&models.Workout{},
 		&models.WorkoutExercise{},
 		&models.WorkoutSet{},
+		&models.WorkoutCardioEntry{},
+		&models.WorkoutTemplate{},
+		&models.WorkoutTemplateExercise{},
+		&models.WorkoutTemplateSet{},
+		&models.WorkoutProgram{},
+		&models.ProgramWeek{},
+		&models.ProgramSession{},
+		&models.ProgramAssignment{},
 		&models.Meal{},
 		&models.Food{},
 		&models.MealFood{},
+		&models.Nutrient{},
+		&models.FoodNutrient{},
 		&services.RefreshToken{},
 		&services.UserSession{},
 		&services.ExportJob{},
@@ -43,6 +53,10 @@ func Migrate(db *gorm.DB) error {
 	}
 
 	if err := migrateMealIndexes(db); err != nil {
+		return err
+	}
+
+	if err := migrateNutrientIndexes(db); err != nil {
 		return err
 	}
 
@@ -76,6 +90,17 @@ func migrateMealIndexes(db *gorm.DB) error {
 	if !db.Migrator().HasIndex(&models.Meal{}, "idx_meals_user_date_type") {
 		if err := db.Migrator().CreateIndex(&models.Meal{}, "idx_meals_user_date_type"); err != nil {
 			return fmt.Errorf("create meal search index: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func migrateNutrientIndexes(db *gorm.DB) error {
+	// Ensure unique constraint on food_nutrients (food_id, nutrient_id) for idempotency
+	if !db.Migrator().HasIndex(&models.FoodNutrient{}, "idx_food_nutrients_unique") {
+		if err := db.Migrator().CreateIndex(&models.FoodNutrient{}, "idx_food_nutrients_unique"); err != nil {
+			return fmt.Errorf("create food_nutrients unique index: %w", err)
 		}
 	}
 

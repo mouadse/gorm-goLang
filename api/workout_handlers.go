@@ -1152,6 +1152,10 @@ func deleteWorkoutDependencies(tx *gorm.DB, workoutIDs []uuid.UUID) error {
 		}
 	}
 
+	if err := tx.Where("workout_id IN ?", workoutIDs).Delete(&models.WorkoutCardioEntry{}).Error; err != nil {
+		return err
+	}
+
 	return tx.Where("workout_id IN ?", workoutIDs).Delete(&models.WorkoutExercise{}).Error
 }
 
