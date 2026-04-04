@@ -2,11 +2,13 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 	"strings"
 
 	"fitness-tracker/models"
+	"fitness-tracker/services"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -16,7 +18,7 @@ type contextKey string
 
 const authenticatedUserIDKey contextKey = "authenticated_user_id"
 
-func Authenticate(next http.Handler) http.Handler {
+func Authenticate(db *gorm.DB, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 		if authHeader == "" {
@@ -30,12 +32,27 @@ func Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		userID, err := validateJWT(parts[1])
+		userID, tokenAuthVersion, err := services.ParseAccessToken(parts[1])
 		if err != nil {
-			if errors.Is(err, errMissingJWTSecret) {
+			if errors.Is(err, services.ErrMissingJWTSecret) {
 				writeError(w, http.StatusInternalServerError, err)
 				return
 			}
+			writeError(w, http.StatusUnauthorized, errors.New("invalid or expired token"))
+			return
+		}
+
+		var authState struct {
+			AuthVersion sql.NullInt64
+		}
+		if err := db.Model(&models.User{}).
+			Select("auth_version").
+			Where("id = ? AND deleted_at IS NULL", userID).
+			First(&authState).Error; err != nil {
+			writeError(w, http.StatusUnauthorized, errors.New("invalid or expired token"))
+			return
+		}
+		if authState.AuthVersion.Valid && uint(authState.AuthVersion.Int64) != tokenAuthVersion {
 			writeError(w, http.StatusUnauthorized, errors.New("invalid or expired token"))
 			return
 		}

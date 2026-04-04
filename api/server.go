@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"fitness-tracker/metrics"
+	"fitness-tracker/services"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -17,6 +18,7 @@ type Server struct {
 	db      *gorm.DB
 	mux     *http.ServeMux
 	metrics *metrics.Metrics
+	authSvc *services.AuthService
 }
 
 func NewServer(db *gorm.DB) *Server {
@@ -26,6 +28,7 @@ func NewServer(db *gorm.DB) *Server {
 		db:      db,
 		mux:     http.NewServeMux(),
 		metrics: m,
+		authSvc: services.NewAuthService(db),
 	}
 	server.registerRoutes()
 	return server
@@ -40,7 +43,7 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("GET /metrics", s.metrics.Handler())
 
 	protected := func(pattern string, handler http.HandlerFunc) {
-		s.mux.Handle(pattern, Authenticate(http.HandlerFunc(handler)))
+		s.mux.Handle(pattern, Authenticate(s.db, http.HandlerFunc(handler)))
 	}
 
 	s.mux.HandleFunc("GET /healthz", s.handleHealth)
@@ -49,8 +52,12 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /docs/", s.handleSwaggerUI)
 	s.mux.HandleFunc("GET /login", s.handleLoginPage)
 	s.mux.HandleFunc("GET /register", s.handleRegisterPage)
-	s.mux.HandleFunc("POST /v1/auth/register", s.handleRegister)
-	s.mux.HandleFunc("POST /v1/auth/login", s.handleLogin)
+	s.mux.HandleFunc("POST /v1/auth/register", s.handleRegisterWithSessions)
+	s.mux.HandleFunc("POST /v1/auth/login", s.handleLoginWithSessions)
+	s.mux.HandleFunc("POST /v1/auth/refresh", s.handleRefreshToken)
+	protected("POST /v1/auth/logout", s.handleLogout)
+	protected("GET /v1/auth/sessions", s.handleGetSessions)
+	protected("DELETE /v1/auth/sessions/{id}", s.handleDeleteSession)
 
 	// Users
 	s.mux.HandleFunc("POST /v1/users", s.handleCreateUser)

@@ -123,11 +123,12 @@ def main():
     }
 
     _, register_response = client.run_test("Register", "POST", f"{API_URL}/auth/register", data=register_data, expect_status=201)
-    if not register_response or "user" not in register_response or "token" not in register_response:
+    register_token = None if not register_response else register_response.get("access_token") or register_response.get("token")
+    if not register_response or "user" not in register_response or not register_token:
         print("Cannot proceed without a registered user and token. Aborting.")
         sys.exit(1)
 
-    client.auth_token = register_response["token"]
+    client.auth_token = register_token
     user = register_response["user"]
     user_id = user["id"]
 
@@ -576,8 +577,10 @@ def main():
     _, cascade_auth = cascade_client.run_test("Create cascade test user", "POST", f"{API_URL}/auth/register",
                                               data={"email": cascade_email, "name": "Cascade", "password": "password123"},
                                               expect_status=201)
-    if cascade_auth and "user" in cascade_auth and "token" in cascade_auth:
-        cascade_client.auth_token = cascade_auth["token"]
+    if cascade_auth and "user" in cascade_auth:
+        cascade_token = cascade_auth.get("access_token") or cascade_auth.get("token")
+        if cascade_token:
+            cascade_client.auth_token = cascade_token
         cu_id = cascade_auth["user"]["id"]
         # Add a meal
         _, cm = cascade_client.run_test("Create cascading meal", "POST", f"{API_URL}/meals",

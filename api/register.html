@@ -163,14 +163,15 @@
       });
 
       const body = await response.json().catch(() => ({}));
-      if (body.token) {
-        localStorage.setItem("fitness_tracker_token", body.token);
+      const bearerToken = body.access_token || body.token || null;
+      if (bearerToken) {
+        localStorage.setItem("fitness_tracker_token", bearerToken);
       }
 
       result.textContent = JSON.stringify({
         status: response.status,
         body,
-        saved_token: body.token || null,
+        saved_token: bearerToken,
       }, null, 2);
     });
   </script>

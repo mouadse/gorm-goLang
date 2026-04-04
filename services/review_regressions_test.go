@@ -80,6 +80,74 @@ func TestAuthServiceRevokeSessionMatchesStoredHash(t *testing.T) {
 	}
 }
 
+func TestAuthServiceRevokeUserSessionRevokesSiblingTokens(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret")
+
+	db := openServicesTestDB(t,
+		&models.User{},
+		&RefreshToken{},
+		&UserSession{},
+	)
+	user := createTestUser(t, db)
+	svc := NewAuthService(db)
+
+	issued, err := svc.CreateSession(user.ID, "agent-a", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	rotated, err := svc.RefreshSession(issued.RefreshToken, "agent-a", "127.0.0.1")
+	if err != nil {
+		t.Fatalf("refresh session: %v", err)
+	}
+
+	var active RefreshToken
+	if err := db.Where("revoked_at IS NULL").First(&active).Error; err != nil {
+		t.Fatalf("load active token: %v", err)
+	}
+
+	siblingToken, err := GenerateSecureToken()
+	if err != nil {
+		t.Fatalf("generate sibling token: %v", err)
+	}
+	siblingHash, err := HashToken(siblingToken)
+	if err != nil {
+		t.Fatalf("hash sibling token: %v", err)
+	}
+	sibling := RefreshToken{
+		UserID:    user.ID,
+		SessionID: active.SessionID,
+		TokenHash: siblingHash,
+		UserAgent: "agent-a",
+		IPAddress: "127.0.0.1",
+		ExpiresAt: time.Now().UTC().Add(RefreshTokenTTL),
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := db.Create(&sibling).Error; err != nil {
+		t.Fatalf("create sibling token: %v", err)
+	}
+
+	if err := svc.RevokeUserSession(user.ID, rotated.RefreshToken); err != nil {
+		t.Fatalf("revoke user session: %v", err)
+	}
+
+	var remaining int64
+	if err := db.Model(&RefreshToken{}).Where("session_id = ? AND revoked_at IS NULL", active.SessionID).Count(&remaining).Error; err != nil {
+		t.Fatalf("count remaining tokens: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("expected all refresh tokens for the session to be revoked, found %d", remaining)
+	}
+
+	var sessions int64
+	if err := db.Model(&UserSession{}).Where("session_id = ?", active.SessionID).Count(&sessions).Error; err != nil {
+		t.Fatalf("count sessions: %v", err)
+	}
+	if sessions != 0 {
+		t.Fatalf("expected session row to be deleted, found %d", sessions)
+	}
+}
+
 func TestIntegrationRulesContextExcludesFutureWeekWorkouts(t *testing.T) {
 	date := time.Date(2026, time.March, 4, 12, 0, 0, 0, time.UTC) // Wednesday
 

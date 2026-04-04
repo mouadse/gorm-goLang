@@ -22,7 +22,7 @@ import (
 
 const (
 	// AccessTokenTTL is the lifetime of access tokens.
-	AccessTokenTTL = 24 * time.Hour
+	AccessTokenTTL = 15 * time.Minute
 	// RefreshTokenTTL is the lifetime of refresh tokens.
 	RefreshTokenTTL = 7 * 24 * time.Hour
 	// MinPasswordLength is the minimum required password length.
@@ -56,6 +56,7 @@ const (
 type RefreshToken struct {
 	ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID    uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
+	SessionID string     `gorm:"type:varchar(255);index" json:"session_id"`
 	TokenHash string     `gorm:"type:varchar(255);not null;uniqueIndex" json:"-"`
 	UserAgent string     `gorm:"type:varchar(255)" json:"user_agent"`
 	IPAddress string     `gorm:"type:varchar(45)" json:"ip_address"`
@@ -96,6 +97,12 @@ type AuthTokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int64  `json:"expires_in"` // seconds until access token expires
+}
+
+// AccessTokenClaims represents the signed JWT claims for access tokens.
+type AccessTokenClaims struct {
+	AuthVersion uint `json:"auth_version,omitempty"`
+	jwt.RegisteredClaims
 }
 
 // LoginRequest contains credentials for authentication.
@@ -154,16 +161,24 @@ func CompareTokenHash(hash, token string) error {
 
 // GenerateJWT creates a new JWT access token for a user.
 func GenerateJWT(userID uuid.UUID, ttl time.Duration) (string, error) {
+	return GenerateJWTWithVersion(userID, 0, ttl)
+}
+
+// GenerateJWTWithVersion creates a new JWT access token for a user and auth version.
+func GenerateJWTWithVersion(userID uuid.UUID, authVersion uint, ttl time.Duration) (string, error) {
 	secret, err := jwtSecret()
 	if err != nil {
 		return "", err
 	}
 
 	now := time.Now().UTC()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Subject:   userID.String(),
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, AccessTokenClaims{
+		AuthVersion: authVersion,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID.String(),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+		},
 	})
 
 	return token.SignedString(secret)
@@ -171,12 +186,18 @@ func GenerateJWT(userID uuid.UUID, ttl time.Duration) (string, error) {
 
 // ValidateJWT validates a JWT token and returns the user ID.
 func ValidateJWT(tokenString string) (uuid.UUID, error) {
+	userID, _, err := ParseAccessToken(tokenString)
+	return userID, err
+}
+
+// ParseAccessToken validates a JWT token and returns the user ID and auth version.
+func ParseAccessToken(tokenString string) (uuid.UUID, uint, error) {
 	secret, err := jwtSecret()
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, 0, err
 	}
 
-	claims := &jwt.RegisteredClaims{}
+	claims := &AccessTokenClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -184,19 +205,19 @@ func ValidateJWT(tokenString string) (uuid.UUID, error) {
 		return secret, nil
 	})
 	if err != nil || !token.Valid {
-		return uuid.Nil, ErrInvalidToken
+		return uuid.Nil, 0, ErrInvalidToken
 	}
 
 	if claims.Subject == "" {
-		return uuid.Nil, errors.New("missing subject claim")
+		return uuid.Nil, 0, errors.New("missing subject claim")
 	}
 
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		return uuid.Nil, errors.New("invalid subject claim")
+		return uuid.Nil, 0, errors.New("invalid subject claim")
 	}
 
-	return userID, nil
+	return userID, claims.AuthVersion, nil
 }
 
 // ValidateJWTConfig checks if JWT configuration is valid.
@@ -290,20 +311,7 @@ func (s *AuthService) CreateSession(userID uuid.UUID, userAgent, ipAddress strin
 	now := time.Now().UTC()
 	expiresAt := now.Add(RefreshTokenTTL)
 
-	// Store refresh token
-	rt := RefreshToken{
-		UserID:    userID,
-		TokenHash: tokenHash,
-		UserAgent: userAgent,
-		IPAddress: ipAddress,
-		ExpiresAt: expiresAt,
-		CreatedAt: now,
-	}
-	if err := s.db.Create(&rt).Error; err != nil {
-		return nil, err
-	}
-
-	// Create session
+	// Create session first
 	session := UserSession{
 		UserID:    userID,
 		SessionID: sessionID,
@@ -313,13 +321,32 @@ func (s *AuthService) CreateSession(userID uuid.UUID, userAgent, ipAddress strin
 		ExpiresAt: expiresAt,
 	}
 	if err := s.db.Create(&session).Error; err != nil {
-		// Cleanup refresh token if session creation fails
-		s.db.Delete(&rt)
+		return nil, err
+	}
+
+	// Store refresh token linked to session
+	rt := RefreshToken{
+		UserID:    userID,
+		SessionID: sessionID,
+		TokenHash: tokenHash,
+		UserAgent: userAgent,
+		IPAddress: ipAddress,
+		ExpiresAt: expiresAt,
+		CreatedAt: now,
+	}
+	if err := s.db.Create(&rt).Error; err != nil {
+		// Cleanup session if refresh token creation fails
+		s.db.Delete(&session)
+		return nil, err
+	}
+
+	authVersion, err := s.userAuthVersion(userID)
+	if err != nil {
 		return nil, err
 	}
 
 	// Generate access token
-	accessToken, err := GenerateJWT(userID, AccessTokenTTL)
+	accessToken, err := GenerateJWTWithVersion(userID, authVersion, AccessTokenTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -353,15 +380,12 @@ func (s *AuthService) findRefreshToken(rawToken string) (*RefreshToken, error) {
 	return nil, ErrInvalidToken
 }
 
-// RefreshSession validates a refresh token and creates a new session.
+// RefreshSession validates a refresh token and rotates it within the same session.
 func (s *AuthService) RefreshSession(refreshToken, userAgent, ipAddress string) (*AuthTokens, error) {
 	storedToken, err := s.findRefreshToken(refreshToken)
 	if err != nil {
 		return nil, err
 	}
-
-	// Check if token was issued from a suspicious location
-	// (This could be extended with more sophisticated checks)
 
 	// Get user
 	var user models.User
@@ -375,8 +399,87 @@ func (s *AuthService) RefreshSession(refreshToken, userAgent, ipAddress string) 
 		return nil, err
 	}
 
-	// Create new session
-	return s.CreateSession(user.ID, userAgent, ipAddress)
+	// Find or create session for this token
+	var session UserSession
+	var sessionID string
+
+	if storedToken.SessionID != "" {
+		// Try to find existing session
+		if err := s.db.Where("session_id = ?", storedToken.SessionID).First(&session).Error; err == nil {
+			sessionID = storedToken.SessionID
+		}
+	}
+
+	// If no session found (legacy token or session deleted), create a new one
+	if sessionID == "" {
+		sessionID, err = GenerateSecureToken()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	expiresAt := now.Add(RefreshTokenTTL)
+
+	// Generate new refresh token
+	newRefreshToken, err := GenerateSecureToken()
+	if err != nil {
+		return nil, err
+	}
+
+	tokenHash, err := HashToken(newRefreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store new refresh token with session ID
+	newRt := RefreshToken{
+		UserID:    user.ID,
+		SessionID: sessionID,
+		TokenHash: tokenHash,
+		UserAgent: userAgent,
+		IPAddress: ipAddress,
+		ExpiresAt: expiresAt,
+		CreatedAt: now,
+	}
+	if err := s.db.Create(&newRt).Error; err != nil {
+		return nil, err
+	}
+
+	// Create or update session
+	if session.ID != uuid.Nil {
+		// Update existing session
+		if err := s.db.Model(&session).Updates(map[string]any{
+			"last_ip":    ipAddress,
+			"expires_at": expiresAt,
+		}).Error; err != nil {
+			// Non-fatal - session still valid
+		}
+	} else {
+		// Create new session for legacy tokens
+		session := UserSession{
+			UserID:    user.ID,
+			SessionID: sessionID,
+			UserAgent: userAgent,
+			LastIP:    ipAddress,
+			CreatedAt: now,
+			ExpiresAt: expiresAt,
+		}
+		if err := s.db.Create(&session).Error; err != nil {
+			// Non-fatal - token is still valid
+		}
+	}
+
+	// Generate access token
+	accessToken, err := GenerateJWTWithVersion(user.ID, user.AuthVersion, AccessTokenTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthTokens{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		ExpiresIn:    int64(AccessTokenTTL.Seconds()),
+	}, nil
 }
 
 // RevokeSession revokes a refresh token.
@@ -393,6 +496,48 @@ func (s *AuthService) RevokeSession(refreshToken string) error {
 	return s.db.Model(storedToken).Update("revoked_at", now).Error
 }
 
+// RevokeUserSession revokes a refresh token after verifying it belongs to the user.
+func (s *AuthService) RevokeUserSession(userID uuid.UUID, refreshToken string) error {
+	storedToken, err := s.findRefreshToken(refreshToken)
+	if err != nil {
+		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrTokenRevoked) {
+			return ErrSessionNotFound
+		}
+		return err
+	}
+
+	if storedToken.UserID != userID {
+		return ErrUnauthorizedAccess
+	}
+
+	now := time.Now().UTC()
+	if storedToken.SessionID != "" {
+		if err := s.db.Model(&RefreshToken{}).
+			Where("session_id = ? AND revoked_at IS NULL", storedToken.SessionID).
+			Update("revoked_at", now).Error; err != nil {
+			return err
+		}
+		if err := s.db.Where("session_id = ?", storedToken.SessionID).Delete(&UserSession{}).Error; err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err := s.db.Model(storedToken).Update("revoked_at", now).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *AuthService) userAuthVersion(userID uuid.UUID) (uint, error) {
+	var user models.User
+	if err := s.db.Select("auth_version").First(&user, "id = ?", userID).Error; err != nil {
+		return 0, err
+	}
+	return user.AuthVersion, nil
+}
+
 // GetUserSessions returns all active sessions for a user.
 func (s *AuthService) GetUserSessions(userID uuid.UUID) ([]UserSession, error) {
 	var sessions []UserSession
@@ -402,8 +547,26 @@ func (s *AuthService) GetUserSessions(userID uuid.UUID) ([]UserSession, error) {
 	return sessions, err
 }
 
-// DeleteSession deletes a specific session.
+// DeleteSession deletes a specific session and revokes its refresh tokens.
 func (s *AuthService) DeleteSession(userID, sessionID uuid.UUID) error {
+	// Get the session to find its session_id string
+	var session UserSession
+	if err := s.db.Where("id = ? AND user_id = ?", sessionID, userID).First(&session).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrSessionNotFound
+		}
+		return err
+	}
+
+	// Revoke all refresh tokens for this session
+	now := time.Now().UTC()
+	if err := s.db.Model(&RefreshToken{}).
+		Where("session_id = ? AND revoked_at IS NULL", session.SessionID).
+		Update("revoked_at", now).Error; err != nil {
+		return err
+	}
+
+	// Delete the session
 	result := s.db.Where("id = ? AND user_id = ?", sessionID, userID).Delete(&UserSession{})
 	if result.Error != nil {
 		return result.Error
@@ -411,22 +574,32 @@ func (s *AuthService) DeleteSession(userID, sessionID uuid.UUID) error {
 	if result.RowsAffected == 0 {
 		return ErrSessionNotFound
 	}
-	// Note: This doesn't revoke associated refresh tokens
-	// In a production system, you might want to do that
+
 	return nil
 }
 
 // DeleteAllUserSessions revokes all sessions for a user (logout from all devices).
 func (s *AuthService) DeleteAllUserSessions(userID uuid.UUID) error {
-	// Revoke all refresh tokens
-	if err := s.db.Model(&RefreshToken{}).
-		Where("user_id = ? AND revoked_at IS NULL", userID).
-		Update("revoked_at", time.Now().UTC()).Error; err != nil {
-		return err
-	}
+	now := time.Now().UTC()
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&RefreshToken{}).
+			Where("user_id = ? AND revoked_at IS NULL", userID).
+			Update("revoked_at", now).Error; err != nil {
+			return err
+		}
 
-	// Delete all sessions
-	return s.db.Where("user_id = ?", userID).Delete(&UserSession{}).Error
+		if err := tx.Where("user_id = ?", userID).Delete(&UserSession{}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&models.User{}).
+			Where("id = ?", userID).
+			Update("auth_version", gorm.Expr("COALESCE(auth_version, 0) + 1")).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // ExtractSessionInfo extracts user agent and IP from an HTTP request.

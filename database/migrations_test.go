@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"fitness-tracker/database"
+	"fitness-tracker/services"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -66,6 +67,38 @@ func TestMigrateDropsLegacyTablesOnExistingDatabase(t *testing.T) {
 		if db.Migrator().HasTable(table) {
 			t.Fatalf("expected legacy table %q to be dropped", table)
 		}
+	}
+}
+
+func TestMigrateAddsNullableSessionIDToExistingRefreshTokens(t *testing.T) {
+	t.Parallel()
+
+	db := openTestDB(t)
+
+	if err := db.Exec(`CREATE TABLE refresh_tokens (
+		id TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		token_hash TEXT NOT NULL,
+		user_agent TEXT,
+		ip_address TEXT,
+		expires_at DATETIME NOT NULL,
+		revoked_at DATETIME,
+		created_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("create legacy refresh_tokens table: %v", err)
+	}
+
+	if err := db.Exec(`INSERT INTO refresh_tokens (id, user_id, token_hash, user_agent, ip_address, expires_at, created_at)
+		VALUES ('rt-1', 'user-1', 'hash-1', 'agent', '127.0.0.1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`).Error; err != nil {
+		t.Fatalf("seed legacy refresh_tokens row: %v", err)
+	}
+
+	if err := database.Migrate(db); err != nil {
+		t.Fatalf("migrate database with legacy refresh tokens: %v", err)
+	}
+
+	if !db.Migrator().HasColumn(&services.RefreshToken{}, "session_id") {
+		t.Fatalf("expected migrated refresh_tokens table to contain session_id")
 	}
 }
 

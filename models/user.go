@@ -22,6 +22,7 @@ type User struct {
 	Goal          string         `gorm:"type:varchar(100)" json:"goal"`
 	ActivityLevel string         `gorm:"type:varchar(50)" json:"activity_level"`
 	TDEE          int            `gorm:"type:int" json:"tdee"`
+	AuthVersion   uint           `gorm:"type:integer;default:0" json:"-"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`

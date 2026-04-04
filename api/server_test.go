@@ -32,13 +32,13 @@ func TestCoreCRUDFlow(t *testing.T) {
 	userAuth := registerTestUser(t, server, "alex@example.com", "Alex", "password123")
 	user := userAuth.User
 
-	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.Token, http.MethodPost, "/v1/exercises", map[string]any{
+	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
 		"name":         "Bench Press",
 		"muscle_group": "Chest",
 		"equipment":    "Barbell",
 	}, http.StatusCreated)
 
-	workout := requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
+	workout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id":  user.ID,
 		"date":     "2026-03-07",
 		"duration": 55,
@@ -60,7 +60,7 @@ func TestCoreCRUDFlow(t *testing.T) {
 		},
 	}, http.StatusCreated)
 
-	loadedWorkout := requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodGet, "/v1/workouts/"+workout.ID.String(), nil, http.StatusOK)
+	loadedWorkout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String(), nil, http.StatusOK)
 	if len(loadedWorkout.WorkoutExercises) != 1 {
 		t.Fatalf("expected 1 workout exercise, got %d", len(loadedWorkout.WorkoutExercises))
 	}
@@ -68,12 +68,12 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected 2 workout sets, got %d", len(loadedWorkout.WorkoutExercises[0].WorkoutSets))
 	}
 
-	requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodPatch, "/v1/workouts/"+workout.ID.String(), map[string]any{
+	requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPatch, "/v1/workouts/"+workout.ID.String(), map[string]any{
 		"duration": 60,
 		"notes":    "Updated heavy day",
 	}, http.StatusOK)
 
-	addedWorkoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.Token, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/exercises", map[string]any{
+	addedWorkoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/exercises", map[string]any{
 		"exercise_id": exercise.ID,
 		"order":       2,
 		"sets":        4,
@@ -84,12 +84,12 @@ func TestCoreCRUDFlow(t *testing.T) {
 		},
 	}, http.StatusCreated)
 
-	listedWorkoutExercises := requestJSONAuth[[]models.WorkoutExercise](t, server, userAuth.Token, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/exercises", nil, http.StatusOK)
+	listedWorkoutExercises := requestJSONAuth[[]models.WorkoutExercise](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/exercises", nil, http.StatusOK)
 	if len(listedWorkoutExercises) != 2 {
 		t.Fatalf("expected 2 workout exercises, got %d", len(listedWorkoutExercises))
 	}
 
-	updatedWorkoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.Token, http.MethodPatch, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String(), map[string]any{
+	updatedWorkoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.AccessToken, http.MethodPatch, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String(), map[string]any{
 		"notes": "Accessory volume",
 		"sets":  5,
 	}, http.StatusOK)
@@ -97,7 +97,7 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected workout exercise sets to be updated")
 	}
 
-	set := requestJSONAuth[models.WorkoutSet](t, server, userAuth.Token, http.MethodPost, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String()+"/sets", map[string]any{
+	set := requestJSONAuth[models.WorkoutSet](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String()+"/sets", map[string]any{
 		"reps":         12,
 		"weight":       20,
 		"rest_seconds": 60,
@@ -106,62 +106,62 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected auto-assigned set number 2, got %d", set.SetNumber)
 	}
 
-	updatedSet := requestJSONAuth[models.WorkoutSet](t, server, userAuth.Token, http.MethodPatch, "/v1/workout-sets/"+set.ID.String(), map[string]any{
+	updatedSet := requestJSONAuth[models.WorkoutSet](t, server, userAuth.AccessToken, http.MethodPatch, "/v1/workout-sets/"+set.ID.String(), map[string]any{
 		"completed": false,
 	}, http.StatusOK)
 	if updatedSet.Completed {
 		t.Fatalf("expected updated set to be incomplete")
 	}
 
-	meal := requestJSONAuth[models.Meal](t, server, userAuth.Token, http.MethodPost, "/v1/meals", map[string]any{
+	meal := requestJSONAuth[models.Meal](t, server, userAuth.AccessToken, http.MethodPost, "/v1/meals", map[string]any{
 		"user_id":   user.ID,
 		"meal_type": "dinner",
 		"date":      "2026-03-07",
 		"notes":     "Post-workout meal",
 	}, http.StatusCreated)
 
-	weightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.Token, http.MethodPost, "/v1/weight-entries", map[string]any{
+	weightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.AccessToken, http.MethodPost, "/v1/weight-entries", map[string]any{
 		"user_id": user.ID,
 		"weight":  82.4,
 		"date":    "2026-03-07",
 		"notes":   "Morning weigh-in",
 	}, http.StatusCreated)
 
-	loadedMeal := requestJSONAuth[models.Meal](t, server, userAuth.Token, http.MethodGet, "/v1/meals/"+meal.ID.String(), nil, http.StatusOK)
+	loadedMeal := requestJSONAuth[models.Meal](t, server, userAuth.AccessToken, http.MethodGet, "/v1/meals/"+meal.ID.String(), nil, http.StatusOK)
 	if loadedMeal.MealType != "dinner" {
 		t.Fatalf("expected meal type dinner, got %q", loadedMeal.MealType)
 	}
 
-	listedMeals := requestJSONAuth[[]models.Meal](t, server, userAuth.Token, http.MethodGet, "/v1/users/"+user.ID.String()+"/meals", nil, http.StatusOK)
+	listedMeals := requestJSONAuth[[]models.Meal](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/meals", nil, http.StatusOK)
 	if len(listedMeals) != 1 {
 		t.Fatalf("expected 1 meal, got %d", len(listedMeals))
 	}
 
-	loadedWeightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.Token, http.MethodGet, "/v1/weight-entries/"+weightEntry.ID.String(), nil, http.StatusOK)
+	loadedWeightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.AccessToken, http.MethodGet, "/v1/weight-entries/"+weightEntry.ID.String(), nil, http.StatusOK)
 	if loadedWeightEntry.Weight != 82.4 {
 		t.Fatalf("expected weight entry to round-trip")
 	}
 
-	listedWeightEntries := requestJSONAuth[[]models.WeightEntry](t, server, userAuth.Token, http.MethodGet, "/v1/users/"+user.ID.String()+"/weight-entries", nil, http.StatusOK)
+	listedWeightEntries := requestJSONAuth[[]models.WeightEntry](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/weight-entries", nil, http.StatusOK)
 	if len(listedWeightEntries) != 1 {
 		t.Fatalf("expected 1 weight entry, got %d", len(listedWeightEntries))
 	}
 
-	requestJSONAuth[models.Meal](t, server, userAuth.Token, http.MethodPatch, "/v1/meals/"+meal.ID.String(), map[string]any{
+	requestJSONAuth[models.Meal](t, server, userAuth.AccessToken, http.MethodPatch, "/v1/meals/"+meal.ID.String(), map[string]any{
 		"notes": "Updated meal notes",
 	}, http.StatusOK)
 
-	requestJSONAuth[models.WeightEntry](t, server, userAuth.Token, http.MethodPatch, "/v1/weight-entries/"+weightEntry.ID.String(), map[string]any{
+	requestJSONAuth[models.WeightEntry](t, server, userAuth.AccessToken, http.MethodPatch, "/v1/weight-entries/"+weightEntry.ID.String(), map[string]any{
 		"weight": 81.9,
 	}, http.StatusOK)
 
-	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/workout-sets/"+set.ID.String(), nil, http.StatusNoContent)
-	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String(), nil, http.StatusNoContent)
-	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/meals/"+meal.ID.String(), nil, http.StatusNoContent)
-	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/weight-entries/"+weightEntry.ID.String(), nil, http.StatusNoContent)
-	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/workouts/"+workout.ID.String(), nil, http.StatusNoContent)
-	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusNoContent)
-	expectStatusAuth(t, server, userAuth.Token, http.MethodDelete, "/v1/users/"+user.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.AccessToken, http.MethodDelete, "/v1/workout-sets/"+set.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.AccessToken, http.MethodDelete, "/v1/workout-exercises/"+addedWorkoutExercise.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.AccessToken, http.MethodDelete, "/v1/meals/"+meal.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.AccessToken, http.MethodDelete, "/v1/weight-entries/"+weightEntry.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.AccessToken, http.MethodDelete, "/v1/workouts/"+workout.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.AccessToken, http.MethodDelete, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusNoContent)
+	expectStatusAuth(t, server, userAuth.AccessToken, http.MethodDelete, "/v1/users/"+user.ID.String(), nil, http.StatusNoContent)
 }
 
 func TestCreateUserRejectsUnknownFields(t *testing.T) {
@@ -231,11 +231,11 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 	userAuth := registerTestUser(t, server, "scoped@example.com", "Scoped User", "password123")
 	user := userAuth.User
 
-	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.Token, http.MethodPost, "/v1/exercises", map[string]any{
+	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
 		"name": "Front Squat",
 	}, http.StatusCreated)
 
-	workout := requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodPost, "/v1/users/"+user.ID.String()+"/workouts", map[string]any{
+	workout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/users/"+user.ID.String()+"/workouts", map[string]any{
 		"date":     "2026-03-08",
 		"duration": 42,
 		"type":     "legs",
@@ -251,7 +251,7 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 		t.Fatalf("expected scoped workout to inherit user id")
 	}
 
-	meal := requestJSONAuth[models.Meal](t, server, userAuth.Token, http.MethodPost, "/v1/users/"+user.ID.String()+"/meals", map[string]any{
+	meal := requestJSONAuth[models.Meal](t, server, userAuth.AccessToken, http.MethodPost, "/v1/users/"+user.ID.String()+"/meals", map[string]any{
 		"meal_type": "lunch",
 		"date":      "2026-03-08",
 		"notes":     "Scoped meal",
@@ -260,7 +260,7 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 		t.Fatalf("expected scoped meal to inherit user id")
 	}
 
-	weightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.Token, http.MethodPost, "/v1/users/"+user.ID.String()+"/weight-entries", map[string]any{
+	weightEntry := requestJSONAuth[models.WeightEntry](t, server, userAuth.AccessToken, http.MethodPost, "/v1/users/"+user.ID.String()+"/weight-entries", map[string]any{
 		"weight": 79.3,
 		"date":   "2026-03-08",
 	}, http.StatusCreated)
@@ -268,7 +268,7 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 		t.Fatalf("expected scoped weight entry to inherit user id")
 	}
 
-	workouts := requestJSONAuth[[]models.Workout](t, server, userAuth.Token, http.MethodGet, "/v1/users/"+user.ID.String()+"/workouts", nil, http.StatusOK)
+	workouts := requestJSONAuth[[]models.Workout](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/workouts", nil, http.StatusOK)
 	if len(workouts) != 1 {
 		t.Fatalf("expected 1 scoped workout, got %d", len(workouts))
 	}
@@ -284,20 +284,20 @@ func TestNestedCreateRoutesRejectMismatchedIDs(t *testing.T) {
 	otherAuth := registerTestUser(t, server, "other@example.com", "Other User", "password123")
 	otherUser := otherAuth.User
 
-	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.Token, http.MethodPost, "/v1/exercises", map[string]any{
+	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
 		"name": "Pull Up",
 	}, http.StatusCreated)
 
-	workout := requestJSONAuth[models.Workout](t, server, userAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
+	workout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id": user.ID,
 		"type":    "pull",
 	}, http.StatusCreated)
-	otherWorkout := requestJSONAuth[models.Workout](t, server, otherAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
+	otherWorkout := requestJSONAuth[models.Workout](t, server, otherAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id": otherUser.ID,
 		"type":    "push",
 	}, http.StatusCreated)
 
-	workoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.Token, http.MethodPost, "/v1/workout-exercises", map[string]any{
+	workoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workout-exercises", map[string]any{
 		"workout_id":  workout.ID,
 		"exercise_id": exercise.ID,
 		"reps":        8,
@@ -353,7 +353,7 @@ func TestNestedCreateRoutesRejectMismatchedIDs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			expectStatusAuth(t, server, userAuth.Token, http.MethodPost, tt.path, tt.body, http.StatusBadRequest)
+			expectStatusAuth(t, server, userAuth.AccessToken, http.MethodPost, tt.path, tt.body, http.StatusBadRequest)
 		})
 	}
 }
@@ -366,7 +366,7 @@ func TestCreateWorkoutReturnsNotFoundForMissingExercise(t *testing.T) {
 	userAuth := registerTestUser(t, server, "missing-exercise@example.com", "Missing Exercise", "password123")
 	user := userAuth.User
 
-	errBody := requestErrorAuth(t, server, userAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
+	errBody := requestErrorAuth(t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id": user.ID,
 		"type":    "push",
 		"exercises": []map[string]any{
@@ -398,7 +398,7 @@ func TestExerciseReadRoutesStayPublicWhileWritesRequireAuth(t *testing.T) {
 	expectStatus(t, server, http.MethodGet, "/v1/exercises", nil, http.StatusOK)
 
 	userAuth := registerTestUser(t, server, "exercises@example.com", "Exercise Owner", "password123")
-	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.Token, http.MethodPost, "/v1/exercises", map[string]any{
+	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
 		"name": "Seal Row",
 	}, http.StatusCreated)
 
@@ -474,18 +474,30 @@ func TestProtectedRoutesRejectWrongUser(t *testing.T) {
 	ownerAuth := registerTestUser(t, server, "owner@example.com", "Owner", "password123")
 	otherAuth := registerTestUser(t, server, "viewer@example.com", "Viewer", "password123")
 
-	workout := requestJSONAuth[models.Workout](t, server, ownerAuth.Token, http.MethodPost, "/v1/workouts", map[string]any{
+	workout := requestJSONAuth[models.Workout](t, server, ownerAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id": ownerAuth.User.ID,
 		"type":    "push",
 	}, http.StatusCreated)
 
-	expectStatusAuth(t, server, otherAuth.Token, http.MethodGet, "/v1/users/"+ownerAuth.User.ID.String(), nil, http.StatusForbidden)
-	expectStatusAuth(t, server, otherAuth.Token, http.MethodGet, "/v1/workouts/"+workout.ID.String(), nil, http.StatusForbidden)
+	expectStatusAuth(t, server, otherAuth.AccessToken, http.MethodGet, "/v1/users/"+ownerAuth.User.ID.String(), nil, http.StatusForbidden)
+	expectStatusAuth(t, server, otherAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String(), nil, http.StatusForbidden)
 }
 
 type authEnvelope struct {
-	Token string      `json:"token"`
-	User  models.User `json:"user"`
+	AccessToken  string      `json:"access_token"`
+	RefreshToken string      `json:"refresh_token"`
+	ExpiresIn    int64       `json:"expires_in"`
+	User         models.User `json:"user"`
+}
+
+func registerTestUser(t *testing.T, handler http.Handler, email, name, password string) authEnvelope {
+	t.Helper()
+
+	return requestJSON[authEnvelope](t, handler, http.MethodPost, "/v1/auth/register", map[string]any{
+		"email":    email,
+		"name":     name,
+		"password": password,
+	}, http.StatusCreated)
 }
 
 func newTestServer(t *testing.T) http.Handler {
@@ -527,16 +539,6 @@ func requestError(t *testing.T, handler http.Handler, method, path string, body 
 	t.Helper()
 
 	return requestErrorAuth(t, handler, "", method, path, body, wantStatus)
-}
-
-func registerTestUser(t *testing.T, handler http.Handler, email, name, password string) authEnvelope {
-	t.Helper()
-
-	return requestJSON[authEnvelope](t, handler, http.MethodPost, "/v1/auth/register", map[string]any{
-		"email":    email,
-		"name":     name,
-		"password": password,
-	}, http.StatusCreated)
 }
 
 func requestJSONAuth[T any](t *testing.T, handler http.Handler, token, method, path string, body any, wantStatus int) T {
