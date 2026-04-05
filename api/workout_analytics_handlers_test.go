@@ -303,7 +303,7 @@ func TestActivityCalendarDefaultReturns30Days(t *testing.T) {
 	user := userAuth.User
 
 	// Create workouts over many days to test the window
-	baseDate := time.Date(2026, 4, 4, 12, 0, 0, 0, time.UTC)
+	baseDate := time.Now().UTC()
 	for i := 0; i < 35; i++ {
 		date := baseDate.AddDate(0, 0, -i)
 		requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{

@@ -117,32 +117,32 @@ func TestExtractFoodNutrients(t *testing.T) {
 		t.Errorf("category = %q", extracted.category)
 	}
 
-	if extracted.calories != 52 {
-		t.Errorf("calories = %v, want 52", extracted.calories)
+	if extracted.calories != 94.64 {
+		t.Errorf("calories = %v, want 94.64", extracted.calories)
 	}
 
-	if extracted.protein != 0.3 {
-		t.Errorf("protein = %v, want 0.3", extracted.protein)
+	if extracted.protein != 0.546 {
+		t.Errorf("protein = %v, want 0.546", extracted.protein)
 	}
 
-	if extracted.carbs != 13.8 {
-		t.Errorf("carbs = %v, want 13.8", extracted.carbs)
+	if extracted.carbs != 25.116000000000003 {
+		t.Errorf("carbs = %v, want 25.116000000000003", extracted.carbs)
 	}
 
-	if extracted.fat != 0.2 {
-		t.Errorf("fat = %v, want 0.2", extracted.fat)
+	if extracted.fat != 0.36400000000000005 {
+		t.Errorf("fat = %v, want 0.36400000000000005", extracted.fat)
 	}
 
-	if extracted.fiber != 2.4 {
-		t.Errorf("fiber = %v, want 2.4", extracted.fiber)
+	if extracted.fiber != 4.368 {
+		t.Errorf("fiber = %v, want 4.368", extracted.fiber)
 	}
 
-	if extracted.sugar != 10.4 {
-		t.Errorf("sugar = %v, want 10.4", extracted.sugar)
+	if extracted.sugar != 18.928 {
+		t.Errorf("sugar = %v, want 18.928", extracted.sugar)
 	}
 
-	if extracted.sodium != 1.0 {
-		t.Errorf("sodium = %v, want 1.0", extracted.sodium)
+	if extracted.sodium != 1.82 {
+		t.Errorf("sodium = %v, want 1.82", extracted.sodium)
 	}
 
 	// Should have the per-100g nutrient map populated

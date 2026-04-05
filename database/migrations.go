@@ -47,6 +47,9 @@ func Migrate(db *gorm.DB) error {
 		&services.UserSession{},
 		&services.ExportJob{},
 		&services.DeletionRequest{},
+		&models.FavoriteFood{},
+		&models.Recipe{},
+		&models.RecipeItem{},
 	)
 	if err != nil {
 		return err

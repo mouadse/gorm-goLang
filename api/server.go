@@ -73,6 +73,7 @@ func (s *Server) registerRoutes() {
 	protected("DELETE /v1/users/{id}", s.handleDeleteUser)
 	protected("GET /v1/users/{user_id}/summary", s.handleGetDailySummary)
 	protected("GET /v1/summary", s.handleGetDailySummary)
+	protected("GET /v1/users/{user_id}/nutrition-targets", s.handleGetUserNutritionTargets)
 
 	// Phase 2: Analytics & Adherence
 	protected("GET /v1/users/{user_id}/records", s.handleGetUserRecords)
@@ -132,6 +133,8 @@ func (s *Server) registerRoutes() {
 	protected("GET /v1/meals/{id}", s.handleGetMeal)
 	protected("PATCH /v1/meals/{id}", s.handleUpdateMeal)
 	protected("DELETE /v1/meals/{id}", s.handleDeleteMeal)
+	protected("GET /v1/meals/recent", s.handleGetRecentMeals)
+	protected("POST /v1/meals/{id}/clone", s.handleCloneMeal)
 
 	// Foods
 	s.mux.HandleFunc("GET /v1/foods", s.handleListFoods)
@@ -139,6 +142,10 @@ func (s *Server) registerRoutes() {
 	protected("POST /v1/foods", s.handleCreateFood)
 	protected("PATCH /v1/foods/{id}", s.handleUpdateFood)
 	protected("DELETE /v1/foods/{id}", s.handleDeleteFood)
+	protected("GET /v1/foods/recent", s.handleGetRecentFoods)
+	protected("POST /v1/foods/{id}/favorite", s.handleFavoriteFood)
+	protected("DELETE /v1/foods/{id}/favorite", s.handleUnfavoriteFood)
+	protected("GET /v1/users/{user_id}/favorites", s.handleGetFavorites)
 
 	// Meal foods
 	protected("POST /v1/meal-foods", s.handleCreateMealFood)
@@ -162,6 +169,15 @@ func (s *Server) registerRoutes() {
 	protected("PATCH /v1/workout-templates/{id}", s.handleUpdateTemplate)
 	protected("DELETE /v1/workout-templates/{id}", s.handleDeleteTemplate)
 	protected("POST /v1/workout-templates/{id}/apply", s.handleApplyTemplate)
+
+	// Recipes
+	protected("POST /v1/recipes", s.handleCreateRecipe)
+	protected("GET /v1/recipes", s.handleListRecipes)
+	protected("GET /v1/recipes/{id}", s.handleGetRecipe)
+	protected("PATCH /v1/recipes/{id}", s.handleUpdateRecipe)
+	protected("DELETE /v1/recipes/{id}", s.handleDeleteRecipe)
+	protected("GET /v1/recipes/{id}/nutrition", s.handleGetRecipeNutrition)
+	protected("POST /v1/recipes/{id}/log-to-meal", s.handleLogRecipeToMeal)
 
 	// Admin: USDA Food Import
 	s.mux.Handle("POST /v1/admin/import-usda", Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleImportUSDA))))
