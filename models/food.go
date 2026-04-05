@@ -27,6 +27,9 @@ type Food struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+
+	// Relationships
+	Nutrients []FoodNutrient `gorm:"foreignKey:FoodID" json:"nutrients,omitempty"`
 }
 
 // BeforeCreate sets a new UUID before inserting.

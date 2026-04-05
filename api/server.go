@@ -73,6 +73,10 @@ func (s *Server) registerRoutes() {
 	protected("DELETE /v1/users/{id}", s.handleDeleteUser)
 	protected("GET /v1/users/{user_id}/summary", s.handleGetDailySummary)
 	protected("GET /v1/summary", s.handleGetDailySummary)
+	protected("GET /v1/users/{user_id}/weekly-summary", s.handleGetWeeklySummary)
+	protected("GET /v1/weekly-summary", s.handleGetWeeklySummary)
+	protected("GET /v1/users/{user_id}/recommendations", s.handleGetRecommendations)
+	protected("GET /v1/recommendations", s.handleGetRecommendations)
 	protected("GET /v1/users/{user_id}/nutrition-targets", s.handleGetUserNutritionTargets)
 
 	// Phase 2: Analytics & Adherence

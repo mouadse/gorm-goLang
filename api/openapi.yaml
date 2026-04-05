@@ -1141,6 +1141,75 @@ paths:
           $ref: "#/components/responses/Error"
         "500":
           $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/summary:
+    get:
+      tags: [Summaries]
+      summary: Get daily summary
+      operationId: getDailySummary
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily summary.
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/weekly-summary:
+    get:
+      tags: [Summaries]
+      summary: Get weekly summary
+      operationId: getWeeklySummary
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Weekly summary.
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/recommendations:
+    get:
+      tags: [Summaries]
+      summary: Get recommendations
+      operationId: getRecommendations
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Nutrition recommendations based on rules.
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
 components:
   parameters:
     ID:
