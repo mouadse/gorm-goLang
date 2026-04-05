@@ -1,5 +1,7 @@
 # Fitness Tracker API
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mouadse/gorm-goLang)
+
 Lean Go backend for the core fitness tracking loop: users, exercise library, workouts, workout exercises, workout sets, meals, and weight entries.
 
 ## Scope
