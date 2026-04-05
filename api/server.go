@@ -22,6 +22,7 @@ type Server struct {
 	analyticsSvc *services.WorkoutAnalyticsService
 	adherenceSvc *services.AdherenceService
 	importSvc    *services.USDAImportService
+	exportSvc    *services.ExportService
 }
 
 func NewServer(db *gorm.DB) *Server {
@@ -35,6 +36,7 @@ func NewServer(db *gorm.DB) *Server {
 		analyticsSvc: services.NewWorkoutAnalyticsService(db),
 		adherenceSvc: services.NewAdherenceService(db),
 		importSvc:    services.NewUSDAImportService(db),
+		exportSvc:    services.NewExportService(db),
 	}
 	server.registerRoutes()
 	return server
@@ -185,6 +187,11 @@ func (s *Server) registerRoutes() {
 
 	// Admin: USDA Food Import
 	s.mux.Handle("POST /v1/admin/import-usda", Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleImportUSDA))))
+
+	// Exports & GDPR
+	protected("POST /v1/exports", s.handleCreateExportJob)
+	protected("GET /v1/exports/{id}", s.handleGetExportJob)
+	protected("POST /v1/account/delete-request", s.handleCreateDeletionRequest)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

@@ -56,14 +56,19 @@ func (e *ExportJob) BeforeCreate(tx *gorm.DB) error {
 
 // UserDataExport contains all user data for export.
 type UserDataExport struct {
-	ExportID      string               `json:"export_id"`
-	UserID        string               `json:"user_id"`
-	ExportedAt    time.Time            `json:"exported_at"`
-	Format        string               `json:"format"`
-	User          *models.User         `json:"user"`
-	Workouts      []WorkoutExport      `json:"workouts"`
-	Meals         []MealExport         `json:"meals"`
-	WeightEntries  []WeightEntryExport  `json:"weight_entries"`
+	ExportID           string                    `json:"export_id"`
+	UserID             string                    `json:"user_id"`
+	ExportedAt         time.Time                 `json:"exported_at"`
+	Format             string                    `json:"format"`
+	User               *models.User              `json:"user"`
+	Workouts           []WorkoutExport           `json:"workouts"`
+	Meals              []MealExport              `json:"meals"`
+	WeightEntries      []WeightEntryExport       `json:"weight_entries"`
+	FavoriteFoods      []FavoriteFoodExport      `json:"favorite_foods"`
+	Recipes            []RecipeExport            `json:"recipes"`
+	WorkoutTemplates   []WorkoutTemplateExport   `json:"workout_templates"`
+	WorkoutPrograms    []WorkoutProgramExport    `json:"workout_programs"`
+	ProgramAssignments []ProgramAssignmentExport `json:"program_assignments"`
 }
 
 // WorkoutExport represents a workout in the export format.
@@ -132,6 +137,97 @@ type WeightEntryExport struct {
 	Date      time.Time `json:"date"`
 	Notes     string    `json:"notes"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// FavoriteFoodExport represents a favorite food in the export format.
+type FavoriteFoodExport struct {
+	ID        uuid.UUID `json:"id"`
+	FoodID    uuid.UUID `json:"food_id"`
+	FoodName  string    `json:"food_name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// RecipeExport represents a recipe in the export format.
+type RecipeExport struct {
+	ID        uuid.UUID          `json:"id"`
+	Name      string             `json:"name"`
+	Servings  int                `json:"servings"`
+	Notes     string             `json:"notes"`
+	Items     []RecipeItemExport `json:"items"`
+	CreatedAt time.Time          `json:"created_at"`
+}
+
+// RecipeItemExport represents a recipe item in the export format.
+type RecipeItemExport struct {
+	FoodID    uuid.UUID `json:"food_id"`
+	FoodName  string    `json:"food_name"`
+	Quantity  float64   `json:"quantity"`
+}
+
+// WorkoutTemplateExport represents a workout template in the export format.
+type WorkoutTemplateExport struct {
+	ID           uuid.UUID                     `json:"id"`
+	Name         string                        `json:"name"`
+	Type         string                        `json:"type"`
+	Notes        string                        `json:"notes"`
+	Exercises    []WorkoutTemplateExerciseExport `json:"exercises"`
+	CreatedAt    time.Time                     `json:"created_at"`
+}
+
+// WorkoutTemplateExerciseExport represents a template exercise in the export format.
+type WorkoutTemplateExerciseExport struct {
+	ExerciseID   uuid.UUID                      `json:"exercise_id"`
+	ExerciseName string                         `json:"exercise_name"`
+	Order        int                            `json:"order"`
+	Sets         int                            `json:"sets"`
+	Reps         int                            `json:"reps"`
+	Weight       float64                        `json:"weight"`
+	RestTime     int                            `json:"rest_time"`
+	Notes        string                         `json:"notes"`
+	SetTemplates []WorkoutTemplateSetExport    `json:"set_templates"`
+}
+
+// WorkoutTemplateSetExport represents a template set in the export format.
+type WorkoutTemplateSetExport struct {
+	SetNumber   int     `json:"set_number"`
+	Reps        int     `json:"reps"`
+	Weight      float64 `json:"weight"`
+	RestSeconds int     `json:"rest_seconds"`
+}
+
+// WorkoutProgramExport represents a workout program in the export format.
+type WorkoutProgramExport struct {
+	ID          uuid.UUID                   `json:"id"`
+	Name        string                      `json:"name"`
+	Description string                      `json:"description"`
+	IsActive    bool                        `json:"is_active"`
+	Weeks       []ProgramWeekExport         `json:"weeks"`
+	CreatedAt   time.Time                   `json:"created_at"`
+}
+
+// ProgramWeekExport represents a program week in the export format.
+type ProgramWeekExport struct {
+	WeekNumber int                    `json:"week_number"`
+	Name       string                 `json:"name"`
+	Sessions   []ProgramSessionExport `json:"sessions"`
+}
+
+// ProgramSessionExport represents a program session in the export format.
+type ProgramSessionExport struct {
+	DayNumber  int    `json:"day_number"`
+	TemplateName string `json:"template_name,omitempty"`
+	Notes      string `json:"notes"`
+}
+
+// ProgramAssignmentExport represents a program assignment in the export format.
+type ProgramAssignmentExport struct {
+	ID          uuid.UUID `json:"id"`
+	ProgramID   uuid.UUID `json:"program_id"`
+	ProgramName string    `json:"program_name"`
+	AssignedAt  time.Time `json:"assigned_at"`
+	StartedAt   *time.Time `json:"started_at,omitempty"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	Status      string    `json:"status"`
 }
 
 // DeletionRequest represents a user deletion request.
@@ -349,6 +445,176 @@ func (s *ExportService) generateExportData(userID uuid.UUID, format ExportFormat
 		})
 	}
 
+	// Get favorite foods
+	var favoriteFoods []models.FavoriteFood
+	err = s.db.
+		Preload("Food").
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Find(&favoriteFoods).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ff := range favoriteFoods {
+		export.FavoriteFoods = append(export.FavoriteFoods, FavoriteFoodExport{
+			ID:        ff.ID,
+			FoodID:    ff.FoodID,
+			FoodName:  ff.Food.Name,
+			CreatedAt: ff.CreatedAt,
+		})
+	}
+
+	// Get recipes with items
+	var recipes []models.Recipe
+	err = s.db.
+		Preload("Items.Food").
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Find(&recipes).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range recipes {
+		recipeExport := RecipeExport{
+			ID:        r.ID,
+			Name:      r.Name,
+			Servings:  r.Servings,
+			Notes:     r.Notes,
+			CreatedAt: r.CreatedAt,
+		}
+
+		for _, item := range r.Items {
+			recipeExport.Items = append(recipeExport.Items, RecipeItemExport{
+				FoodID:   item.FoodID,
+				FoodName: item.Food.Name,
+				Quantity: item.Quantity,
+			})
+		}
+
+		export.Recipes = append(export.Recipes, recipeExport)
+	}
+
+	// Get workout templates with exercises and sets
+	var templates []models.WorkoutTemplate
+	err = s.db.
+		Preload("WorkoutTemplateExercises.Exercise").
+		Preload("WorkoutTemplateExercises.WorkoutTemplateSets").
+		Where("owner_id = ?", userID).
+		Order("created_at desc").
+		Find(&templates).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, t := range templates {
+		templateExport := WorkoutTemplateExport{
+			ID:        t.ID,
+			Name:      t.Name,
+			Type:      t.Type,
+			Notes:     t.Notes,
+			CreatedAt: t.CreatedAt,
+		}
+
+		for _, e := range t.WorkoutTemplateExercises {
+			exerciseExport := WorkoutTemplateExerciseExport{
+				ExerciseID:   e.ExerciseID,
+				ExerciseName: e.Exercise.Name,
+				Order:        e.Order,
+				Sets:         e.Sets,
+				Reps:         e.Reps,
+				Weight:       e.Weight,
+				RestTime:     e.RestTime,
+				Notes:        e.Notes,
+			}
+
+			for _, s := range e.WorkoutTemplateSets {
+				exerciseExport.SetTemplates = append(exerciseExport.SetTemplates, WorkoutTemplateSetExport{
+					SetNumber:   s.SetNumber,
+					Reps:        s.Reps,
+					Weight:      s.Weight,
+					RestSeconds: s.RestSeconds,
+				})
+			}
+
+			templateExport.Exercises = append(templateExport.Exercises, exerciseExport)
+		}
+
+		export.WorkoutTemplates = append(export.WorkoutTemplates, templateExport)
+	}
+
+	// Get workout programs created by user
+	var programs []models.WorkoutProgram
+	err = s.db.
+		Preload("Weeks.Sessions").
+		Where("created_by = ?", userID).
+		Order("created_at desc").
+		Find(&programs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, p := range programs {
+		programExport := WorkoutProgramExport{
+			ID:          p.ID,
+			Name:        p.Name,
+			Description: p.Description,
+			IsActive:    p.IsActive,
+			CreatedAt:   p.CreatedAt,
+		}
+
+		for _, w := range p.Weeks {
+			weekExport := ProgramWeekExport{
+				WeekNumber: w.WeekNumber,
+				Name:       w.Name,
+			}
+
+			for _, s := range w.Sessions {
+				templateName := ""
+				if s.Template != nil {
+					templateName = s.Template.Name
+				}
+				weekExport.Sessions = append(weekExport.Sessions, ProgramSessionExport{
+					DayNumber:    s.DayNumber,
+					TemplateName: templateName,
+					Notes:        s.Notes,
+				})
+			}
+
+			programExport.Weeks = append(programExport.Weeks, weekExport)
+		}
+
+		export.WorkoutPrograms = append(export.WorkoutPrograms, programExport)
+	}
+
+	// Get program assignments
+	var assignments []models.ProgramAssignment
+	err = s.db.
+		Preload("Program").
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Find(&assignments).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, a := range assignments {
+		programName := ""
+		if a.Program.ID != uuid.Nil {
+			programName = a.Program.Name
+		}
+		export.ProgramAssignments = append(export.ProgramAssignments, ProgramAssignmentExport{
+			ID:          a.ID,
+			ProgramID:   a.ProgramID,
+			ProgramName: programName,
+			AssignedAt:  a.AssignedAt,
+			StartedAt:   a.StartedAt,
+			CompletedAt: a.CompletedAt,
+			Status:      a.Status,
+		})
+	}
+
 	return export, nil
 }
 
@@ -382,7 +648,7 @@ func (s *ExportService) GetExportData(userID, jobID uuid.UUID) ([]byte, string, 
 }
 
 // exportToCSV converts the export data to CSV format.
-// It creates multiple CSV sections: user profile, workouts, meals, and weight entries.
+// It creates multiple CSV sections for all user data.
 func exportToCSV(export *UserDataExport) ([]byte, error) {
 	var buf strings.Builder
 	writer := csv.NewWriter(&buf)
@@ -460,6 +726,106 @@ func exportToCSV(export *UserDataExport) ([]byte, error) {
 			we.Notes,
 		})
 	}
+	writer.Write([]string{}) // Empty line
+
+	// Write favorite foods section
+	writer.Write([]string{"# FAVORITE FOODS"})
+	writer.Write([]string{"favorite_id", "food_id", "food_name", "created_at"})
+	for _, ff := range export.FavoriteFoods {
+		writer.Write([]string{
+			ff.ID.String(),
+			ff.FoodID.String(),
+			ff.FoodName,
+			ff.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	writer.Write([]string{}) // Empty line
+
+	// Write recipes section
+	writer.Write([]string{"# RECIPES"})
+	writer.Write([]string{"recipe_id", "name", "servings", "notes", "food_name", "quantity"})
+	for _, r := range export.Recipes {
+		for _, item := range r.Items {
+			writer.Write([]string{
+				r.ID.String(),
+				r.Name,
+				fmt.Sprintf("%d", r.Servings),
+				r.Notes,
+				item.FoodName,
+				fmt.Sprintf("%.2f", item.Quantity),
+			})
+		}
+	}
+	writer.Write([]string{}) // Empty line
+
+	// Write workout templates section
+	writer.Write([]string{"# WORKOUT TEMPLATES"})
+	writer.Write([]string{"template_id", "name", "type", "notes", "exercise_name", "order", "sets", "reps", "weight", "set_number", "set_reps", "set_weight"})
+	for _, t := range export.WorkoutTemplates {
+		for _, e := range t.Exercises {
+			for _, s := range e.SetTemplates {
+				writer.Write([]string{
+					t.ID.String(),
+					t.Name,
+					t.Type,
+					t.Notes,
+					e.ExerciseName,
+					fmt.Sprintf("%d", e.Order),
+					fmt.Sprintf("%d", e.Sets),
+					fmt.Sprintf("%d", e.Reps),
+					fmt.Sprintf("%.2f", e.Weight),
+					fmt.Sprintf("%d", s.SetNumber),
+					fmt.Sprintf("%d", s.Reps),
+					fmt.Sprintf("%.2f", s.Weight),
+				})
+			}
+		}
+	}
+	writer.Write([]string{}) // Empty line
+
+	// Write workout programs section
+	writer.Write([]string{"# WORKOUT PROGRAMS"})
+	writer.Write([]string{"program_id", "name", "description", "is_active", "week_number", "week_name", "day_number", "session_notes"})
+	for _, p := range export.WorkoutPrograms {
+		for _, w := range p.Weeks {
+			for _, s := range w.Sessions {
+				writer.Write([]string{
+					p.ID.String(),
+					p.Name,
+					p.Description,
+					fmt.Sprintf("%t", p.IsActive),
+					fmt.Sprintf("%d", w.WeekNumber),
+					w.Name,
+					fmt.Sprintf("%d", s.DayNumber),
+					s.Notes,
+				})
+			}
+		}
+	}
+	writer.Write([]string{}) // Empty line
+
+	// Write program assignments section
+	writer.Write([]string{"# PROGRAM ASSIGNMENTS"})
+	writer.Write([]string{"assignment_id", "program_id", "program_name", "assigned_at", "started_at", "completed_at", "status"})
+	for _, a := range export.ProgramAssignments {
+		startedAt := ""
+		if a.StartedAt != nil {
+			startedAt = a.StartedAt.Format(time.RFC3339)
+		}
+		completedAt := ""
+		if a.CompletedAt != nil {
+			completedAt = a.CompletedAt.Format(time.RFC3339)
+		}
+		writer.Write([]string{
+			a.ID.String(),
+			a.ProgramID.String(),
+			a.ProgramName,
+			a.AssignedAt.Format(time.RFC3339),
+			startedAt,
+			completedAt,
+			a.Status,
+		})
+	}
 
 	writer.Flush()
 	if writer.Error() != nil {
@@ -503,6 +869,10 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 		}
 
 		if len(workoutIDs) > 0 {
+			// Delete workout cardio entries
+			if err := tx.Where("workout_id IN ?", workoutIDs).Delete(&models.WorkoutCardioEntry{}).Error; err != nil {
+				return err
+			}
 			// Delete workout sets through workout exercises
 			if err := tx.Exec("DELETE FROM workout_sets WHERE workout_exercise_id IN (SELECT id FROM workout_exercises WHERE workout_id IN ?)", workoutIDs).Error; err != nil {
 				return err
@@ -528,6 +898,60 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 		// Delete weight entries
 		if err := tx.Where("user_id = ?", userID).Delete(&models.WeightEntry{}).Error; err != nil {
 			return err
+		}
+
+		// Delete favorite foods
+		if err := tx.Where("user_id = ?", userID).Delete(&models.FavoriteFood{}).Error; err != nil {
+			return err
+		}
+
+		// Delete recipe items and recipes
+		if err := tx.Exec("DELETE FROM recipe_items WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = ?)", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ?", userID).Delete(&models.Recipe{}).Error; err != nil {
+			return err
+		}
+
+		// Delete workout templates (owner_id)
+		var templateIDs []uuid.UUID
+		if err := tx.Model(&models.WorkoutTemplate{}).Where("owner_id = ?", userID).Pluck("id", &templateIDs).Error; err != nil {
+			return err
+		}
+		if len(templateIDs) > 0 {
+			// Delete template sets through template exercises
+			if err := tx.Exec("DELETE FROM workout_template_sets WHERE template_exercise_id IN (SELECT id FROM workout_template_exercises WHERE template_id IN ?)", templateIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("template_id IN ?", templateIDs).Delete(&models.WorkoutTemplateExercise{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("id IN ?", templateIDs).Delete(&models.WorkoutTemplate{}).Error; err != nil {
+				return err
+			}
+		}
+
+		// Delete program assignments (user_id)
+		if err := tx.Where("user_id = ?", userID).Delete(&models.ProgramAssignment{}).Error; err != nil {
+			return err
+		}
+
+		// Delete workout programs created by user (created_by)
+		var programIDs []uuid.UUID
+		if err := tx.Model(&models.WorkoutProgram{}).Where("created_by = ?", userID).Pluck("id", &programIDs).Error; err != nil {
+			return err
+		}
+		if len(programIDs) > 0 {
+			// Delete program sessions through weeks
+			if err := tx.Exec("DELETE FROM program_sessions WHERE week_id IN (SELECT id FROM program_weeks WHERE program_id IN ?)", programIDs).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("program_id IN ?", programIDs).Delete(&models.ProgramWeek{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("id IN ?", programIDs).Delete(&models.WorkoutProgram{}).Error; err != nil {
+				return err
+			}
 		}
 
 		// Delete export jobs (but keep deletion request record)

@@ -108,7 +108,6 @@ func legacyTables() []string {
 		"messages",
 		"notifications",
 		"weekly_adjustments",
-		"workout_programs",
 		"program_enrollments",
 		"program_progresses",
 	}

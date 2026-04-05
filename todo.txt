@@ -357,7 +357,7 @@ PHASE 6: SUMMARIES & INTEGRATION RULES
 PHASE 7: PLATFORM FEATURES
 ================================================================================
 
-[ ] 16. Exports & GDPR Workflows
+[x] 16. Exports & GDPR Workflows
     Schema:
       - exports table (id, user_id, format, status, file_path, created_at, completed_at)
       - optional: deletion_requests table
@@ -451,7 +451,7 @@ RECOMMENDED BUILD ORDER
 13. Recipes                                          [Phase 5] ✓
 14. Richer summaries                                 [Phase 6] ✓
 15. Workout-nutrition rule engine                    [Phase 6] ✓
-16. Exports and GDPR workflows                       [Phase 7]
+16. Exports and GDPR workflows                       [Phase 7] ✓
 17. Notifications                                    [Phase 7]
 18. 2FA                                              [Phase 7]
 

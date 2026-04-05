@@ -1210,6 +1210,93 @@ paths:
           $ref: "#/components/responses/Error"
         "404":
           $ref: "#/components/responses/Error"
+  /v1/exports:
+    post:
+      tags: [Exports]
+      summary: Create export job
+      operationId: createExportJob
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format:
+                  type: string
+                  enum: [json, csv]
+      responses:
+        "202":
+          description: Export job created and processing asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportJob"
+  /v1/exports/{id}:
+    get:
+      tags: [Exports]
+      summary: Get export job status or download data
+      operationId: getExportJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: download
+          in: query
+          schema:
+            type: boolean
+          description: If true, downloads the exported data instead of returning the status.
+      responses:
+        "200":
+          description: The export job status (without download) or the exported file data (with download=true).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ExportJob"
+                  - $ref: "#/components/schemas/UserDataExport"
+              examples:
+                jobStatus:
+                  summary: Export job status (when download is false or omitted)
+                  value:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    user_id: "123e4567-e89b-12d3-a456-426614174001"
+                    format: json
+                    status: completed
+                    created_at: "2024-01-15T10:30:00Z"
+                downloadedData:
+                  summary: Exported user data (when download=true and format=json)
+                  value:
+                    export_id: "123e4567-e89b-12d3-a456-426614174002"
+                    user_id: "123e4567-e89b-12d3-a456-426614174001"
+                    exported_at: "2024-01-15T10:35:00Z"
+                    format: json
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          description: Export job not completed yet (when download=true).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/account/delete-request:
+    post:
+      tags: [Exports]
+      summary: Request account deletion
+      operationId: createDeletionRequest
+      responses:
+        "202":
+          description: Deletion request created and processing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionRequest"
 components:
   parameters:
     ID:
@@ -1951,3 +2038,390 @@ components:
           type: string
         type:
           type: string
+    ExportJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        format:
+          type: string
+        status:
+          type: string
+        file_path:
+          type: string
+        error:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+    UserDataExport:
+      type: object
+      description: Exported user data returned when download=true for JSON format.
+      properties:
+        export_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        exported_at:
+          type: string
+          format: date-time
+        format:
+          type: string
+          enum: [json, csv]
+        user:
+          $ref: "#/components/schemas/User"
+        workouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutExport"
+        meals:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealExport"
+        weight_entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeightEntryExport"
+        favorite_foods:
+          type: array
+          items:
+            $ref: "#/components/schemas/FavoriteFoodExport"
+        recipes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeExport"
+        workout_templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutTemplateExport"
+        workout_programs:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutProgramExport"
+        program_assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramAssignmentExport"
+    FavoriteFoodExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        food_id:
+          type: string
+          format: uuid
+        food_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    RecipeExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        servings:
+          type: integer
+        notes:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeItemExport"
+        created_at:
+          type: string
+          format: date-time
+    RecipeItemExport:
+      type: object
+      properties:
+        food_id:
+          type: string
+          format: uuid
+        food_name:
+          type: string
+        quantity:
+          type: number
+          format: float
+    WorkoutTemplateExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        notes:
+          type: string
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutTemplateExerciseExport"
+        created_at:
+          type: string
+          format: date-time
+    WorkoutTemplateExerciseExport:
+      type: object
+      properties:
+        exercise_id:
+          type: string
+          format: uuid
+        exercise_name:
+          type: string
+        order:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+          format: float
+        rest_time:
+          type: integer
+        notes:
+          type: string
+        set_templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutTemplateSetExport"
+    WorkoutTemplateSetExport:
+      type: object
+      properties:
+        set_number:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+          format: float
+        rest_seconds:
+          type: integer
+    WorkoutProgramExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        is_active:
+          type: boolean
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramWeekExport"
+        created_at:
+          type: string
+          format: date-time
+    ProgramWeekExport:
+      type: object
+      properties:
+        week_number:
+          type: integer
+        name:
+          type: string
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramSessionExport"
+    ProgramSessionExport:
+      type: object
+      properties:
+        day_number:
+          type: integer
+        template_name:
+          type: string
+        notes:
+          type: string
+    ProgramAssignmentExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        program_id:
+          type: string
+          format: uuid
+        program_name:
+          type: string
+        assigned_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+    WorkoutExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+        type:
+          type: string
+        notes:
+          type: string
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutExerciseExport"
+        created_at:
+          type: string
+          format: date-time
+    WorkoutExerciseExport:
+      type: object
+      properties:
+        exercise_id:
+          type: string
+          format: uuid
+        exercise_name:
+          type: string
+        order:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+          format: float
+        rest_time:
+          type: integer
+        notes:
+          type: string
+        set_entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutSetExport"
+    WorkoutSetExport:
+      type: object
+      properties:
+        set_number:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+          format: float
+        rpe:
+          type: number
+          format: float
+        rest_seconds:
+          type: integer
+        completed:
+          type: boolean
+    MealExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        meal_type:
+          type: string
+        date:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        foods:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealFoodExport"
+        total_calories:
+          type: number
+          format: float
+        total_protein:
+          type: number
+          format: float
+        total_carbs:
+          type: number
+          format: float
+        total_fat:
+          type: number
+          format: float
+        created_at:
+          type: string
+          format: date-time
+    MealFoodExport:
+      type: object
+      properties:
+        food_id:
+          type: string
+          format: uuid
+        food_name:
+          type: string
+        quantity:
+          type: number
+          format: float
+        calories:
+          type: number
+          format: float
+        protein:
+          type: number
+          format: float
+        carbs:
+          type: number
+          format: float
+        fat:
+          type: number
+          format: float
+    WeightEntryExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        weight:
+          type: number
+          format: float
+        date:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    DeletionRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+        processed_at:
+          type: string
+          format: date-time

@@ -16,7 +16,6 @@ var obsoleteTables = []string{
 	"weekly_adjustments",
 	"program_progresses",
 	"program_enrollments",
-	"workout_programs",
 }
 
 // Migrate runs all schema migrations required by the application.
