@@ -65,7 +65,7 @@ func calculateDeficiencies(proteinIntake, targetProtein float64, ironIntake floa
 	if targetProtein > 0 && proteinIntake < targetProtein*0.8 {
 		flags = append(flags, "Low Protein")
 	}
-	// Recommended Daily Allowance of iron is about 8-18mg depending on gender. 
+	// Recommended Daily Allowance of iron is about 8-18mg depending on gender.
 	// We'll use 18mg as a safe generic threshold, but 100% DV is around 18mg.
 	// Since iron is tracked from usda in mg. We flag if less than 10mg arbitrarily for this example,
 	// or 14mg.

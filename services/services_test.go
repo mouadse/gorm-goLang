@@ -129,9 +129,9 @@ func TestFindBest1RM(t *testing.T) {
 
 func TestCalculateExerciseSessionVolume(t *testing.T) {
 	sets := []WorkoutSetData{
-		{Weight: 100, Reps: 10, Completed: true},   // 1000
-		{Weight: 120, Reps: 8, Completed: true},    // 960
-		{Weight: 140, Reps: 5, Completed: false},   // skipped
+		{Weight: 100, Reps: 10, Completed: true}, // 1000
+		{Weight: 120, Reps: 8, Completed: true},  // 960
+		{Weight: 140, Reps: 5, Completed: false}, // skipped
 	}
 
 	volume := CalculateExerciseSessionVolume(sets)
@@ -214,10 +214,10 @@ func TestCalculateTDEE(t *testing.T) {
 
 func TestCalculateNutritionTargets(t *testing.T) {
 	tests := []struct {
-		name                string
-		input               NutritionTargetInput
-		expectCalorieRange  [2]int
-		expectProteinRange  [2]int
+		name               string
+		input              NutritionTargetInput
+		expectCalorieRange [2]int
+		expectProteinRange [2]int
 	}{
 		{
 			name: "muscle gain",
@@ -274,14 +274,14 @@ func TestCalculateNutritionTargets(t *testing.T) {
 
 func TestCalculateMacroPercentages(t *testing.T) {
 	tests := []struct {
-		name           string
-		protein        int
-		carbs          int
-		fat            int
+		name             string
+		protein          int
+		carbs            int
+		fat              int
 		expectProteinPct float64
 	}{
-		{"balanced macros", 150, 250, 67, 26.0},  // 600 + 1000 + 600 = 2200 cal
-		{"high protein", 200, 150, 67, 35.0},     // 800 + 600 + 600 = 2000 cal
+		{"balanced macros", 150, 250, 67, 26.0}, // 600 + 1000 + 600 = 2200 cal
+		{"high protein", 200, 150, 67, 35.0},    // 800 + 600 + 600 = 2000 cal
 		{"zero macros", 0, 0, 0, 0},
 	}
 
@@ -321,11 +321,11 @@ func TestAdjustForWorkout(t *testing.T) {
 	}
 
 	tests := []struct {
-		name              string
-		workoutType       string
-		duration          int
-		volume            float64
-		expectCalorieAdj  int
+		name             string
+		workoutType      string
+		duration         int
+		volume           float64
+		expectCalorieAdj int
 	}{
 		{"cardio 30min", "cardio", 30, 0, 300},
 		{"cardio 15min", "cardio", 15, 0, 150},
@@ -455,7 +455,7 @@ func TestGenerateSecureToken(t *testing.T) {
 func TestActivityLevelMapping(t *testing.T) {
 	// Verify activity multipliers are correct
 	expectedMultipliers := map[ActivityLevel]float64{
-		ActivitySedentary:         1.2,
+		ActivitySedentary:        1.2,
 		ActivityLightlyActive:    1.375,
 		ActivityModeratelyActive: 1.55,
 		ActivityActive:           1.725,
@@ -473,8 +473,8 @@ func TestActivityLevelMapping(t *testing.T) {
 func TestGoalModifiers(t *testing.T) {
 	// Verify goal modifiers are correct
 	tests := []struct {
-		goal          NutritionGoal
-		expectCaloriePct float64
+		goal              NutritionGoal
+		expectCaloriePct  float64
 		expectProteinMult float64
 	}{
 		{GoalBuildMuscle, 1.10, 2.2},

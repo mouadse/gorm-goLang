@@ -55,9 +55,9 @@ func NewUSDAImportService(db *gorm.DB) *USDAImportService {
 // --- Raw USDA JSON types (ported from standalone app) ---
 
 type usdaRawFood struct {
-	FdcID         int                  `json:"fdcId"`
-	Description   string               `json:"description"`
-	FoodCategory  usdaRawFoodCategory  `json:"foodCategory"`
+	FdcID         int                   `json:"fdcId"`
+	Description   string                `json:"description"`
+	FoodCategory  usdaRawFoodCategory   `json:"foodCategory"`
 	FoodNutrients []usdaRawFoodNutrient `json:"foodNutrients"`
 	FoodPortions  []usdaRawFoodPortion  `json:"foodPortions"`
 }
@@ -67,7 +67,7 @@ type usdaRawFoodCategory struct {
 }
 
 type usdaRawFoodNutrient struct {
-	Amount   float64        `json:"amount"`
+	Amount   float64         `json:"amount"`
 	Nutrient usdaRawNutrient `json:"nutrient"`
 }
 
@@ -188,15 +188,15 @@ func (s *USDAImportService) ImportFromFile(ctx context.Context, path string) (Im
 // extractFood converts a raw USDA food into our internal representation.
 func extractFood(raw usdaRawFood) extractedFood {
 	var (
-		calories       float64
-		atwaterGeneral float64
+		calories        float64
+		atwaterGeneral  float64
 		atwaterSpecific float64
-		protein        float64
-		fat            float64
-		carbs          float64
-		fiber          float64
-		sugar          float64
-		sodium         float64
+		protein         float64
+		fat             float64
+		carbs           float64
+		fiber           float64
+		sugar           float64
+		sodium          float64
 	)
 
 	nutrientsPer100g := make(map[int]float64, len(raw.FoodNutrients))

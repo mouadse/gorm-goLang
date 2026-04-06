@@ -106,7 +106,6 @@ func (s *Server) handleListFoods(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ensureSlice(foods))
 }
 
-
 func (s *Server) handleGetFood(w http.ResponseWriter, r *http.Request) {
 	id, err := parsePathUUID(r, "id")
 	if err != nil {

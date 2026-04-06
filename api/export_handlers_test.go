@@ -29,7 +29,7 @@ func TestExportJobFlow(t *testing.T) {
 
 		// Get job status
 		fetched := requestJSONAuth[services.ExportJob](t, server, userAuth.AccessToken, http.MethodGet, "/v1/exports/"+job.ID.String(), nil, http.StatusOK)
-		
+
 		if fetched.Status != services.ExportCompleted {
 			// Might be still processing, let's wait a bit more and retry
 			time.Sleep(500 * time.Millisecond)
@@ -54,7 +54,7 @@ func TestExportJobFlow(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil {
 			t.Fatalf("failed to decode downloaded json: %v", err)
 		}
-		
+
 		if data.UserID != userAuth.User.ID.String() {
 			t.Fatalf("expected export user ID %s, got %s", userAuth.User.ID, data.UserID)
 		}

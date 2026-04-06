@@ -64,8 +64,14 @@ func Migrate(db *gorm.DB) error {
 		&models.Recipe{},
 		&models.RecipeItem{},
 		&models.Notification{},
+		&models.AuditLog{},
+		&models.FoodImportLog{},
 	)
 	if err != nil {
+		return err
+	}
+
+	if err := EnsureAdminViews(db); err != nil {
 		return err
 	}
 

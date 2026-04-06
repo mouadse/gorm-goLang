@@ -27,6 +27,7 @@ func main() {
 	addr := fmt.Sprintf(":%s", port)
 
 	server := api.NewServer(db)
+	server.StartBackgroundTasks()
 	log.Printf("fitness-tracker API listening on %s", addr)
 	if err := http.ListenAndServe(addr, server.Handler()); err != nil {
 		log.Fatalf("server failed: %v", err)

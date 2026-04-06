@@ -21,9 +21,9 @@ func NewAdherenceService(db *gorm.DB) *AdherenceService {
 
 // Streaks holds the streak data for a user.
 type Streaks struct {
-	WorkoutStreak int `json:"workout_streak"` // consecutive weeks with a workout
-	MealStreak    int `json:"meal_streak"`    // consecutive days with a meal
-	WeighInStreak int `json:"weigh_in_streak"`// consecutive days with a weigh-in
+	WorkoutStreak int `json:"workout_streak"`  // consecutive weeks with a workout
+	MealStreak    int `json:"meal_streak"`     // consecutive days with a meal
+	WeighInStreak int `json:"weigh_in_streak"` // consecutive days with a weigh-in
 }
 
 // AdherenceSummary holds adherence percentages for different periods.
@@ -126,7 +126,7 @@ func (s *AdherenceService) GetActivityCalendar(userID uuid.UUID, start, end time
 	}
 
 	calendar := make(map[string][]string)
-	
+
 	addActivity := func(date time.Time, activity string) {
 		dStr := date.Format("2006-01-02")
 		for _, a := range calendar[dStr] {

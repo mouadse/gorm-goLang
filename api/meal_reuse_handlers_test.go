@@ -69,7 +69,7 @@ func TestMealReuseHandlers(t *testing.T) {
 
 	t.Run("Clone Meal", func(t *testing.T) {
 		cloned := requestJSONAuth[models.Meal](t, server, auth.AccessToken, http.MethodPost, "/v1/meals/"+meal.ID.String()+"/clone", nil, http.StatusCreated)
-		
+
 		if cloned.ID == meal.ID {
 			t.Fatalf("expected cloned meal to have different ID")
 		}
@@ -83,17 +83,21 @@ func TestMealReuseHandlers(t *testing.T) {
 
 	t.Run("Get Recent Foods", func(t *testing.T) {
 		recentFoods := requestJSONAuth[[]models.Food](t, server, auth.AccessToken, http.MethodGet, "/v1/foods/recent", nil, http.StatusOK)
-		
+
 		if len(recentFoods) != 2 {
 			t.Fatalf("expected 2 recent foods, got %d", len(recentFoods))
 		}
-		
+
 		// Because food2 was added after food1, it might be first in recent sorting
 		found1 := false
 		found2 := false
 		for _, f := range recentFoods {
-			if f.ID == food1.ID { found1 = true }
-			if f.ID == food2.ID { found2 = true }
+			if f.ID == food1.ID {
+				found1 = true
+			}
+			if f.ID == food2.ID {
+				found2 = true
+			}
 		}
 		if !found1 || !found2 {
 			t.Fatalf("failed to find both recent foods")

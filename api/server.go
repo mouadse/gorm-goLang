@@ -1,16 +1,21 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"fitness-tracker/metrics"
 	"fitness-tracker/services"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -27,10 +32,28 @@ type Server struct {
 	twoFactorSvc    *services.TwoFactorService
 	twoFactorLimit  *twoFactorAttemptLimiter
 	twoFactorTokens *twoFactorChallengeStore
+	adminSvc        *services.AdminDashboardService
+	redisClient     *redis.Client
 }
 
 func NewServer(db *gorm.DB) *Server {
 	m := metrics.New()
+
+	var redisClient *redis.Client
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr != "" {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr: redisAddr,
+		})
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := redisClient.Ping(ctx).Err(); err != nil {
+			log.Printf("⚠️ Redis connection failed: %v. Continuing without cache.", err)
+			redisClient = nil
+		} else {
+			log.Println("✅ Redis connection established")
+		}
+	}
 
 	server := &Server{
 		db:              db,
@@ -45,6 +68,8 @@ func NewServer(db *gorm.DB) *Server {
 		twoFactorSvc:    services.NewTwoFactorService(db),
 		twoFactorLimit:  newTwoFactorAttemptLimiter(),
 		twoFactorTokens: newTwoFactorChallengeStore(),
+		adminSvc:        services.NewAdminDashboardService(db, redisClient, m),
+		redisClient:     redisClient,
 	}
 	server.registerRoutes()
 	return server
@@ -196,6 +221,23 @@ func (s *Server) registerRoutes() {
 	protected("DELETE /v1/recipes/{id}", s.handleDeleteRecipe)
 	protected("GET /v1/recipes/{id}/nutrition", s.handleGetRecipeNutrition)
 	protected("POST /v1/recipes/{id}/log-to-meal", s.handleLogRecipeToMeal)
+
+	// Admin Dashboard
+	admin := func(pattern string, handler http.HandlerFunc) {
+		s.mux.Handle(pattern, Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(handler))))
+	}
+
+	admin("GET /v1/admin/dashboard/summary", s.handleAdminDashboardSummary)
+	admin("GET /v1/admin/dashboard/trends", s.handleAdminDashboardTrends)
+	admin("GET /v1/admin/users/stats", s.handleAdminUserStats)
+	admin("GET /v1/admin/users/growth", s.handleAdminUserGrowth)
+	admin("GET /v1/admin/workouts/stats", s.handleAdminWorkoutStats)
+	admin("GET /v1/admin/workouts/exercises/popular", s.handleAdminPopularExercises)
+	admin("GET /v1/admin/nutrition/stats", s.handleAdminNutritionStats)
+	admin("GET /v1/admin/moderation/stats", s.handleAdminModerationStats)
+	admin("GET /v1/admin/system/health", s.handleAdminSystemHealth)
+	admin("GET /v1/admin/audit-logs", s.handleAdminListAuditLogs)
+	s.mux.Handle("GET /v1/admin/dashboard/realtime", Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleAdminRealtimeWS))))
 
 	// Admin: USDA Food Import
 	s.mux.Handle("POST /v1/admin/import-usda", Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleImportUSDA))))

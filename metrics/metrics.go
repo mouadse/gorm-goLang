@@ -16,15 +16,15 @@ type Metrics struct {
 	ResponseSize    *prometheus.HistogramVec
 
 	// Database metrics
-	DBQueriesTotal   *prometheus.CounterVec
-	DBQueryDuration  *prometheus.HistogramVec
+	DBQueriesTotal     *prometheus.CounterVec
+	DBQueryDuration    *prometheus.HistogramVec
 	DBConnectionsInUse prometheus.Gauge
 
 	// Business metrics
-	WorkoutsCreated    prometheus.Counter
-	MealsLogged        prometheus.Counter
+	WorkoutsCreated     prometheus.Counter
+	MealsLogged         prometheus.Counter
 	WeightEntriesLogged prometheus.Counter
-	UsersRegistered    prometheus.Counter
+	UsersRegistered     prometheus.Counter
 }
 
 // New creates a new Metrics instance with all metrics registered.

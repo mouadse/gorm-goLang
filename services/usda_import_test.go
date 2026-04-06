@@ -228,8 +228,8 @@ func TestExtractFoodAtwaterCalorieFallback(t *testing.T) {
 
 	// Test that Atwater energy values are used when standard calories are 0
 	raw := usdaRawFood{
-		FdcID:       900,
-		Description: "Test food",
+		FdcID:        900,
+		Description:  "Test food",
 		FoodCategory: usdaRawFoodCategory{Description: "Test"},
 		FoodNutrients: []usdaRawFoodNutrient{
 			{Amount: 0, Nutrient: usdaRawNutrient{ID: usdaNutrientCalories}},
@@ -282,8 +282,8 @@ func TestRound2(t *testing.T) {
 		expected float64
 	}{
 		{0.0, 0.0},
-		{1.005, 1.0},   // IEEE-754: 1.005 is stored as 1.00499... → rounds to 1.00
-		{1.006, 1.01},  // 1.006 rounds up to 1.01
+		{1.005, 1.0},  // IEEE-754: 1.005 is stored as 1.00499... → rounds to 1.00
+		{1.006, 1.01}, // 1.006 rounds up to 1.01
 		{3.14159, 3.14},
 		{52.0, 52.0},
 		{0.125, 0.13},

@@ -228,14 +228,14 @@ func seedFoodNutrients(db *gorm.DB, foods []models.Food) error {
 			}
 		case "Broccoli":
 			foodNutrients = []models.FoodNutrient{
-				{FoodID: food.ID, NutrientID: nutrients["1162"].ID, AmountPer100g: 89.2}, // Vitamin C
-				{FoodID: food.ID, NutrientID: nutrients["1087"].ID, AmountPer100g: 47.0}, // Calcium
+				{FoodID: food.ID, NutrientID: nutrients["1162"].ID, AmountPer100g: 89.2},  // Vitamin C
+				{FoodID: food.ID, NutrientID: nutrients["1087"].ID, AmountPer100g: 47.0},  // Calcium
 				{FoodID: food.ID, NutrientID: nutrients["1185"].ID, AmountPer100g: 101.6}, // Vitamin K
 			}
 		case "Egg":
 			foodNutrients = []models.FoodNutrient{
-				{FoodID: food.ID, NutrientID: nutrients["1178"].ID, AmountPer100g: 1.1},  // Vitamin B-12
-				{FoodID: food.ID, NutrientID: nutrients["1114"].ID, AmountPer100g: 1.1},  // Vitamin D
+				{FoodID: food.ID, NutrientID: nutrients["1178"].ID, AmountPer100g: 1.1},   // Vitamin B-12
+				{FoodID: food.ID, NutrientID: nutrients["1114"].ID, AmountPer100g: 1.1},   // Vitamin D
 				{FoodID: food.ID, NutrientID: nutrients["1104"].ID, AmountPer100g: 140.0}, // Vitamin A
 			}
 		}
@@ -332,15 +332,15 @@ func seedWorkoutCardioEntries(db *gorm.DB, source *rand.Rand, users []models.Use
 	log.Println("  seeding workout cardio entries...")
 
 	modalities := []string{"running", "cycling", "rowing", "elliptical"}
-	
+
 	for i := 0; i < 12 && i < len(workouts); i++ {
 		workout := workouts[i]
-		
+
 		dist := 3.0 + float64(source.Intn(7))
 		unit := "km"
 		cals := 200 + source.Intn(300)
 		hr := 130 + source.Intn(35)
-		
+
 		entry := models.WorkoutCardioEntry{
 			WorkoutID:       workout.ID,
 			Modality:        modalities[source.Intn(len(modalities))],
@@ -464,7 +464,7 @@ func seedWorkoutPrograms(db *gorm.DB, users []models.User, templates []models.Wo
 				id := templates[dayNum%len(templates)].ID
 				templateID = &id
 			}
-			
+
 			session := models.ProgramSession{
 				WeekID:            week.ID,
 				DayNumber:         dayNum,
@@ -594,7 +594,7 @@ func seedRecipes(db *gorm.DB, source *rand.Rand, users []models.User, foods []mo
 	log.Println("  seeding recipes...")
 
 	recipeNames := []string{"Post-Workout Shake", "Chicken Rice Bowl", "Overnight Oats", "Omelette Deluxe"}
-	
+
 	for i, name := range recipeNames {
 		user := users[i%len(users)]
 		recipe := models.Recipe{
@@ -603,13 +603,13 @@ func seedRecipes(db *gorm.DB, source *rand.Rand, users []models.User, foods []mo
 			Servings: 1 + source.Intn(3),
 			Notes:    "Healthy and quick",
 		}
-		
+
 		if err := db.Where("user_id = ? AND name = ?", recipe.UserID, recipe.Name).
 			Assign(recipe).
 			FirstOrCreate(&recipe).Error; err != nil {
 			return err
 		}
-		
+
 		for j := 0; j < 3; j++ {
 			food := foods[(i+j)%len(foods)]
 			item := models.RecipeItem{
@@ -624,7 +624,7 @@ func seedRecipes(db *gorm.DB, source *rand.Rand, users []models.User, foods []mo
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -632,7 +632,7 @@ func seedNotifications(db *gorm.DB, users []models.User) error {
 	log.Println("  seeding notifications...")
 
 	now := time.Now().UTC()
-	
+
 	notificationSeeds := []struct {
 		Type    models.NotificationType
 		Title   string
@@ -653,7 +653,7 @@ func seedNotifications(db *gorm.DB, users []models.User) error {
 		if seed.Read {
 			readAt = &now
 		}
-		
+
 		notif := models.Notification{
 			UserID:  user.ID,
 			Type:    seed.Type,
@@ -661,14 +661,14 @@ func seedNotifications(db *gorm.DB, users []models.User) error {
 			Message: seed.Message,
 			ReadAt:  readAt,
 		}
-		
+
 		if err := db.Where("user_id = ? AND type = ? AND title = ?", notif.UserID, notif.Type, notif.Title).
 			Assign(notif).
 			FirstOrCreate(&models.Notification{}).Error; err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 

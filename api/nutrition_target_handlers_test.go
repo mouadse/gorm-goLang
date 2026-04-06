@@ -30,7 +30,7 @@ func TestGetUserNutritionTargets(t *testing.T) {
 
 	t.Run("Valid Request Target User", func(t *testing.T) {
 		targets := requestJSONAuth[services.NutritionTargets](t, server, auth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/nutrition-targets", nil, http.StatusOK)
-		
+
 		if targets.Calories <= 0 {
 			t.Fatalf("expected calculated calories > 0, got %d", targets.Calories)
 		}
@@ -47,7 +47,7 @@ func TestGetUserNutritionTargets(t *testing.T) {
 
 	t.Run("TDEE Override", func(t *testing.T) {
 		overrideAuth := registerTestUser(t, server, "override@example.com", "Override User", "password123")
-		
+
 		db.Model(&models.User{}).Where("id = ?", overrideAuth.User.ID).Updates(models.User{
 			DateOfBirth:   &dob,
 			Weight:        80,
@@ -69,7 +69,7 @@ func TestGetUserNutritionTargets(t *testing.T) {
 
 	t.Run("Unauthorized cross-user access", func(t *testing.T) {
 		otherAuth := registerTestUser(t, server, "other@example.com", "Other User", "password123")
-		
+
 		expectStatusAuth(t, server, auth.AccessToken, http.MethodGet, "/v1/users/"+otherAuth.User.ID.String()+"/nutrition-targets", nil, http.StatusForbidden)
 	})
 }

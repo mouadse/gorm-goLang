@@ -8,6 +8,10 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"fitness-tracker/models"
+
+	"github.com/google/uuid"
 )
 
 const defaultUSDADatasetPath = "FoodData_Central_foundation_food_json_2025-12-18.json"
@@ -47,11 +51,30 @@ func (s *Server) handleImportUSDA(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 
+	startTime := time.Now()
 	stats, err := s.importSvc.ImportFromFile(ctx, filePath)
+	duration := time.Since(startTime)
+
+	adminID, _ := authenticatedUserID(r)
+	importLog := models.FoodImportLog{
+		AdminID:       adminID,
+		Source:        "usda",
+		Status:        "success",
+		FoodsImported: stats.NewFoods,
+		DurationMs:    duration.Milliseconds(),
+		CreatedAt:     time.Now(),
+	}
+
 	if err != nil {
+		importLog.Status = "failed"
+		importLog.ErrorMessage = err.Error()
+		s.db.Create(&importLog)
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	s.db.Create(&importLog)
+	s.logAdminAction(r, "import_usda", "food", uuid.Nil, nil, stats)
 
 	writeJSON(w, http.StatusOK, importUSDAResponse{
 		FoodCount:   stats.FoodCount,

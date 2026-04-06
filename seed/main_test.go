@@ -27,8 +27,8 @@ func TestSeedUsersBackfillsExistingRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed users: %v", err)
 	}
-	if len(users) != 4 {
-		t.Fatalf("expected 4 seeded users, got %d", len(users))
+	if len(users) != 12 {
+		t.Fatalf("expected 12 seeded users, got %d", len(users))
 	}
 
 	var alex models.User

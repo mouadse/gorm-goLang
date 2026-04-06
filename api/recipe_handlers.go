@@ -64,7 +64,7 @@ func (s *Server) handleCreateRecipe(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, errors.New("quantity must be greater than zero"))
 			return
 		}
-		
+
 		var food models.Food
 		if err := s.db.First(&food, "id = ?", itemReq.FoodID).Error; err != nil {
 			writeError(w, http.StatusBadRequest, errors.New("invalid food referenced"))
