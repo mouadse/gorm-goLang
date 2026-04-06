@@ -9,6 +9,7 @@ servers:
   - url: http://localhost:8080
 tags:
   - name: Health
+  - name: Auth
   - name: Users
   - name: Exercises
   - name: Workouts
@@ -16,6 +17,7 @@ tags:
   - name: Workout Sets
   - name: Meals
   - name: Weight Entries
+  - name: Notifications
 paths:
   /healthz:
     get:
@@ -29,6 +31,102 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with password and optional 2FA code
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        "202":
+          description: Password accepted and 2FA is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorChallengeResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/2fa/setup:
+    post:
+      tags: [Auth]
+      summary: Start 2FA setup for the authenticated user
+      operationId: setupTwoFactor
+      responses:
+        "201":
+          description: Secret and otpauth URL created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorSetupResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/2fa/verify:
+    post:
+      tags: [Auth]
+      summary: Verify 2FA setup with a TOTP code
+      operationId: verifyTwoFactor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwoFactorCodeRequest"
+      responses:
+        "200":
+          description: 2FA enabled and recovery codes generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorVerifyResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/2fa/disable:
+    post:
+      tags: [Auth]
+      summary: Disable 2FA for the authenticated user
+      operationId: disableTwoFactor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwoFactorCodeRequest"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/2fa/recover:
+    post:
+      tags: [Auth]
+      summary: Login with a recovery code
+      operationId: recoverTwoFactor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwoFactorRecoveryLoginRequest"
+      responses:
+        "200":
+          description: Login succeeded with recovery code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        default:
+          $ref: "#/components/responses/Error"
   /v1/users:
     get:
       tags: [Users]
@@ -1285,6 +1383,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List user notifications
+      operationId: listNotifications
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of notifications to return.
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of notifications to skip.
+      responses:
+        "200":
+          description: List of notifications ordered by creation date (newest first).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark notification as read
+      operationId: markNotificationRead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification marked as read.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      operationId: markAllNotificationsRead
+      responses:
+        "200":
+          description: All notifications marked as read.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Get unread notification count
+      operationId: getUnreadNotificationCount
+      responses:
+        "200":
+          description: Count of unread notifications.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unread_count:
+                    type: integer
+                    example: 5
+        "401":
+          $ref: "#/components/responses/Error"
   /v1/account/delete-request:
     post:
       tags: [Exports]
@@ -1336,6 +1525,79 @@ components:
       properties:
         error:
           type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        totp_code:
+          type: string
+        recovery_code:
+          type: string
+    TwoFactorCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+    TwoFactorRecoveryLoginRequest:
+      type: object
+      required: [email, password, recovery_code]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        recovery_code:
+          type: string
+    AuthSessionResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        user:
+          $ref: "#/components/schemas/User"
+        two_factor_required:
+          type: boolean
+    TwoFactorChallengeResponse:
+      type: object
+      required: [two_factor_required, user]
+      properties:
+        two_factor_required:
+          type: boolean
+        user:
+          $ref: "#/components/schemas/User"
+    TwoFactorSetupResponse:
+      type: object
+      required: [secret, otp_url, verified]
+      properties:
+        secret:
+          type: string
+        otp_url:
+          type: string
+        verified:
+          type: boolean
+    TwoFactorVerifyResponse:
+      type: object
+      required: [recovery_codes, verified]
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+        verified:
+          type: boolean
     PersonalRecord:
       type: object
       required: [type, exercise_id, exercise_name, value, date, workout_id]
@@ -2425,3 +2687,46 @@ components:
         processed_at:
           type: string
           format: date-time
+          nullable: true
+    Notification:
+      type: object
+      required: [id, user_id, type, title, message, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the notification.
+        user_id:
+          type: string
+          format: uuid
+          description: ID of the user who owns the notification.
+        type:
+          type: string
+          enum:
+            - low_protein_warning
+            - missed_meal_logging
+            - workout_reminder
+            - rest_day_warning
+            - export_ready
+            - recovery_warning
+            - goal_alignment_warning
+          description: Type of notification.
+        title:
+          type: string
+          description: Notification title.
+        message:
+          type: string
+          description: Detailed notification message.
+        payload_json:
+          type: string
+          description: Optional JSON payload with additional data.
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          description: Timestamp when the notification was marked as read.
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the notification was created.
