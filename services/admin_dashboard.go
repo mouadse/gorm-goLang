@@ -74,7 +74,7 @@ func (s *AdminDashboardService) GetExecutiveSummary(ctx context.Context) (*Execu
 
 func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*ExecutiveSummary, error) {
 	summary := &ExecutiveSummary{
-		UpdatedAt: time.Now(),
+		UpdatedAt: time.Now().UTC(),
 	}
 
 	// 1. Total Users
@@ -83,28 +83,20 @@ func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*E
 	}
 
 	// 2. DAU (Unique users with activity today)
-	today := time.Now().Truncate(24 * time.Hour)
-	err := s.db.Table("daily_user_stats").
-		Select("users_with_workouts + users_with_meals + users_with_weights as dau"). // This is simplified, should be distinct users
-		Where("stat_date = ?", today).
-		Row().Scan(&summary.DAU)
-	if err != nil {
-		// Fallback if today's entry is not yet in materialized view (not refreshed)
-		// Better approach: query raw tables for today's activity
-		var rawDAU int64
-		s.db.Raw(`
-			SELECT COUNT(DISTINCT user_id) FROM (
-				SELECT user_id FROM workouts WHERE date = ? AND deleted_at IS NULL
-				UNION ALL
-				SELECT user_id FROM meals WHERE date = ? AND deleted_at IS NULL
-				UNION ALL
-				SELECT user_id FROM weight_entries WHERE date = ? AND deleted_at IS NULL
-			) activities`, today, today, today).Scan(&rawDAU)
-		summary.DAU = rawDAU
-	}
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	var rawDAU int64
+	s.db.Raw(`
+		SELECT COUNT(DISTINCT user_id) FROM (
+			SELECT user_id FROM workouts WHERE date = ? AND deleted_at IS NULL
+			UNION ALL
+			SELECT user_id FROM meals WHERE date = ? AND deleted_at IS NULL
+			UNION ALL
+			SELECT user_id FROM weight_entries WHERE date = ? AND deleted_at IS NULL
+		) activities`, today, today, today).Scan(&rawDAU)
+	summary.DAU = rawDAU
 
 	// 3. MAU (Last 30 days)
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30).Truncate(24 * time.Hour)
+	thirtyDaysAgo := time.Now().UTC().AddDate(0, 0, -30).Truncate(24 * time.Hour)
 	s.db.Raw(`
 		SELECT COUNT(DISTINCT user_id) FROM (
 			SELECT user_id FROM workouts WHERE date >= ? AND deleted_at IS NULL
@@ -119,7 +111,7 @@ func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*E
 	}
 
 	// 4. New Users 7d
-	sevenDaysAgo := time.Now().AddDate(0, 0, -7)
+	sevenDaysAgo := time.Now().UTC().AddDate(0, 0, -7)
 	s.db.Model(&models.User{}).Where("created_at >= ? AND deleted_at IS NULL", sevenDaysAgo).Count(&summary.NewUsers7d)
 
 	// 5. Workouts Today
@@ -146,7 +138,7 @@ func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[strin
 
 	s.db.Model(&models.User{}).Where("deleted_at IS NULL").Count(&stats.TotalUsers)
 
-	sevenDaysAgo := time.Now().AddDate(0, 0, -7).Truncate(24 * time.Hour)
+	sevenDaysAgo := time.Now().UTC().AddDate(0, 0, -7).Truncate(24 * time.Hour)
 	s.db.Raw(`SELECT COUNT(DISTINCT user_id) FROM (
 		SELECT user_id FROM workouts WHERE date >= ? AND deleted_at IS NULL
 		UNION ALL
@@ -155,7 +147,7 @@ func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[strin
 		SELECT user_id FROM weight_entries WHERE date >= ? AND deleted_at IS NULL
 	) activities`, sevenDaysAgo, sevenDaysAgo, sevenDaysAgo).Scan(&stats.ActiveUsers7d)
 
-	thirtyDaysAgo := time.Now().AddDate(0, 0, -30).Truncate(24 * time.Hour)
+	thirtyDaysAgo := time.Now().UTC().AddDate(0, 0, -30).Truncate(24 * time.Hour)
 	s.db.Raw(`SELECT COUNT(DISTINCT user_id) FROM (
 		SELECT user_id FROM workouts WHERE date >= ? AND deleted_at IS NULL
 		UNION ALL
@@ -170,19 +162,68 @@ func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[strin
 		Group("goal").
 		Scan(&stats.GoalBreakdown)
 
-	s.db.Raw(`
+	growthQuery := `
 		SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as new_users
 		FROM users
 		WHERE deleted_at IS NULL
 		GROUP BY date
 		ORDER BY date DESC
 		LIMIT 30
-	`).Scan(&stats.Growth)
+	`
+	if s.db.Dialector.Name() == "sqlite" {
+		growthQuery = `
+			SELECT DATE(created_at) as date, COUNT(*) as new_users
+			FROM users
+			WHERE deleted_at IS NULL
+			GROUP BY date
+			ORDER BY date DESC
+			LIMIT 30
+		`
+	}
+	s.db.Raw(growthQuery).Scan(&stats.Growth)
 
-	s.db.Table("user_retention_cohorts").
-		Order("cohort_month DESC").
-		Limit(12).
-		Scan(&stats.Retention)
+	if s.db.Dialector.Name() == "sqlite" {
+		s.db.Raw(`
+			WITH cohorts AS (
+				SELECT 
+					id as user_id,
+					strftime('%Y-%m-01', created_at) as cohort_month
+				FROM users
+				WHERE deleted_at IS NULL
+			),
+			active_months AS (
+				SELECT DISTINCT
+					user_id,
+					strftime('%Y-%m-01', activity_date) as month
+				FROM (
+					SELECT user_id, date as activity_date FROM workouts WHERE deleted_at IS NULL
+					UNION ALL
+					SELECT user_id, date FROM meals WHERE deleted_at IS NULL
+					UNION ALL
+					SELECT user_id, date FROM weight_entries WHERE deleted_at IS NULL
+				) activities
+			)
+			SELECT 
+				c.cohort_month,
+				COUNT(DISTINCT c.user_id) as cohort_size,
+				SUM(CASE WHEN am.month = c.cohort_month THEN 1 ELSE 0 END) as month_0,
+				SUM(CASE WHEN am.month = date(c.cohort_month, '+1 month') THEN 1 ELSE 0 END) as month_1,
+				SUM(CASE WHEN am.month = date(c.cohort_month, '+2 months') THEN 1 ELSE 0 END) as month_2,
+				SUM(CASE WHEN am.month = date(c.cohort_month, '+3 months') THEN 1 ELSE 0 END) as month_3,
+				SUM(CASE WHEN am.month = date(c.cohort_month, '+6 months') THEN 1 ELSE 0 END) as month_6,
+				SUM(CASE WHEN am.month = date(c.cohort_month, '+12 months') THEN 1 ELSE 0 END) as month_12
+			FROM cohorts c
+			LEFT JOIN active_months am ON c.user_id = am.user_id
+			GROUP BY c.cohort_month
+			ORDER BY c.cohort_month DESC
+			LIMIT 12
+		`).Scan(&stats.Retention)
+	} else {
+		s.db.Table("user_retention_cohorts").
+			Order("cohort_month DESC").
+			Limit(12).
+			Scan(&stats.Retention)
+	}
 
 	return map[string]any{
 		"total_users":     stats.TotalUsers,
@@ -204,7 +245,7 @@ func (s *AdminDashboardService) GetWorkoutAnalytics(ctx context.Context) (map[st
 	}
 
 	s.db.Model(&models.Workout{}).Where("deleted_at IS NULL").Count(&stats.TotalWorkouts)
-	today := time.Now().Truncate(24 * time.Hour)
+	today := time.Now().UTC().Truncate(24 * time.Hour)
 	s.db.Model(&models.Workout{}).Where("date = ? AND deleted_at IS NULL", today).Count(&stats.WorkoutsToday)
 
 	s.db.Model(&models.Workout{}).
@@ -213,17 +254,44 @@ func (s *AdminDashboardService) GetWorkoutAnalytics(ctx context.Context) (map[st
 		Group("type").
 		Scan(&stats.TypeBreakdown)
 
-	s.db.Table("exercise_popularity").
-		Select("exercise_name, usage_count, unique_users").
-		Order("usage_count DESC").
-		Limit(20).
-		Scan(&stats.PopularExercises)
+	if s.db.Dialector.Name() == "sqlite" {
+		s.db.Raw(`
+			SELECT 
+				e.name as exercise_name,
+				COUNT(we.id) as usage_count,
+				COUNT(DISTINCT w.user_id) as unique_users
+			FROM exercises e
+			LEFT JOIN workout_exercises we ON e.id = we.exercise_id
+			LEFT JOIN workouts w ON we.workout_id = w.id
+			WHERE w.deleted_at IS NULL
+			GROUP BY e.id, e.name, e.muscle_group
+			ORDER BY usage_count DESC
+			LIMIT 20
+		`).Scan(&stats.PopularExercises)
+	} else {
+		s.db.Table("exercise_popularity").
+			Select("exercise_name, usage_count, unique_users").
+			Order("usage_count DESC").
+			Limit(20).
+			Scan(&stats.PopularExercises)
+	}
 
-	s.db.Table("daily_user_stats").
-		Select("stat_date, total_workouts").
-		Order("stat_date DESC").
-		Limit(30).
-		Scan(&stats.VolumeTrends)
+	if s.db.Dialector.Name() == "sqlite" {
+		s.db.Raw(`
+			SELECT date as stat_date, COUNT(*) as total_workouts 
+			FROM workouts 
+			WHERE deleted_at IS NULL 
+			GROUP BY date 
+			ORDER BY stat_date DESC 
+			LIMIT 30
+		`).Scan(&stats.VolumeTrends)
+	} else {
+		s.db.Table("daily_user_stats").
+			Select("stat_date, total_workouts").
+			Order("stat_date DESC").
+			Limit(30).
+			Scan(&stats.VolumeTrends)
+	}
 
 	return map[string]any{
 		"total_workouts":    stats.TotalWorkouts,
@@ -244,7 +312,7 @@ func (s *AdminDashboardService) GetNutritionAnalytics(ctx context.Context) (map[
 	}
 
 	s.db.Model(&models.Meal{}).Where("deleted_at IS NULL").Count(&stats.TotalMealsLogged)
-	today := time.Now().Truncate(24 * time.Hour)
+	today := time.Now().UTC().Truncate(24 * time.Hour)
 	s.db.Model(&models.Meal{}).Where("date = ? AND deleted_at IS NULL", today).Count(&stats.MealsToday)
 
 	s.db.Model(&models.Meal{}).
@@ -292,7 +360,7 @@ func (s *AdminDashboardService) GetModerationAnalytics(ctx context.Context) (map
 func (s *AdminDashboardService) GetSystemHealth(ctx context.Context) (map[string]any, error) {
 	health := map[string]any{
 		"status":    "healthy",
-		"timestamp": time.Now(),
+		"timestamp": time.Now().UTC(),
 	}
 
 	// Check DB

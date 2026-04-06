@@ -87,11 +87,35 @@ func (s *Server) handleAdminDashboardSummary(w http.ResponseWriter, r *http.Requ
 
 func (s *Server) handleAdminDashboardTrends(w http.ResponseWriter, r *http.Request) {
 	var trends []map[string]any
-	err := s.db.Table("daily_user_stats").
-		Select("stat_date, total_workouts, total_meals, total_weights").
-		Order("stat_date DESC").
-		Limit(30).
-		Scan(&trends).Error
+	var err error
+
+	if s.db.Dialector.Name() == "sqlite" {
+		err = s.db.Raw(`
+			WITH all_activities AS (
+				SELECT user_id, date, 'workout' as type, id FROM workouts WHERE deleted_at IS NULL
+				UNION ALL
+				SELECT user_id, date, 'meal' as type, id FROM meals WHERE deleted_at IS NULL
+				UNION ALL
+				SELECT user_id, date, 'weight' as type, id FROM weight_entries WHERE deleted_at IS NULL
+			)
+			SELECT 
+				date as stat_date,
+				SUM(CASE WHEN type = 'workout' THEN 1 ELSE 0 END) as total_workouts,
+				SUM(CASE WHEN type = 'meal' THEN 1 ELSE 0 END) as total_meals,
+				SUM(CASE WHEN type = 'weight' THEN 1 ELSE 0 END) as total_weights
+			FROM all_activities
+			GROUP BY date
+			ORDER BY stat_date DESC
+			LIMIT 30
+		`).Scan(&trends).Error
+	} else {
+		err = s.db.Table("daily_user_stats").
+			Select("stat_date, total_workouts, total_meals, total_weights").
+			Order("stat_date DESC").
+			Limit(30).
+			Scan(&trends).Error
+	}
+
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -110,14 +134,27 @@ func (s *Server) handleAdminUserStats(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminUserGrowth(w http.ResponseWriter, r *http.Request) {
 	var growth []map[string]any
-	s.db.Raw(`
+	
+	query := `
 		SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as new_users
 		FROM users
 		WHERE deleted_at IS NULL
 		GROUP BY date
 		ORDER BY date DESC
 		LIMIT 30
-	`).Scan(&growth)
+	`
+	if s.db.Dialector.Name() == "sqlite" {
+		query = `
+			SELECT DATE(created_at) as date, COUNT(*) as new_users
+			FROM users
+			WHERE deleted_at IS NULL
+			GROUP BY date
+			ORDER BY date DESC
+			LIMIT 30
+		`
+	}
+	s.db.Raw(query).Scan(&growth)
+	
 	writeJSON(w, http.StatusOK, growth)
 }
 
@@ -226,6 +263,14 @@ func (s *Server) StartBackgroundTasks() {
 	// Refresh materialized views every hour
 	tickerMV := time.NewTicker(1 * time.Hour)
 	go func() {
+		// Initial refresh on startup
+		log.Println("refreshing admin materialized views on startup...")
+		if err := database.RefreshAdminViews(s.db); err != nil {
+			log.Printf("⚠️ failed to refresh admin views on startup: %v", err)
+		} else {
+			log.Println("✅ admin views refreshed on startup")
+		}
+
 		for range tickerMV.C {
 			log.Println("refreshing admin materialized views...")
 			if err := database.RefreshAdminViews(s.db); err != nil {
@@ -238,7 +283,7 @@ func (s *Server) StartBackgroundTasks() {
 }
 
 func (s *Server) collectRealtimeMetrics() map[string]any {
-	today := time.Now().Truncate(24 * time.Hour)
+	today := time.Now().UTC().Truncate(24 * time.Hour)
 	var activeUsers, workoutsToday, mealsToday int64
 
 	s.db.Raw(`SELECT COUNT(DISTINCT user_id) FROM (
