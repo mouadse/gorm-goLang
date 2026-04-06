@@ -2,184 +2,119 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mouadse/gorm-goLang)
 
-Lean Go backend for the core fitness tracking loop: users, exercise library, workouts, workout exercises, workout sets, meals, and weight entries.
+Comprehensive Go backend for a complete fitness tracking ecosystem: users, exercises, workouts, nutrition, analytics, and automation.
 
-## Scope
+## Features & Scope
 
-The backend intentionally focuses on the highest-value entities:
+The backend provides a robust API for full-spectrum fitness tracking:
 
-- `User`: profile and training context
-- `Exercise`: reusable exercise library
-- `Workout`: logged training session
-- `WorkoutExercise`: exercise instance inside a workout
-- `WorkoutSet`: set-by-set workout logging
-- `Meal`: lightweight meal logging
-- `WeightEntry`: simple progress tracking
-
-Removed from the codebase:
-
-- social and friendship features
-- workout programs and enrollments
-- food catalog and meal-food joins
-- notifications, messages, and weekly adjustments
+- **User Management**: Profiles, goals, TDEE calculation, and two-factor authentication (2FA).
+- **Exercise Library**: Extensive muscle-group focused exercise database with instructions and video URLs.
+- **Workout Tracking**: Set-by-set logging, cardio entries, and workout notes.
+- **Workout Intelligence**: Reusable workout templates and long-term training programs.
+- **Nutrition Ecosystem**: 
+  - Comprehensive food catalog with USDA integration support.
+  - Detailed meal logging with food-item joins and micronutrient tracking (19+ vitamins/minerals).
+  - Recipe management and favorite foods.
+  - Dynamic nutrition targets based on user goals.
+- **Analytics & Reporting**: Workout volume analysis, progression tracking, and data export (JSON/CSV).
+- **Automation**: Intelligent notifications for low protein, workout reminders, and recovery warnings.
+- **Security**: JWT-based session management, bcrypt password hashing, and 2FA secrets.
 
 ## Stack
 
-- Go 1.25
-- GORM
-- PostgreSQL
-- Standard library HTTP router
+- **Language**: Go 1.25+
+- **Database**: PostgreSQL (GORM ORM)
+- **Monitoring**: Prometheus & Grafana
+- **Infrastructure**: Docker & Docker Compose
+- **Documentation**: OpenAPI 3.0 (Swagger UI)
 
 ## Project Structure
 
 ```text
 .
-├── api/
-│   ├── server.go
-│   ├── helpers.go
-│   ├── user_handlers.go
-│   ├── exercise_handlers.go
-│   ├── weight_entry_handlers.go
-│   ├── workout_handlers.go
-│   └── meal_handlers.go
-├── database/
-│   ├── database.go
-│   └── migrations.go
-├── models/
-│   ├── user.go
-│   ├── exercise.go
-│   ├── weight_entry.go
-│   ├── workout.go
-│   ├── workout_exercise.go
-│   ├── workout_set.go
-│   └── meal.go
-├── seed/
-│   └── main.go
+├── api/                # HTTP handlers and server orchestration
+├── database/           # Connection logic and schema migrations
+├── models/             # GORM entities (User, Workout, Meal, etc.)
+├── services/           # Business logic (Auth, Analytics, Notifications)
+├── metrics/            # Prometheus metrics middleware
+├── monitoring/         # Grafana/Prometheus configurations
+├── scripts/            # Utility scripts (USDA data import)
+└── seed/               # Idempotent development data seeder
 ```
 
 ## Quick Start
 
+### 1. Start Infrastructure
 ```bash
-make up
+docker-compose up -d
+```
+
+### 2. Seed Database
+```bash
 go run seed/main.go
-JWT_SECRET=replace-with-a-long-random-secret go run .
+```
+
+### 3. Run Application
+```bash
+# Set secret and run
+export JWT_SECRET=your-secure-random-secret
+go run .
 ```
 
 API default address: `http://localhost:8080`
 
-Interactive API docs:
+## Monitoring & Management
 
-- Swagger UI: `http://localhost:8080/docs`
-- OpenAPI spec: `http://localhost:8080/openapi.yaml`
-- Register test page: `http://localhost:8080/register`
-- Login test page: `http://localhost:8080/login`
+- **Swagger UI**: `http://localhost:8080/docs`
+- **Grafana**: `http://localhost:3000` (User: `admin`, Pass: `admin`)
+- **Prometheus**: `http://localhost:9090`
+- **pgAdmin**: `http://localhost:8081` (User: `admin@fitness-tracker.com`, Pass: `admin`)
 
 ## Configuration
 
 Environment variables:
 
-- `DATABASE_URL`
-- `PGHOST` default `localhost`
-- `PGPORT` default `5433`
-- `PGUSER` default `postgres`
-- `PGPASSWORD` default `postgres`
-- `PGDATABASE` default `fitness_tracker`
-- `PGSSLMODE` default `disable`
-- `PORT` default `8080`
-- `JWT_SECRET` required and must be set to a long random secret
+- `DATABASE_URL`: Full PostgreSQL connection string
+- `JWT_SECRET`: Required for authentication
+- `PORT`: Default `8080`
+- `PG*` (PGHOST, PGPORT, etc.): Individual connection parameters
 
-Seeded users can log in with password `password123`.
+## Seed Data Summary
 
-## API Surface
+Running `go run seed/main.go` generates a comprehensive dataset:
 
-### Health
+- **12 Users** (including one admin: `alex@example.com`)
+- **8 Core Exercises**
+- **8 Common Foods** linked to **19 Nutrients**
+- **24 Workouts** with nested exercises and sets
+- **12 Cardio Entries**
+- **6 Workout Templates**
+- **2 Training Programs**
+- **36 Meals**
+- **48 Weight Entries**
+- **24 Favorite Foods**
+- **4 Recipes**
+- **12 Notifications**
 
-- `GET /healthz`
+All seeded users use the password: `password123`.
 
-### Users
+## API Categories
 
-- `POST /v1/users`
-- `GET /v1/users`
-- `GET /v1/users/{id}`
-- `PATCH /v1/users/{id}`
-- `DELETE /v1/users/{id}`
+The API surface is organized into the following v1 namespaces:
 
-### Auth
-
-- `POST /v1/auth/register`
-- `POST /v1/auth/login`
-
-### Exercises
-
-- `POST /v1/exercises`
-- `GET /v1/exercises`
-- `GET /v1/exercises/{id}`
-- `PATCH /v1/exercises/{id}`
-- `DELETE /v1/exercises/{id}`
-
-### Workouts
-
-- `POST /v1/workouts`
-- `GET /v1/workouts`
-- `GET /v1/users/{user_id}/workouts`
-- `POST /v1/users/{user_id}/workouts`
-- `GET /v1/workouts/{id}`
-- `PATCH /v1/workouts/{id}`
-- `DELETE /v1/workouts/{id}`
-
-### Workout Exercises
-
-- `POST /v1/workout-exercises`
-- `GET /v1/workout-exercises`
-- `GET /v1/workouts/{id}/exercises`
-- `POST /v1/workouts/{id}/exercises`
-- `GET /v1/workout-exercises/{id}`
-- `PATCH /v1/workout-exercises/{id}`
-- `DELETE /v1/workout-exercises/{id}`
-
-### Workout Sets
-
-- `POST /v1/workout-sets`
-- `GET /v1/workout-sets`
-- `GET /v1/workout-exercises/{id}/sets`
-- `POST /v1/workout-exercises/{id}/sets`
-- `GET /v1/workout-sets/{id}`
-- `PATCH /v1/workout-sets/{id}`
-- `DELETE /v1/workout-sets/{id}`
-
-### Meals
-
-- `POST /v1/meals`
-- `GET /v1/meals`
-- `GET /v1/users/{user_id}/meals`
-- `POST /v1/users/{user_id}/meals`
-- `GET /v1/meals/{id}`
-- `PATCH /v1/meals/{id}`
-- `DELETE /v1/meals/{id}`
-
-### Weight Entries
-
-- `POST /v1/weight-entries`
-- `GET /v1/weight-entries`
-- `GET /v1/users/{user_id}/weight-entries`
-- `POST /v1/users/{user_id}/weight-entries`
-- `GET /v1/weight-entries/{id}`
-- `PATCH /v1/weight-entries/{id}`
-- `DELETE /v1/weight-entries/{id}`
-
-## Seed Data
-
-`go run seed/main.go` creates a lean development dataset:
-
-- 4 users
-- 8 exercises
-- 8 workouts with nested workout exercises and sets
-- 12 meals
-- 16 weight entries
+- `/v1/auth`: Registration, Login, 2FA, Session management
+- `/v1/users`: Profile updates, TDEE, Weight history
+- `/v1/exercises`: Global exercise library
+- `/v1/workouts`: Session logging, Cardio, Volume analytics
+- `/v1/templates`: Workout template management
+- `/v1/programs`: Multi-week training blocks
+- `/v1/meals`: Daily food logging, Recipes, Favorite foods
+- `/v1/foods`: Nutritional database lookup
+- `/v1/notifications`: User alerts and reminders
+- `/v1/export`: Data portability (JSON/CSV)
 
 ## Testing
-
-Run:
 
 ```bash
 go test ./...
