@@ -69,17 +69,18 @@ type UserDataExport struct {
 	WorkoutTemplates   []WorkoutTemplateExport   `json:"workout_templates"`
 	WorkoutPrograms    []WorkoutProgramExport    `json:"workout_programs"`
 	ProgramAssignments []ProgramAssignmentExport `json:"program_assignments"`
+	Notifications      []NotificationExport      `json:"notifications"`
 }
 
 // WorkoutExport represents a workout in the export format.
 type WorkoutExport struct {
-	ID        uuid.UUID                 `json:"id"`
-	Date      time.Time                 `json:"date"`
-	Duration  int                       `json:"duration"`
-	Type      string                    `json:"type"`
-	Notes     string                    `json:"notes"`
-	Exercises []WorkoutExerciseExport   `json:"exercises"`
-	CreatedAt time.Time                 `json:"created_at"`
+	ID        uuid.UUID               `json:"id"`
+	Date      time.Time               `json:"date"`
+	Duration  int                     `json:"duration"`
+	Type      string                  `json:"type"`
+	Notes     string                  `json:"notes"`
+	Exercises []WorkoutExerciseExport `json:"exercises"`
+	CreatedAt time.Time               `json:"created_at"`
 }
 
 // WorkoutExerciseExport represents a workout exercise in the export format.
@@ -107,16 +108,16 @@ type WorkoutSetExport struct {
 
 // MealExport represents a meal in the export format.
 type MealExport struct {
-	ID            uuid.UUID       `json:"id"`
-	MealType      string          `json:"meal_type"`
-	Date          time.Time       `json:"date"`
-	Notes         string          `json:"notes"`
+	ID            uuid.UUID        `json:"id"`
+	MealType      string           `json:"meal_type"`
+	Date          time.Time        `json:"date"`
+	Notes         string           `json:"notes"`
 	Foods         []MealFoodExport `json:"foods"`
-	TotalCalories float64         `json:"total_calories"`
-	TotalProtein  float64         `json:"total_protein"`
-	TotalCarbs    float64         `json:"total_carbs"`
-	TotalFat      float64         `json:"total_fat"`
-	CreatedAt     time.Time       `json:"created_at"`
+	TotalCalories float64          `json:"total_calories"`
+	TotalProtein  float64          `json:"total_protein"`
+	TotalCarbs    float64          `json:"total_carbs"`
+	TotalFat      float64          `json:"total_fat"`
+	CreatedAt     time.Time        `json:"created_at"`
 }
 
 // MealFoodExport represents a meal food in the export format.
@@ -159,32 +160,32 @@ type RecipeExport struct {
 
 // RecipeItemExport represents a recipe item in the export format.
 type RecipeItemExport struct {
-	FoodID    uuid.UUID `json:"food_id"`
-	FoodName  string    `json:"food_name"`
-	Quantity  float64   `json:"quantity"`
+	FoodID   uuid.UUID `json:"food_id"`
+	FoodName string    `json:"food_name"`
+	Quantity float64   `json:"quantity"`
 }
 
 // WorkoutTemplateExport represents a workout template in the export format.
 type WorkoutTemplateExport struct {
-	ID           uuid.UUID                     `json:"id"`
-	Name         string                        `json:"name"`
-	Type         string                        `json:"type"`
-	Notes        string                        `json:"notes"`
-	Exercises    []WorkoutTemplateExerciseExport `json:"exercises"`
-	CreatedAt    time.Time                     `json:"created_at"`
+	ID        uuid.UUID                       `json:"id"`
+	Name      string                          `json:"name"`
+	Type      string                          `json:"type"`
+	Notes     string                          `json:"notes"`
+	Exercises []WorkoutTemplateExerciseExport `json:"exercises"`
+	CreatedAt time.Time                       `json:"created_at"`
 }
 
 // WorkoutTemplateExerciseExport represents a template exercise in the export format.
 type WorkoutTemplateExerciseExport struct {
-	ExerciseID   uuid.UUID                      `json:"exercise_id"`
-	ExerciseName string                         `json:"exercise_name"`
-	Order        int                            `json:"order"`
-	Sets         int                            `json:"sets"`
-	Reps         int                            `json:"reps"`
-	Weight       float64                        `json:"weight"`
-	RestTime     int                            `json:"rest_time"`
-	Notes        string                         `json:"notes"`
-	SetTemplates []WorkoutTemplateSetExport    `json:"set_templates"`
+	ExerciseID   uuid.UUID                  `json:"exercise_id"`
+	ExerciseName string                     `json:"exercise_name"`
+	Order        int                        `json:"order"`
+	Sets         int                        `json:"sets"`
+	Reps         int                        `json:"reps"`
+	Weight       float64                    `json:"weight"`
+	RestTime     int                        `json:"rest_time"`
+	Notes        string                     `json:"notes"`
+	SetTemplates []WorkoutTemplateSetExport `json:"set_templates"`
 }
 
 // WorkoutTemplateSetExport represents a template set in the export format.
@@ -197,12 +198,12 @@ type WorkoutTemplateSetExport struct {
 
 // WorkoutProgramExport represents a workout program in the export format.
 type WorkoutProgramExport struct {
-	ID          uuid.UUID                   `json:"id"`
-	Name        string                      `json:"name"`
-	Description string                      `json:"description"`
-	IsActive    bool                        `json:"is_active"`
-	Weeks       []ProgramWeekExport         `json:"weeks"`
-	CreatedAt   time.Time                   `json:"created_at"`
+	ID          uuid.UUID           `json:"id"`
+	Name        string              `json:"name"`
+	Description string              `json:"description"`
+	IsActive    bool                `json:"is_active"`
+	Weeks       []ProgramWeekExport `json:"weeks"`
+	CreatedAt   time.Time           `json:"created_at"`
 }
 
 // ProgramWeekExport represents a program week in the export format.
@@ -214,20 +215,31 @@ type ProgramWeekExport struct {
 
 // ProgramSessionExport represents a program session in the export format.
 type ProgramSessionExport struct {
-	DayNumber  int    `json:"day_number"`
+	DayNumber    int    `json:"day_number"`
 	TemplateName string `json:"template_name,omitempty"`
-	Notes      string `json:"notes"`
+	Notes        string `json:"notes"`
 }
 
 // ProgramAssignmentExport represents a program assignment in the export format.
 type ProgramAssignmentExport struct {
-	ID          uuid.UUID `json:"id"`
-	ProgramID   uuid.UUID `json:"program_id"`
-	ProgramName string    `json:"program_name"`
-	AssignedAt  time.Time `json:"assigned_at"`
+	ID          uuid.UUID  `json:"id"`
+	ProgramID   uuid.UUID  `json:"program_id"`
+	ProgramName string     `json:"program_name"`
+	AssignedAt  time.Time  `json:"assigned_at"`
 	StartedAt   *time.Time `json:"started_at,omitempty"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	Status      string    `json:"status"`
+	Status      string     `json:"status"`
+}
+
+// NotificationExport represents a notification in the export format.
+type NotificationExport struct {
+	ID          string     `json:"id"`
+	Type        string     `json:"type"`
+	Title       string     `json:"title"`
+	Message     string     `json:"message"`
+	PayloadJSON string     `json:"payload_json,omitempty"`
+	ReadAt      *time.Time `json:"read_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
 }
 
 // DeletionRequest represents a user deletion request.
@@ -615,6 +627,28 @@ func (s *ExportService) generateExportData(userID uuid.UUID, format ExportFormat
 		})
 	}
 
+	// Get notifications
+	var notifications []models.Notification
+	err = s.db.
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Find(&notifications).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, n := range notifications {
+		export.Notifications = append(export.Notifications, NotificationExport{
+			ID:          n.ID.String(),
+			Type:        string(n.Type),
+			Title:       n.Title,
+			Message:     n.Message,
+			PayloadJSON: n.PayloadJSON,
+			ReadAt:      n.ReadAt,
+			CreatedAt:   n.CreatedAt,
+		})
+	}
+
 	return export, nil
 }
 
@@ -826,6 +860,26 @@ func exportToCSV(export *UserDataExport) ([]byte, error) {
 			a.Status,
 		})
 	}
+	writer.Write([]string{}) // Empty line
+
+	// Write notifications section
+	writer.Write([]string{"# NOTIFICATIONS"})
+	writer.Write([]string{"notification_id", "type", "title", "message", "payload_json", "read_at", "created_at"})
+	for _, n := range export.Notifications {
+		readAt := ""
+		if n.ReadAt != nil {
+			readAt = n.ReadAt.Format(time.RFC3339)
+		}
+		writer.Write([]string{
+			n.ID,
+			n.Type,
+			n.Title,
+			n.Message,
+			n.PayloadJSON,
+			readAt,
+			n.CreatedAt.Format(time.RFC3339),
+		})
+	}
 
 	writer.Flush()
 	if writer.Error() != nil {
@@ -905,6 +959,14 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 			return err
 		}
 
+		if err := tx.Where("user_id = ?", userID).Delete(&models.RecoveryCode{}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("user_id = ?", userID).Delete(&models.TwoFactorSecret{}).Error; err != nil {
+			return err
+		}
+
 		// Delete recipe items and recipes
 		if err := tx.Exec("DELETE FROM recipe_items WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = ?)", userID).Error; err != nil {
 			return err
@@ -966,6 +1028,11 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 
 		// Delete sessions
 		if err := tx.Where("user_id = ?", userID).Delete(&UserSession{}).Error; err != nil {
+			return err
+		}
+
+		// Delete notifications
+		if err := tx.Where("user_id = ?", userID).Delete(&models.Notification{}).Error; err != nil {
 			return err
 		}
 

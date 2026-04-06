@@ -261,6 +261,19 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
+		// Delete notifications
+		if err := tx.Where("user_id = ?", userID).Delete(&models.Notification{}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("user_id = ?", userID).Delete(&models.RecoveryCode{}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Where("user_id = ?", userID).Delete(&models.TwoFactorSecret{}).Error; err != nil {
+			return err
+		}
+
 		return tx.Delete(&models.User{}, "id = ?", userID).Error
 	})
 	if err != nil {

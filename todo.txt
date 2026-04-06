@@ -381,12 +381,14 @@ PHASE 7: PLATFORM FEATURES
       - Export package completeness
       - Ownership and auth checks
 
-[ ] 17. Notifications
+[x] 17. Notifications
     Schema:
       - notifications table (id, user_id, type, title, message, payload_json, read_at, created_at)
     Endpoints:
       - GET /v1/notifications
       - PATCH /v1/notifications/{id}/read
+      - PATCH /v1/notifications/read-all
+      - GET /v1/notifications/unread-count
     Trigger Sources:
       - Low protein warning
       - Missed meal logging
@@ -400,7 +402,7 @@ PHASE 7: PLATFORM FEATURES
       - Mark-read flow
       - No duplicate spam for same trigger window
 
-[ ] 18. Two-Factor Authentication (2FA)
+[x] 18. Two-Factor Authentication (2FA)
     Schema:
       - two_factor_secrets table (id, user_id, secret, verified, created_at)
       - recovery_codes table (id, user_id, code_hash, used_at, created_at)
@@ -452,8 +454,8 @@ RECOMMENDED BUILD ORDER
 14. Richer summaries                                 [Phase 6] ✓
 15. Workout-nutrition rule engine                    [Phase 6] ✓
 16. Exports and GDPR workflows                       [Phase 7] ✓
-17. Notifications                                    [Phase 7]
-18. 2FA                                              [Phase 7]
+17. Notifications                                    [Phase 7] ✓
+18. 2FA                                              [Phase 7] ✓
 
 ================================================================================
 FILES TO UPDATE FOR EACH FEATURE

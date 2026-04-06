@@ -107,8 +107,24 @@ type AccessTokenClaims struct {
 
 // LoginRequest contains credentials for authentication.
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	TOTPCode       string `json:"totp_code,omitempty"`
+	RecoveryCode   string `json:"recovery_code,omitempty"`
+	TwoFactorToken string `json:"two_factor_token,omitempty"`
+}
+
+func (r LoginRequest) String() string {
+	return fmt.Sprintf("LoginRequest{Email:%q, Password:[redacted], TOTPCode:[redacted], RecoveryCode:[redacted], TwoFactorToken:[redacted]}", r.Email)
+}
+
+func (r LoginRequest) GoString() string {
+	return r.String()
+}
+
+// CreateSessionTx creates a session using the provided transaction.
+func (s *AuthService) CreateSessionTx(tx *gorm.DB, userID uuid.UUID, userAgent, ipAddress string) (*AuthTokens, error) {
+	return s.createSession(tx, userID, userAgent, ipAddress)
 }
 
 // RegisterRequest contains data for user registration.
@@ -290,7 +306,10 @@ func requireNonBlank(field, raw string) (string, error) {
 
 // CreateSession creates a new user session with refresh token.
 func (s *AuthService) CreateSession(userID uuid.UUID, userAgent, ipAddress string) (*AuthTokens, error) {
-	// Generate refresh token
+	return s.createSession(s.db, userID, userAgent, ipAddress)
+}
+
+func (s *AuthService) createSession(db *gorm.DB, userID uuid.UUID, userAgent, ipAddress string) (*AuthTokens, error) {
 	refreshToken, err := GenerateSecureToken()
 	if err != nil {
 		return nil, err
@@ -320,7 +339,7 @@ func (s *AuthService) CreateSession(userID uuid.UUID, userAgent, ipAddress strin
 		CreatedAt: now,
 		ExpiresAt: expiresAt,
 	}
-	if err := s.db.Create(&session).Error; err != nil {
+	if err := db.Create(&session).Error; err != nil {
 		return nil, err
 	}
 
@@ -334,13 +353,13 @@ func (s *AuthService) CreateSession(userID uuid.UUID, userAgent, ipAddress strin
 		ExpiresAt: expiresAt,
 		CreatedAt: now,
 	}
-	if err := s.db.Create(&rt).Error; err != nil {
-		// Cleanup session if refresh token creation fails
-		s.db.Delete(&session)
+	if err := db.Create(&rt).Error; err != nil {
+		// Cleanup session if refresh token creation fails outside an explicit transaction.
+		db.Delete(&session)
 		return nil, err
 	}
 
-	authVersion, err := s.userAuthVersion(userID)
+	authVersion, err := s.userAuthVersionWithDB(db, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -531,8 +550,12 @@ func (s *AuthService) RevokeUserSession(userID uuid.UUID, refreshToken string) e
 }
 
 func (s *AuthService) userAuthVersion(userID uuid.UUID) (uint, error) {
+	return s.userAuthVersionWithDB(s.db, userID)
+}
+
+func (s *AuthService) userAuthVersionWithDB(db *gorm.DB, userID uuid.UUID) (uint, error) {
 	var user models.User
-	if err := s.db.Select("auth_version").First(&user, "id = ?", userID).Error; err != nil {
+	if err := db.Select("auth_version").First(&user, "id = ?", userID).Error; err != nil {
 		return 0, err
 	}
 	return user.AuthVersion, nil

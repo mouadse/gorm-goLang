@@ -7,6 +7,7 @@ import (
 
 	"fitness-tracker/models"
 	"fitness-tracker/services"
+	"github.com/pquerna/otp/totp"
 )
 
 func TestRefreshTokenSuccess(t *testing.T) {
@@ -480,12 +481,244 @@ func TestTokenRotationOnRefresh(t *testing.T) {
 	}
 }
 
+func TestTwoFactorSetupLoginDisableFlow(t *testing.T) {
+	t.Parallel()
+
+	_, handler := newTestApp(t)
+	auth := registerTestUser(t, handler, "twofactor@example.com", "Two Factor", "password123")
+
+	setup := requestJSONAuth[twoFactorSetupResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/setup", nil, http.StatusCreated)
+	if setup.Secret == "" {
+		t.Fatal("expected secret from setup response")
+	}
+	if setup.OTPURL == "" {
+		t.Fatal("expected otp_url from setup response")
+	}
+
+	verifyCode, err := totp.GenerateCode(setup.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("generate verify code: %v", err)
+	}
+
+	verified := requestJSONAuth[twoFactorVerifyResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/verify", map[string]any{
+		"code": verifyCode,
+	}, http.StatusOK)
+	if !verified.Verified {
+		t.Fatal("expected setup verification to succeed")
+	}
+	if len(verified.RecoveryCodes) != services.TwoFactorRecoveryCodeCount {
+		t.Fatalf("expected %d recovery codes, got %d", services.TwoFactorRecoveryCodeCount, len(verified.RecoveryCodes))
+	}
+
+	challenge := requestJSON[twoFactorChallengeResponse](t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "twofactor@example.com",
+		"password": "password123",
+	}, http.StatusAccepted)
+	if !challenge.TwoFactorRequired {
+		t.Fatal("expected two_factor_required=true")
+	}
+	if challenge.TwoFactorToken == "" {
+		t.Fatal("expected two_factor_token in challenge response")
+	}
+
+	loginCode, err := totp.GenerateCode(setup.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("generate login code: %v", err)
+	}
+
+	login := requestJSON[authSessionResponse](t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"two_factor_token": challenge.TwoFactorToken,
+		"totp_code":        loginCode,
+	}, http.StatusOK)
+	if login.AccessToken == "" {
+		t.Fatal("expected access token after valid TOTP login")
+	}
+
+	disableCode, err := totp.GenerateCode(setup.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("generate disable code: %v", err)
+	}
+
+	expectStatusAuth(t, handler, login.AccessToken, http.MethodPost, "/v1/auth/2fa/disable", map[string]any{
+		"code": disableCode,
+	}, http.StatusNoContent)
+
+	plainLogin := requestJSON[authSessionResponse](t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "twofactor@example.com",
+		"password": "password123",
+	}, http.StatusOK)
+	if plainLogin.AccessToken == "" {
+		t.Fatal("expected plain login after disabling 2FA")
+	}
+}
+
+func TestTwoFactorInvalidTOTPRejected(t *testing.T) {
+	t.Parallel()
+
+	_, handler := newTestApp(t)
+	auth := registerTestUser(t, handler, "invalid-2fa@example.com", "Invalid 2FA", "password123")
+
+	setup := requestJSONAuth[twoFactorSetupResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/setup", nil, http.StatusCreated)
+	verifyCode, err := totp.GenerateCode(setup.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("generate verify code: %v", err)
+	}
+	requestJSONAuth[twoFactorVerifyResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/verify", map[string]any{
+		"code": verifyCode,
+	}, http.StatusOK)
+
+	errResp := requestError(t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":     "invalid-2fa@example.com",
+		"password":  "password123",
+		"totp_code": "000000",
+	}, http.StatusUnauthorized)
+	if errResp["error"] != models.ErrInvalidTOTP.Error() {
+		t.Fatalf("expected invalid TOTP error, got %q", errResp["error"])
+	}
+}
+
+func TestTwoFactorInvalidTOTPFormatRejected(t *testing.T) {
+	t.Parallel()
+
+	_, handler := newTestApp(t)
+	auth := registerTestUser(t, handler, "invalid-format-2fa@example.com", "Invalid Format 2FA", "password123")
+
+	setup := requestJSONAuth[twoFactorSetupResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/setup", nil, http.StatusCreated)
+	verifyCode, err := totp.GenerateCode(setup.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("generate verify code: %v", err)
+	}
+	requestJSONAuth[twoFactorVerifyResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/verify", map[string]any{
+		"code": verifyCode,
+	}, http.StatusOK)
+
+	challenge := requestJSON[twoFactorChallengeResponse](t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "invalid-format-2fa@example.com",
+		"password": "password123",
+	}, http.StatusAccepted)
+
+	errResp := requestError(t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"two_factor_token": challenge.TwoFactorToken,
+		"totp_code":        "12345",
+	}, http.StatusBadRequest)
+	if errResp["error"] != models.ErrInvalidTOTPFormat.Error() {
+		t.Fatalf("expected invalid TOTP format error, got %q", errResp["error"])
+	}
+}
+
+func TestTwoFactorRecoveryCodeConsumption(t *testing.T) {
+	t.Parallel()
+
+	_, handler := newTestApp(t)
+	auth := registerTestUser(t, handler, "recover-2fa@example.com", "Recover 2FA", "password123")
+
+	setup := requestJSONAuth[twoFactorSetupResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/setup", nil, http.StatusCreated)
+	verifyCode, err := totp.GenerateCode(setup.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("generate verify code: %v", err)
+	}
+	verified := requestJSONAuth[twoFactorVerifyResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/verify", map[string]any{
+		"code": verifyCode,
+	}, http.StatusOK)
+
+	challenge := requestJSON[twoFactorChallengeResponse](t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "recover-2fa@example.com",
+		"password": "password123",
+	}, http.StatusAccepted)
+
+	recoveryLogin := requestJSON[authSessionResponse](t, handler, http.MethodPost, "/v1/auth/2fa/recover", map[string]any{
+		"two_factor_token": challenge.TwoFactorToken,
+		"recovery_code":    verified.RecoveryCodes[0],
+	}, http.StatusOK)
+	if recoveryLogin.AccessToken == "" {
+		t.Fatal("expected access token from recovery-code login")
+	}
+
+	reusedChallenge := requestJSON[twoFactorChallengeResponse](t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "recover-2fa@example.com",
+		"password": "password123",
+	}, http.StatusAccepted)
+
+	errResp := requestError(t, handler, http.MethodPost, "/v1/auth/2fa/recover", map[string]any{
+		"two_factor_token": reusedChallenge.TwoFactorToken,
+		"recovery_code":    verified.RecoveryCodes[0],
+	}, http.StatusUnauthorized)
+	if errResp["error"] != models.ErrInvalidRecoveryCode.Error() {
+		t.Fatalf("expected invalid recovery code error, got %q", errResp["error"])
+	}
+}
+
+func TestTwoFactorVerifyRateLimitedAfterRepeatedFailures(t *testing.T) {
+	t.Parallel()
+
+	_, handler := newTestApp(t)
+	auth := registerTestUser(t, handler, "verify-limit@example.com", "Verify Limit", "password123")
+
+	requestJSONAuth[twoFactorSetupResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/setup", nil, http.StatusCreated)
+
+	for i := 0; i < 5; i++ {
+		errResp := requestErrorAuth(t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/verify", map[string]any{
+			"code": "000000",
+		}, http.StatusUnauthorized)
+		if errResp["error"] != models.ErrInvalidTOTP.Error() {
+			t.Fatalf("attempt %d: expected invalid TOTP error, got %q", i+1, errResp["error"])
+		}
+	}
+
+	errResp := requestErrorAuth(t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/verify", map[string]any{
+		"code": "000000",
+	}, http.StatusTooManyRequests)
+	if errResp["error"] != "too many 2FA attempts, try again later" {
+		t.Fatalf("expected rate limit error, got %q", errResp["error"])
+	}
+}
+
+func TestTwoFactorRecoveryRateLimitedAfterRepeatedFailures(t *testing.T) {
+	t.Parallel()
+
+	_, handler := newTestApp(t)
+	auth := registerTestUser(t, handler, "recover-limit@example.com", "Recover Limit", "password123")
+
+	setup := requestJSONAuth[twoFactorSetupResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/setup", nil, http.StatusCreated)
+	verifyCode, err := totp.GenerateCode(setup.Secret, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("generate verify code: %v", err)
+	}
+	requestJSONAuth[twoFactorVerifyResponse](t, handler, auth.AccessToken, http.MethodPost, "/v1/auth/2fa/verify", map[string]any{
+		"code": verifyCode,
+	}, http.StatusOK)
+
+	challenge := requestJSON[twoFactorChallengeResponse](t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "recover-limit@example.com",
+		"password": "password123",
+	}, http.StatusAccepted)
+
+	for i := 0; i < 5; i++ {
+		errResp := requestError(t, handler, http.MethodPost, "/v1/auth/2fa/recover", map[string]any{
+			"two_factor_token": challenge.TwoFactorToken,
+			"recovery_code":    "WRONG-CODE",
+		}, http.StatusUnauthorized)
+		if errResp["error"] != models.ErrInvalidRecoveryCode.Error() {
+			t.Fatalf("attempt %d: expected invalid recovery code error, got %q", i+1, errResp["error"])
+		}
+	}
+
+	errResp := requestError(t, handler, http.MethodPost, "/v1/auth/2fa/recover", map[string]any{
+		"two_factor_token": challenge.TwoFactorToken,
+		"recovery_code":    "WRONG-CODE",
+	}, http.StatusTooManyRequests)
+	if errResp["error"] != "too many 2FA attempts, try again later" {
+		t.Fatalf("expected rate limit error, got %q", errResp["error"])
+	}
+}
+
 type authSessionResponse struct {
-	Token        string      `json:"token"`
-	AccessToken  string      `json:"access_token"`
-	RefreshToken string      `json:"refresh_token"`
-	ExpiresIn    int64       `json:"expires_in"`
-	User         models.User `json:"user"`
+	Token          string      `json:"token"`
+	AccessToken    string      `json:"access_token"`
+	RefreshToken   string      `json:"refresh_token"`
+	ExpiresIn      int64       `json:"expires_in"`
+	User           models.User `json:"user"`
+	TwoFactorToken string      `json:"two_factor_token"`
 }
 
 type sessionResponse struct {
@@ -494,6 +727,23 @@ type sessionResponse struct {
 	LastIP    string `json:"last_ip"`
 	CreatedAt string `json:"created_at"`
 	ExpiresAt string `json:"expires_at"`
+}
+
+type twoFactorSetupResponse struct {
+	Secret   string `json:"secret"`
+	OTPURL   string `json:"otp_url"`
+	Verified bool   `json:"verified"`
+}
+
+type twoFactorVerifyResponse struct {
+	RecoveryCodes []string `json:"recovery_codes"`
+	Verified      bool     `json:"verified"`
+}
+
+type twoFactorChallengeResponse struct {
+	TwoFactorRequired bool        `json:"two_factor_required"`
+	TwoFactorToken    string      `json:"two_factor_token"`
+	User              models.User `json:"user"`
 }
 
 func TestDeleteSessionRevokesRefreshToken(t *testing.T) {

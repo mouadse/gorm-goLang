@@ -24,7 +24,7 @@ func TestWorkoutAnalyticsHandlers(t *testing.T) {
 	}, http.StatusCreated)
 
 	// Log a workout
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().UTC().Format("2006-01-02")
 	requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
 		"user_id":  user.ID,
 		"date":     today,
@@ -107,13 +107,13 @@ func TestExerciseHistoryLimitValidation(t *testing.T) {
 	}, http.StatusCreated)
 
 	// Create some workout history
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().UTC().Format("2006-01-02")
 	for i := 0; i < 3; i++ {
 		requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
-			"user_id": user.ID,
-			"date":    today,
+			"user_id":  user.ID,
+			"date":     today,
 			"duration": 60,
-			"type":    "legs",
+			"type":     "legs",
 			"exercises": []map[string]any{
 				{
 					"exercise_id": exercise.ID,
@@ -176,10 +176,10 @@ func TestActivityCalendarDateFilters(t *testing.T) {
 	// Create workout on a specific date
 	workoutDate := "2026-01-15"
 	requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
-		"user_id": user.ID,
-		"date":    workoutDate,
+		"user_id":  user.ID,
+		"date":     workoutDate,
 		"duration": 45,
-		"type":    "push",
+		"type":     "push",
 		"exercises": []map[string]any{
 			{
 				"exercise_id": exercise.ID,
@@ -250,12 +250,12 @@ func TestStreaksDateValidation(t *testing.T) {
 	}, http.StatusCreated)
 
 	// Create workout today
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().UTC().Format("2006-01-02")
 	requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
-		"user_id": user.ID,
-		"date":    today,
+		"user_id":  user.ID,
+		"date":     today,
 		"duration": 30,
-		"type":    "legs",
+		"type":     "legs",
 		"exercises": []map[string]any{
 			{
 				"exercise_id": exercise.ID,
@@ -307,10 +307,10 @@ func TestActivityCalendarDefaultReturns30Days(t *testing.T) {
 	for i := 0; i < 35; i++ {
 		date := baseDate.AddDate(0, 0, -i)
 		requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
-			"user_id": user.ID,
-			"date":    date.Format("2006-01-02"),
+			"user_id":  user.ID,
+			"date":     date.Format("2006-01-02"),
 			"duration": 30,
-			"type":    "legs",
+			"type":     "legs",
 		}, http.StatusCreated)
 	}
 
@@ -333,10 +333,10 @@ func TestStreaksUsesUTCDate(t *testing.T) {
 	// Create a workout for "today" in UTC
 	todayUTC := time.Now().UTC().Format("2006-01-02")
 	requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
-		"user_id": user.ID,
-		"date":    todayUTC,
+		"user_id":  user.ID,
+		"date":     todayUTC,
 		"duration": 30,
-		"type":    "push",
+		"type":     "push",
 	}, http.StatusCreated)
 
 	// Request streaks without date parameter - should use UTC "today"
@@ -400,12 +400,12 @@ func TestExerciseHistorySnakeCaseJSON(t *testing.T) {
 	}, http.StatusCreated)
 
 	// Create a workout with exercise history
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().UTC().Format("2006-01-02")
 	requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
-		"user_id": user.ID,
-		"date":    today,
+		"user_id":  user.ID,
+		"date":     today,
 		"duration": 45,
-		"type":    "push",
+		"type":     "push",
 		"exercises": []map[string]any{
 			{
 				"exercise_id": exercise.ID,

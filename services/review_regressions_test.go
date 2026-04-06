@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -145,6 +146,31 @@ func TestAuthServiceRevokeUserSessionRevokesSiblingTokens(t *testing.T) {
 	}
 	if sessions != 0 {
 		t.Fatalf("expected session row to be deleted, found %d", sessions)
+	}
+}
+
+func TestLoginRequestStringRedactsSensitiveFields(t *testing.T) {
+	req := LoginRequest{
+		Email:          "user@example.com",
+		Password:       "super-secret-password",
+		TOTPCode:       "123456",
+		RecoveryCode:   "RECOVERYSECRET",
+		TwoFactorToken: "challenge-token",
+	}
+
+	formatted := fmt.Sprintf("%+v", req)
+	for _, secret := range []string{
+		req.Password,
+		req.TOTPCode,
+		req.RecoveryCode,
+		req.TwoFactorToken,
+	} {
+		if strings.Contains(formatted, secret) {
+			t.Fatalf("expected formatted login request to redact %q", secret)
+		}
+	}
+	if !strings.Contains(formatted, req.Email) {
+		t.Fatalf("expected formatted login request to retain email")
 	}
 }
 

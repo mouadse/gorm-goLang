@@ -5,7 +5,10 @@ import (
 	"testing"
 
 	"fitness-tracker/database"
+	"fitness-tracker/models"
 	"fitness-tracker/services"
+
+	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -21,6 +24,8 @@ func TestMigrateCreatesRequiredTables(t *testing.T) {
 
 	expectedTables := []string{
 		"users",
+		"two_factor_secrets",
+		"recovery_codes",
 		"exercises",
 		"weight_entries",
 		"workouts",
@@ -102,11 +107,68 @@ func TestMigrateAddsNullableSessionIDToExistingRefreshTokens(t *testing.T) {
 	}
 }
 
+func TestMigrateDropsLegacySQLiteNotificationsTable(t *testing.T) {
+	t.Parallel()
+
+	db := openTestDB(t)
+
+	if err := db.Exec(`CREATE TABLE notifications (
+		id INTEGER PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		title TEXT NOT NULL,
+		message TEXT NOT NULL
+	)`).Error; err != nil {
+		t.Fatalf("create legacy notifications table: %v", err)
+	}
+
+	if err := database.Migrate(db); err != nil {
+		t.Fatalf("migrate database with legacy notifications: %v", err)
+	}
+
+	columnTypes, err := db.Migrator().ColumnTypes("notifications")
+	if err != nil {
+		t.Fatalf("inspect notifications columns: %v", err)
+	}
+
+	var idType string
+	for _, columnType := range columnTypes {
+		if columnType.Name() == "id" {
+			idType = columnType.DatabaseTypeName()
+			break
+		}
+	}
+	if idType == "" {
+		t.Fatal("expected notifications.id column to exist after migration")
+	}
+	if idType == "INTEGER" {
+		t.Fatalf("expected migrated notifications.id to no longer use INTEGER, got %q", idType)
+	}
+
+	user := models.User{
+		ID:           uuid.New(),
+		Email:        "notifications@example.com",
+		PasswordHash: "hash",
+		Name:         "Notifications User",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	notification := models.Notification{
+		UserID:  user.ID,
+		Type:    models.NotificationExportReady,
+		Title:   "Export ready",
+		Message: "Your export is ready",
+	}
+	if err := db.Create(&notification).Error; err != nil {
+		t.Fatalf("create notification after migration: %v", err)
+	}
+}
+
 func legacyTables() []string {
 	return []string{
 		"friendships",
 		"messages",
-		"notifications",
 		"weekly_adjustments",
 		"program_enrollments",
 		"program_progresses",

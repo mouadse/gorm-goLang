@@ -15,28 +15,36 @@ import (
 )
 
 type Server struct {
-	db           *gorm.DB
-	mux          *http.ServeMux
-	metrics      *metrics.Metrics
-	authSvc      *services.AuthService
-	analyticsSvc *services.WorkoutAnalyticsService
-	adherenceSvc *services.AdherenceService
-	importSvc    *services.USDAImportService
-	exportSvc    *services.ExportService
+	db              *gorm.DB
+	mux             *http.ServeMux
+	metrics         *metrics.Metrics
+	authSvc         *services.AuthService
+	analyticsSvc    *services.WorkoutAnalyticsService
+	adherenceSvc    *services.AdherenceService
+	importSvc       *services.USDAImportService
+	exportSvc       *services.ExportService
+	notificationSvc *services.NotificationService
+	twoFactorSvc    *services.TwoFactorService
+	twoFactorLimit  *twoFactorAttemptLimiter
+	twoFactorTokens *twoFactorChallengeStore
 }
 
 func NewServer(db *gorm.DB) *Server {
 	m := metrics.New()
 
 	server := &Server{
-		db:           db,
-		mux:          http.NewServeMux(),
-		metrics:      m,
-		authSvc:      services.NewAuthService(db),
-		analyticsSvc: services.NewWorkoutAnalyticsService(db),
-		adherenceSvc: services.NewAdherenceService(db),
-		importSvc:    services.NewUSDAImportService(db),
-		exportSvc:    services.NewExportService(db),
+		db:              db,
+		mux:             http.NewServeMux(),
+		metrics:         m,
+		authSvc:         services.NewAuthService(db),
+		analyticsSvc:    services.NewWorkoutAnalyticsService(db),
+		adherenceSvc:    services.NewAdherenceService(db),
+		importSvc:       services.NewUSDAImportService(db),
+		exportSvc:       services.NewExportService(db),
+		notificationSvc: services.NewNotificationService(db),
+		twoFactorSvc:    services.NewTwoFactorService(db),
+		twoFactorLimit:  newTwoFactorAttemptLimiter(),
+		twoFactorTokens: newTwoFactorChallengeStore(),
 	}
 	server.registerRoutes()
 	return server
@@ -63,6 +71,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /v1/auth/register", s.handleRegisterWithSessions)
 	s.mux.HandleFunc("POST /v1/auth/login", s.handleLoginWithSessions)
 	s.mux.HandleFunc("POST /v1/auth/refresh", s.handleRefreshToken)
+	protected("POST /v1/auth/2fa/setup", s.handleSetupTwoFactor)
+	protected("POST /v1/auth/2fa/verify", s.handleVerifyTwoFactor)
+	protected("POST /v1/auth/2fa/disable", s.handleDisableTwoFactor)
+	s.mux.HandleFunc("POST /v1/auth/2fa/recover", s.handleRecoverWithTwoFactor)
 	protected("POST /v1/auth/logout", s.handleLogout)
 	protected("GET /v1/auth/sessions", s.handleGetSessions)
 	protected("DELETE /v1/auth/sessions/{id}", s.handleDeleteSession)
@@ -192,6 +204,12 @@ func (s *Server) registerRoutes() {
 	protected("POST /v1/exports", s.handleCreateExportJob)
 	protected("GET /v1/exports/{id}", s.handleGetExportJob)
 	protected("POST /v1/account/delete-request", s.handleCreateDeletionRequest)
+
+	// Notifications
+	protected("GET /v1/notifications", s.handleListNotifications)
+	protected("PATCH /v1/notifications/{id}/read", s.handleMarkNotificationRead)
+	protected("PATCH /v1/notifications/read-all", s.handleMarkAllNotificationsRead)
+	protected("GET /v1/notifications/unread-count", s.handleGetUnreadNotificationCount)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

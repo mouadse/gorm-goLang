@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"fitness-tracker/models"
 	"fitness-tracker/services"
@@ -12,7 +13,6 @@ import (
 var obsoleteTables = []string{
 	"friendships",
 	"messages",
-	"notifications",
 	"weekly_adjustments",
 	"program_progresses",
 	"program_enrollments",
@@ -22,8 +22,22 @@ var obsoleteTables = []string{
 func Migrate(db *gorm.DB) error {
 	log.Println("running database migrations...")
 
+	// Drop obsolete tables BEFORE AutoMigrate to avoid schema conflicts
+	// This ensures legacy tables with incompatible schemas are removed first
+	if err := dropObsoleteTables(db); err != nil {
+		return err
+	}
+
+	// Migrate legacy notifications table to new UUID schema if needed
+	// This is a ONE-TIME migration that only runs if the old schema exists
+	if err := migrateLegacyNotifications(db); err != nil {
+		return err
+	}
+
 	err := db.AutoMigrate(
 		&models.User{},
+		&models.TwoFactorSecret{},
+		&models.RecoveryCode{},
 		&models.Exercise{},
 		&models.WeightEntry{},
 		&models.Workout{},
@@ -49,6 +63,7 @@ func Migrate(db *gorm.DB) error {
 		&models.FavoriteFood{},
 		&models.Recipe{},
 		&models.RecipeItem{},
+		&models.Notification{},
 	)
 	if err != nil {
 		return err
@@ -59,10 +74,6 @@ func Migrate(db *gorm.DB) error {
 	}
 
 	if err := migrateNutrientIndexes(db); err != nil {
-		return err
-	}
-
-	if err := dropObsoleteTables(db); err != nil {
 		return err
 	}
 
@@ -80,6 +91,38 @@ func dropObsoleteTables(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// migrateLegacyNotifications handles the one-time migration from legacy notifications table
+// to the new UUID-based schema. It only drops the table if it has the old INTEGER primary key.
+func migrateLegacyNotifications(db *gorm.DB) error {
+	if !db.Migrator().HasTable("notifications") {
+		return nil
+	}
+
+	columnTypes, err := db.Migrator().ColumnTypes("notifications")
+	if err != nil {
+		return fmt.Errorf("inspect notifications table schema: %w", err)
+	}
+
+	for _, columnType := range columnTypes {
+		if !strings.EqualFold(columnType.Name(), "id") {
+			continue
+		}
+
+		if strings.Contains(strings.ToUpper(columnType.DatabaseTypeName()), "INT") {
+			log.Println("dropping legacy notifications table with INTEGER primary key")
+			if err := db.Migrator().DropTable("notifications"); err != nil {
+				return fmt.Errorf("drop legacy notifications table: %w", err)
+			}
+			return nil
+		}
+
+		log.Println("notifications table already has non-integer primary key schema, skipping migration")
+		return nil
+	}
+
+	return fmt.Errorf("inspect notifications table schema: id column not found")
 }
 
 func migrateMealIndexes(db *gorm.DB) error {
