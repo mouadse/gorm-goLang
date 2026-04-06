@@ -7,7 +7,9 @@ import (
 
 	"fitness-tracker/database"
 	"fitness-tracker/models"
+	"fitness-tracker/services"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -24,7 +26,7 @@ func main() {
 
 	source := rand.New(rand.NewSource(42))
 
-	log.Println("starting lean database seeding...")
+	log.Println("starting comprehensive database seeding...")
 
 	exercises, err := seedExercises(db)
 	if err != nil {
@@ -41,8 +43,31 @@ func main() {
 		log.Fatalf("failed to seed foods: %v", err)
 	}
 
-	if err := seedWorkouts(db, source, users, exercises); err != nil {
+	_, err = services.SeedNutrients(db)
+	if err != nil {
+		log.Fatalf("failed to seed nutrients: %v", err)
+	}
+
+	if err := seedFoodNutrients(db, foods); err != nil {
+		log.Fatalf("failed to seed food nutrients: %v", err)
+	}
+
+	workouts, err := seedWorkouts(db, source, users, exercises)
+	if err != nil {
 		log.Fatalf("failed to seed workouts: %v", err)
+	}
+
+	if err := seedWorkoutCardioEntries(db, source, users, workouts); err != nil {
+		log.Fatalf("failed to seed workout cardio entries: %v", err)
+	}
+
+	templates, err := seedWorkoutTemplates(db, source, users, exercises)
+	if err != nil {
+		log.Fatalf("failed to seed workout templates: %v", err)
+	}
+
+	if err := seedWorkoutPrograms(db, users, templates); err != nil {
+		log.Fatalf("failed to seed workout programs: %v", err)
 	}
 
 	if err := seedMeals(db, source, users, foods); err != nil {
@@ -53,13 +78,33 @@ func main() {
 		log.Fatalf("failed to seed weight entries: %v", err)
 	}
 
-	log.Println("lean database seeding completed successfully")
+	if err := seedFavoriteFoods(db, users, foods); err != nil {
+		log.Fatalf("failed to seed favorite foods: %v", err)
+	}
+
+	if err := seedRecipes(db, source, users, foods); err != nil {
+		log.Fatalf("failed to seed recipes: %v", err)
+	}
+
+	if err := seedNotifications(db, users); err != nil {
+		log.Fatalf("failed to seed notifications: %v", err)
+	}
+
+	log.Println("database seeding completed successfully")
 	log.Println("seeded data summary:")
-	log.Println("  - Users: 4")
+	log.Println("  - Users: 12")
 	log.Println("  - Exercises: 8")
-	log.Println("  - Workouts: 8")
-	log.Println("  - Meals: 12")
-	log.Println("  - Weight entries: 16")
+	log.Println("  - Foods: 8")
+	log.Println("  - Nutrients: 19")
+	log.Println("  - Workouts: 24")
+	log.Println("  - Cardio entries: 12")
+	log.Println("  - Workout templates: 6")
+	log.Println("  - Workout programs: 2")
+	log.Println("  - Meals: 36")
+	log.Println("  - Weight entries: 48")
+	log.Println("  - Favorite foods: 24")
+	log.Println("  - Recipes: 4")
+	log.Println("  - Notifications: 12")
 }
 
 func seedExercises(db *gorm.DB) ([]models.Exercise, error) {
@@ -101,12 +146,28 @@ func seedUsers(db *gorm.DB) ([]models.User, error) {
 	sarahDOB := time.Date(1995, 7, 22, 0, 0, 0, 0, time.UTC)
 	mikeDOB := time.Date(1988, 11, 8, 0, 0, 0, 0, time.UTC)
 	emilyDOB := time.Date(1998, 1, 30, 0, 0, 0, 0, time.UTC)
+	jordanDOB := time.Date(1990, 5, 12, 0, 0, 0, 0, time.UTC)
+	taylorDOB := time.Date(1994, 9, 25, 0, 0, 0, 0, time.UTC)
+	caseyDOB := time.Date(1985, 2, 18, 0, 0, 0, 0, time.UTC)
+	morganDOB := time.Date(2000, 11, 3, 0, 0, 0, 0, time.UTC)
+	rileyDOB := time.Date(1993, 8, 29, 0, 0, 0, 0, time.UTC)
+	jamieDOB := time.Date(1989, 4, 7, 0, 0, 0, 0, time.UTC)
+	quinnDOB := time.Date(1996, 12, 14, 0, 0, 0, 0, time.UTC)
+	averyDOB := time.Date(1991, 1, 20, 0, 0, 0, 0, time.UTC)
 
 	seeds := []models.User{
-		{Email: "alex@example.com", PasswordHash: string(passwordHash), Name: "Alex Johnson", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex", Goal: "build_muscle", ActivityLevel: "moderately_active", Weight: 78, Height: 181, TDEE: 2600, DateOfBirth: &alexDOB, Age: ageFromDateOfBirth(alexDOB)},
-		{Email: "sarah@example.com", PasswordHash: string(passwordHash), Name: "Sarah Williams", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah", Goal: "lose_fat", ActivityLevel: "lightly_active", Weight: 64, Height: 165, TDEE: 1850, DateOfBirth: &sarahDOB, Age: ageFromDateOfBirth(sarahDOB)},
-		{Email: "mike@example.com", PasswordHash: string(passwordHash), Name: "Mike Chen", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike", Goal: "maintain", ActivityLevel: "active", Weight: 82, Height: 178, TDEE: 2750, DateOfBirth: &mikeDOB, Age: ageFromDateOfBirth(mikeDOB)},
-		{Email: "emily@example.com", PasswordHash: string(passwordHash), Name: "Emily Davis", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emily", Goal: "build_muscle", ActivityLevel: "moderately_active", Weight: 59, Height: 163, TDEE: 2100, DateOfBirth: &emilyDOB, Age: ageFromDateOfBirth(emilyDOB)},
+		{Email: "alex@example.com", PasswordHash: string(passwordHash), Name: "Alex Johnson", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=alex", Goal: "build_muscle", ActivityLevel: "moderately_active", Weight: 78, Height: 181, TDEE: 2600, DateOfBirth: &alexDOB, Age: ageFromDateOfBirth(alexDOB), Role: "admin"},
+		{Email: "sarah@example.com", PasswordHash: string(passwordHash), Name: "Sarah Williams", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah", Goal: "lose_fat", ActivityLevel: "lightly_active", Weight: 64, Height: 165, TDEE: 1850, DateOfBirth: &sarahDOB, Age: ageFromDateOfBirth(sarahDOB), Role: "user"},
+		{Email: "mike@example.com", PasswordHash: string(passwordHash), Name: "Mike Chen", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike", Goal: "maintain", ActivityLevel: "active", Weight: 82, Height: 178, TDEE: 2750, DateOfBirth: &mikeDOB, Age: ageFromDateOfBirth(mikeDOB), Role: "user"},
+		{Email: "emily@example.com", PasswordHash: string(passwordHash), Name: "Emily Davis", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emily", Goal: "build_muscle", ActivityLevel: "moderately_active", Weight: 59, Height: 163, TDEE: 2100, DateOfBirth: &emilyDOB, Age: ageFromDateOfBirth(emilyDOB), Role: "user"},
+		{Email: "jordan@example.com", PasswordHash: string(passwordHash), Name: "Jordan Smith", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=jordan", Goal: "lose_fat", ActivityLevel: "sedentary", Weight: 95, Height: 175, TDEE: 2100, DateOfBirth: &jordanDOB, Age: ageFromDateOfBirth(jordanDOB), Role: "user"},
+		{Email: "taylor@example.com", PasswordHash: string(passwordHash), Name: "Taylor Brown", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=taylor", Goal: "maintain", ActivityLevel: "moderately_active", Weight: 70, Height: 170, TDEE: 2300, DateOfBirth: &taylorDOB, Age: ageFromDateOfBirth(taylorDOB), Role: "user"},
+		{Email: "casey@example.com", PasswordHash: string(passwordHash), Name: "Casey Garcia", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=casey", Goal: "build_muscle", ActivityLevel: "active", Weight: 85, Height: 185, TDEE: 3000, DateOfBirth: &caseyDOB, Age: ageFromDateOfBirth(caseyDOB), Role: "user"},
+		{Email: "morgan@example.com", PasswordHash: string(passwordHash), Name: "Morgan Miller", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=morgan", Goal: "lose_fat", ActivityLevel: "lightly_active", Weight: 68, Height: 168, TDEE: 1900, DateOfBirth: &morganDOB, Age: ageFromDateOfBirth(morganDOB), Role: "user"},
+		{Email: "riley@example.com", PasswordHash: string(passwordHash), Name: "Riley Davis", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=riley", Goal: "maintain", ActivityLevel: "moderately_active", Weight: 75, Height: 178, TDEE: 2500, DateOfBirth: &rileyDOB, Age: ageFromDateOfBirth(rileyDOB), Role: "user"},
+		{Email: "jamie@example.com", PasswordHash: string(passwordHash), Name: "Jamie Wilson", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=jamie", Goal: "build_muscle", ActivityLevel: "active", Weight: 80, Height: 180, TDEE: 2800, DateOfBirth: &jamieDOB, Age: ageFromDateOfBirth(jamieDOB), Role: "user"},
+		{Email: "quinn@example.com", PasswordHash: string(passwordHash), Name: "Quinn Moore", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=quinn", Goal: "lose_fat", ActivityLevel: "lightly_active", Weight: 72, Height: 172, TDEE: 2000, DateOfBirth: &quinnDOB, Age: ageFromDateOfBirth(quinnDOB), Role: "user"},
+		{Email: "avery@example.com", PasswordHash: string(passwordHash), Name: "Avery Taylor", Avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=avery", Goal: "maintain", ActivityLevel: "moderately_active", Weight: 65, Height: 165, TDEE: 2100, DateOfBirth: &averyDOB, Age: ageFromDateOfBirth(averyDOB), Role: "user"},
 	}
 
 	users := make([]models.User, 0, len(seeds))
@@ -121,11 +182,84 @@ func seedUsers(db *gorm.DB) ([]models.User, error) {
 	return users, nil
 }
 
-func seedWorkouts(db *gorm.DB, source *rand.Rand, users []models.User, exercises []models.Exercise) error {
+func seedFoods(db *gorm.DB) ([]models.Food, error) {
+	log.Println("  seeding foods...")
+
+	seeds := []models.Food{
+		{Name: "Chicken Breast", Brand: "Generic", Category: "Poultry Products", Source: "user", ServingSize: 100, ServingUnit: "g", Calories: 165, Protein: 31, Carbohydrates: 0, Fat: 3.6, Fiber: 0, Sugar: 0, Sodium: 74},
+		{Name: "White Rice", Brand: "Generic", Category: "Cereal Grains and Pasta", Source: "user", ServingSize: 100, ServingUnit: "g", Calories: 130, Protein: 2.7, Carbohydrates: 28, Fat: 0.3, Fiber: 0.4, Sugar: 0.1, Sodium: 1},
+		{Name: "Broccoli", Brand: "Generic", Category: "Vegetables and Vegetable Products", Source: "user", ServingSize: 100, ServingUnit: "g", Calories: 34, Protein: 2.8, Carbohydrates: 7, Fat: 0.4, Fiber: 2.6, Sugar: 1.7, Sodium: 33},
+		{Name: "Greek Yogurt", Brand: "Chobani", Category: "Dairy and Egg Products", Source: "user", ServingSize: 170, ServingUnit: "g", Calories: 100, Protein: 18, Carbohydrates: 6, Fat: 0, Fiber: 0, Sugar: 3.2, Sodium: 36},
+		{Name: "Almonds", Brand: "Generic", Category: "Nut and Seed Products", Source: "user", ServingSize: 28, ServingUnit: "g", Calories: 160, Protein: 6, Carbohydrates: 6, Fat: 14, Fiber: 12.5, Sugar: 4.4, Sodium: 1},
+		{Name: "Oatmeal", Brand: "Quaker", Category: "Cereal Grains and Pasta", Source: "user", ServingSize: 40, ServingUnit: "g", Calories: 150, Protein: 5, Carbohydrates: 27, Fat: 3, Fiber: 10.6, Sugar: 0, Sodium: 2},
+		{Name: "Egg", Brand: "Generic", Category: "Dairy and Egg Products", Source: "user", ServingSize: 50, ServingUnit: "g", Calories: 70, Protein: 6, Carbohydrates: 0.4, Fat: 5, Fiber: 0, Sugar: 1.1, Sodium: 124},
+		{Name: "Peanut Butter", Brand: "Jif", Category: "Nut and Seed Products", Source: "user", ServingSize: 32, ServingUnit: "g", Calories: 190, Protein: 7, Carbohydrates: 8, Fat: 16, Fiber: 6, Sugar: 9, Sodium: 429},
+	}
+
+	foods := make([]models.Food, 0, len(seeds))
+	for _, seed := range seeds {
+		var food models.Food
+		if err := db.Where("name = ? AND brand = ?", seed.Name, seed.Brand).Assign(seed).FirstOrCreate(&food).Error; err != nil {
+			return nil, err
+		}
+		foods = append(foods, food)
+	}
+
+	return foods, nil
+}
+
+func seedFoodNutrients(db *gorm.DB, foods []models.Food) error {
+	log.Println("  seeding food nutrients...")
+
+	nutrients, err := services.NutrientCodeToID(db)
+	if err != nil {
+		return err
+	}
+
+	for _, food := range foods {
+		var foodNutrients []models.FoodNutrient
+		switch food.Name {
+		case "Chicken Breast":
+			foodNutrients = []models.FoodNutrient{
+				{FoodID: food.ID, NutrientID: nutrients["1089"].ID, AmountPer100g: 0.89}, // Iron
+				{FoodID: food.ID, NutrientID: nutrients["1095"].ID, AmountPer100g: 0.82}, // Zinc
+				{FoodID: food.ID, NutrientID: nutrients["1175"].ID, AmountPer100g: 0.6},  // Vitamin B-6
+				{FoodID: food.ID, NutrientID: nutrients["1093"].ID, AmountPer100g: 74.0}, // Sodium
+			}
+		case "Broccoli":
+			foodNutrients = []models.FoodNutrient{
+				{FoodID: food.ID, NutrientID: nutrients["1162"].ID, AmountPer100g: 89.2}, // Vitamin C
+				{FoodID: food.ID, NutrientID: nutrients["1087"].ID, AmountPer100g: 47.0}, // Calcium
+				{FoodID: food.ID, NutrientID: nutrients["1185"].ID, AmountPer100g: 101.6}, // Vitamin K
+			}
+		case "Egg":
+			foodNutrients = []models.FoodNutrient{
+				{FoodID: food.ID, NutrientID: nutrients["1178"].ID, AmountPer100g: 1.1},  // Vitamin B-12
+				{FoodID: food.ID, NutrientID: nutrients["1114"].ID, AmountPer100g: 1.1},  // Vitamin D
+				{FoodID: food.ID, NutrientID: nutrients["1104"].ID, AmountPer100g: 140.0}, // Vitamin A
+			}
+		}
+
+		for _, fn := range foodNutrients {
+			if err := db.Where("food_id = ? AND nutrient_id = ?", fn.FoodID, fn.NutrientID).
+				Assign(fn).
+				FirstOrCreate(&models.FoodNutrient{}).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func seedWorkouts(db *gorm.DB, source *rand.Rand, users []models.User, exercises []models.Exercise) ([]models.Workout, error) {
 	log.Println("  seeding workouts...")
 
 	baseDate := time.Now().UTC().Truncate(24 * time.Hour)
 	workoutTypes := []string{"push", "pull", "legs", "full_body"}
+	notes := []string{"Focus on form", "Felt heavy today", "RPE target hit", "Great energy today"}
+
+	var persistedWorkouts []models.Workout
 
 	for index, user := range users {
 		for offset := 0; offset < 2; offset++ {
@@ -142,9 +276,10 @@ func seedWorkouts(db *gorm.DB, source *rand.Rand, users []models.User, exercises
 			if err := db.Where("user_id = ? AND date = ? AND type = ?", user.ID, workoutDate, workout.Type).
 				Assign(workout).
 				FirstOrCreate(&persistedWorkout).Error; err != nil {
-				return err
+				return nil, err
 			}
 			workout = persistedWorkout
+			persistedWorkouts = append(persistedWorkouts, workout)
 
 			for exerciseIndex := 0; exerciseIndex < 3; exerciseIndex++ {
 				exercise := exercises[(index+offset+exerciseIndex)%len(exercises)]
@@ -156,7 +291,7 @@ func seedWorkouts(db *gorm.DB, source *rand.Rand, users []models.User, exercises
 					Reps:       6 + source.Intn(6),
 					Weight:     float64(20 + source.Intn(60)),
 					RestTime:   60 + source.Intn(60),
-					Notes:      "",
+					Notes:      notes[source.Intn(len(notes))],
 				}
 
 				var persistedWorkoutExercise models.WorkoutExercise
@@ -165,7 +300,7 @@ func seedWorkouts(db *gorm.DB, source *rand.Rand, users []models.User, exercises
 					ExerciseID: exercise.ID,
 					Order:      exerciseIndex + 1,
 				}).Assign(workoutExercise).FirstOrCreate(&persistedWorkoutExercise).Error; err != nil {
-					return err
+					return nil, err
 				}
 				workoutExercise = persistedWorkoutExercise
 
@@ -183,40 +318,179 @@ func seedWorkouts(db *gorm.DB, source *rand.Rand, users []models.User, exercises
 					if err := db.Where("workout_exercise_id = ? AND set_number = ?", workoutExercise.ID, setNumber).
 						Assign(workoutSet).
 						FirstOrCreate(&models.WorkoutSet{}).Error; err != nil {
-						return err
+						return nil, err
 					}
 				}
 			}
 		}
 	}
 
+	return persistedWorkouts, nil
+}
+
+func seedWorkoutCardioEntries(db *gorm.DB, source *rand.Rand, users []models.User, workouts []models.Workout) error {
+	log.Println("  seeding workout cardio entries...")
+
+	modalities := []string{"running", "cycling", "rowing", "elliptical"}
+	
+	for i := 0; i < 12 && i < len(workouts); i++ {
+		workout := workouts[i]
+		
+		dist := 3.0 + float64(source.Intn(7))
+		unit := "km"
+		cals := 200 + source.Intn(300)
+		hr := 130 + source.Intn(35)
+		
+		entry := models.WorkoutCardioEntry{
+			WorkoutID:       workout.ID,
+			Modality:        modalities[source.Intn(len(modalities))],
+			DurationMinutes: 20 + source.Intn(25),
+			Distance:        &dist,
+			DistanceUnit:    &unit,
+			CaloriesBurned:  &cals,
+			AvgHeartRate:    &hr,
+			Notes:           "Quick cardio after weights",
+		}
+
+		if err := db.Where("workout_id = ? AND modality = ?", entry.WorkoutID, entry.Modality).
+			Assign(entry).
+			FirstOrCreate(&models.WorkoutCardioEntry{}).Error; err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func seedFoods(db *gorm.DB) ([]models.Food, error) {
-	log.Println("  seeding foods...")
+func seedWorkoutTemplates(db *gorm.DB, source *rand.Rand, users []models.User, exercises []models.Exercise) ([]models.WorkoutTemplate, error) {
+	log.Println("  seeding workout templates...")
 
-	seeds := []models.Food{
-		{Name: "Chicken Breast", Brand: "Generic", ServingSize: 100, ServingUnit: "g", Calories: 165, Protein: 31, Carbohydrates: 0, Fat: 3.6},
-		{Name: "White Rice", Brand: "Generic", ServingSize: 100, ServingUnit: "g", Calories: 130, Protein: 2.7, Carbohydrates: 28, Fat: 0.3},
-		{Name: "Broccoli", Brand: "Generic", ServingSize: 100, ServingUnit: "g", Calories: 34, Protein: 2.8, Carbohydrates: 7, Fat: 0.4},
-		{Name: "Greek Yogurt", Brand: "Chobani", ServingSize: 170, ServingUnit: "g", Calories: 100, Protein: 18, Carbohydrates: 6, Fat: 0},
-		{Name: "Almonds", Brand: "Generic", ServingSize: 28, ServingUnit: "g", Calories: 160, Protein: 6, Carbohydrates: 6, Fat: 14},
-		{Name: "Oatmeal", Brand: "Quaker", ServingSize: 40, ServingUnit: "g", Calories: 150, Protein: 5, Carbohydrates: 27, Fat: 3},
-		{Name: "Egg", Brand: "Generic", ServingSize: 50, ServingUnit: "g", Calories: 70, Protein: 6, Carbohydrates: 0.4, Fat: 5},
-		{Name: "Peanut Butter", Brand: "Jif", ServingSize: 32, ServingUnit: "g", Calories: 190, Protein: 7, Carbohydrates: 8, Fat: 16},
+	templates := []models.WorkoutTemplate{
+		{OwnerID: users[0].ID, Name: "Push Day Template", Type: "push", Notes: "Standard push workout"},
+		{OwnerID: users[1].ID, Name: "Pull Day Template", Type: "pull", Notes: "Back and biceps focus"},
+		{OwnerID: users[2].ID, Name: "Leg Day Template", Type: "legs", Notes: "Quads and hamstrings"},
+		{OwnerID: users[4].ID, Name: "Upper Body Power", Type: "push", Notes: "Strength focus"},
+		{OwnerID: users[5].ID, Name: "Lower Body Power", Type: "legs", Notes: "Squat focused"},
+		{OwnerID: users[6].ID, Name: "Full Body Blast", Type: "full_body", Notes: "High intensity"},
 	}
 
-	foods := make([]models.Food, 0, len(seeds))
-	for _, seed := range seeds {
-		var food models.Food
-		if err := db.Where("name = ? AND brand = ?", seed.Name, seed.Brand).Assign(seed).FirstOrCreate(&food).Error; err != nil {
+	var persistedTemplates []models.WorkoutTemplate
+
+	for i, t := range templates {
+		var template models.WorkoutTemplate
+		if err := db.Where("owner_id = ? AND name = ?", t.OwnerID, t.Name).Assign(t).FirstOrCreate(&template).Error; err != nil {
 			return nil, err
 		}
-		foods = append(foods, food)
+		persistedTemplates = append(persistedTemplates, template)
+
+		for j := 0; j < 4; j++ {
+			exercise := exercises[(i*2+j)%len(exercises)]
+			templateExercise := models.WorkoutTemplateExercise{
+				TemplateID: template.ID,
+				ExerciseID: exercise.ID,
+				Order:      j + 1,
+				Sets:       3,
+				Reps:       10,
+				Weight:     40,
+				RestTime:   90,
+				Notes:      "Control the eccentric",
+			}
+
+			var persistedTemplateExercise models.WorkoutTemplateExercise
+			if err := db.Where("template_id = ? AND exercise_id = ? AND \"order\" = ?", templateExercise.TemplateID, templateExercise.ExerciseID, templateExercise.Order).
+				Assign(templateExercise).
+				FirstOrCreate(&persistedTemplateExercise).Error; err != nil {
+				return nil, err
+			}
+
+			for setNum := 1; setNum <= 3; setNum++ {
+				templateSet := models.WorkoutTemplateSet{
+					TemplateExerciseID: persistedTemplateExercise.ID,
+					SetNumber:          setNum,
+					Reps:               10,
+					Weight:             40,
+					RestSeconds:        90,
+				}
+				if err := db.Where("template_exercise_id = ? AND set_number = ?", templateSet.TemplateExerciseID, templateSet.SetNumber).
+					Assign(templateSet).
+					FirstOrCreate(&models.WorkoutTemplateSet{}).Error; err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
-	return foods, nil
+	return persistedTemplates, nil
+}
+
+func seedWorkoutPrograms(db *gorm.DB, users []models.User, templates []models.WorkoutTemplate) error {
+	log.Println("  seeding workout programs...")
+
+	var admin models.User
+	for _, u := range users {
+		if u.Role == "admin" {
+			admin = u
+			break
+		}
+	}
+	if admin.ID == uuid.Nil {
+		admin = users[0]
+	}
+
+	program := models.WorkoutProgram{
+		Name:        "12-Week Powerbuilding",
+		Description: "A 12-week powerbuilding block combining strength and hypertrophy.",
+		CreatedBy:   admin.ID,
+		IsActive:    true,
+	}
+
+	if err := db.Where("name = ?", program.Name).Assign(program).FirstOrCreate(&program).Error; err != nil {
+		return err
+	}
+
+	for weekNum := 1; weekNum <= 2; weekNum++ {
+		week := models.ProgramWeek{
+			ProgramID:  program.ID,
+			WeekNumber: weekNum,
+			Name:       "Phase 1: Accumulation",
+		}
+		if err := db.Where("program_id = ? AND week_number = ?", week.ProgramID, week.WeekNumber).Assign(week).FirstOrCreate(&week).Error; err != nil {
+			return err
+		}
+
+		for dayNum := 1; dayNum <= 3; dayNum++ {
+			var templateID *uuid.UUID
+			if len(templates) > 0 {
+				id := templates[dayNum%len(templates)].ID
+				templateID = &id
+			}
+			
+			session := models.ProgramSession{
+				WeekID:            week.ID,
+				DayNumber:         dayNum,
+				WorkoutTemplateID: templateID,
+				Notes:             "Focus on eccentric control",
+			}
+			if err := db.Where("week_id = ? AND day_number = ?", session.WeekID, session.DayNumber).Assign(session).FirstOrCreate(&models.ProgramSession{}).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	// Assignments
+	now := time.Now().UTC()
+	assignments := []models.ProgramAssignment{
+		{UserID: users[1].ID, ProgramID: program.ID, AssignedAt: now, Status: "assigned"},
+		{UserID: users[2].ID, ProgramID: program.ID, AssignedAt: now.AddDate(0, 0, -5), StartedAt: &now, Status: "in_progress"},
+	}
+
+	for _, a := range assignments {
+		if err := db.Where("user_id = ? AND program_id = ?", a.UserID, a.ProgramID).Assign(a).FirstOrCreate(&models.ProgramAssignment{}).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func seedMeals(db *gorm.DB, source *rand.Rand, users []models.User, foods []models.Food) error {
@@ -293,6 +567,108 @@ func seedWeightEntries(db *gorm.DB, users []models.User) error {
 		}
 	}
 
+	return nil
+}
+
+func seedFavoriteFoods(db *gorm.DB, users []models.User, foods []models.Food) error {
+	log.Println("  seeding favorite foods...")
+
+	for _, user := range users {
+		for i := 0; i < 2; i++ {
+			food := foods[(int(user.ID[0])+i)%len(foods)]
+			fav := models.FavoriteFood{
+				UserID: user.ID,
+				FoodID: food.ID,
+			}
+			if err := db.Where("user_id = ? AND food_id = ?", fav.UserID, fav.FoodID).
+				Assign(fav).
+				FirstOrCreate(&models.FavoriteFood{}).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func seedRecipes(db *gorm.DB, source *rand.Rand, users []models.User, foods []models.Food) error {
+	log.Println("  seeding recipes...")
+
+	recipeNames := []string{"Post-Workout Shake", "Chicken Rice Bowl", "Overnight Oats", "Omelette Deluxe"}
+	
+	for i, name := range recipeNames {
+		user := users[i%len(users)]
+		recipe := models.Recipe{
+			UserID:   user.ID,
+			Name:     name,
+			Servings: 1 + source.Intn(3),
+			Notes:    "Healthy and quick",
+		}
+		
+		if err := db.Where("user_id = ? AND name = ?", recipe.UserID, recipe.Name).
+			Assign(recipe).
+			FirstOrCreate(&recipe).Error; err != nil {
+			return err
+		}
+		
+		for j := 0; j < 3; j++ {
+			food := foods[(i+j)%len(foods)]
+			item := models.RecipeItem{
+				RecipeID: recipe.ID,
+				FoodID:   food.ID,
+				Quantity: 1.0 + float64(source.Intn(2)),
+			}
+			if err := db.Where("recipe_id = ? AND food_id = ?", item.RecipeID, item.FoodID).
+				Assign(item).
+				FirstOrCreate(&models.RecipeItem{}).Error; err != nil {
+				return err
+			}
+		}
+	}
+	
+	return nil
+}
+
+func seedNotifications(db *gorm.DB, users []models.User) error {
+	log.Println("  seeding notifications...")
+
+	now := time.Now().UTC()
+	
+	notificationSeeds := []struct {
+		Type    models.NotificationType
+		Title   string
+		Message string
+		Read    bool
+	}{
+		{models.NotificationLowProtein, "Low Protein Alert", "You haven't reached your protein goal today.", false},
+		{models.NotificationMissedMeal, "Missed Meal", "Don't forget to log your lunch!", true},
+		{models.NotificationWorkoutReminder, "Workout Time", "Time for your Push session.", false},
+		{models.NotificationRestDayWarning, "Rest Day", "Overtraining detected, consider a rest day.", false},
+		{models.NotificationRecoveryWarning, "Recovery Alert", "Sleep quality was low, take it easy.", false},
+		{models.NotificationGoalAlignment, "Goal Alignment", "Your current intake aligns with your weight loss goal.", true},
+	}
+
+	for i, user := range users {
+		seed := notificationSeeds[i%len(notificationSeeds)]
+		var readAt *time.Time
+		if seed.Read {
+			readAt = &now
+		}
+		
+		notif := models.Notification{
+			UserID:  user.ID,
+			Type:    seed.Type,
+			Title:   seed.Title,
+			Message: seed.Message,
+			ReadAt:  readAt,
+		}
+		
+		if err := db.Where("user_id = ? AND type = ? AND title = ?", notif.UserID, notif.Type, notif.Title).
+			Assign(notif).
+			FirstOrCreate(&models.Notification{}).Error; err != nil {
+			return err
+		}
+	}
+	
 	return nil
 }
 
