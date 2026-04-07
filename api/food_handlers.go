@@ -82,20 +82,23 @@ func (s *Server) handleListFoods(w http.ResponseWriter, r *http.Request) {
 	query := s.db.Model(&models.Food{})
 
 	if name := strings.TrimSpace(r.URL.Query().Get("name")); name != "" {
-		query = query.Where("name ILIKE ?", "%"+name+"%")
+		query = query.Where("name ILIKE ?", "%"+escapeLike(name)+"%")
 	}
 
 	if brand := strings.TrimSpace(r.URL.Query().Get("brand")); brand != "" {
-		query = query.Where("brand ILIKE ?", "%"+brand+"%")
+		query = query.Where("brand ILIKE ?", "%"+escapeLike(brand)+"%")
 	}
 
 	if category := strings.TrimSpace(r.URL.Query().Get("category")); category != "" {
-		query = query.Where("category ILIKE ?", "%"+category+"%")
+		query = query.Where("category ILIKE ?", "%"+escapeLike(category)+"%")
 	}
 
 	if source := strings.TrimSpace(r.URL.Query().Get("source")); source != "" {
 		query = query.Where("source = ?", source)
 	}
+
+	limit, offset := parsePagination(r, 50)
+	query = query.Limit(limit).Offset(offset)
 
 	var foods []models.Food
 	if err := query.Order("name asc").Find(&foods).Error; err != nil {

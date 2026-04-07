@@ -135,8 +135,10 @@ func (s *Server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	limit, offset := parsePagination(r, 50)
+
 	var templates []models.WorkoutTemplate
-	if err := s.db.Where("owner_id = ?", userID).Order("created_at desc").Find(&templates).Error; err != nil {
+	if err := s.db.Where("owner_id = ?", userID).Preload("WorkoutTemplateExercises.Exercise").Preload("WorkoutTemplateExercises.WorkoutTemplateSets").Order("created_at desc").Limit(limit).Offset(offset).Find(&templates).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

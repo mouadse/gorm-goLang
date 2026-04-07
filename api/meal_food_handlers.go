@@ -104,8 +104,10 @@ func (s *Server) handleListMealFoods(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	limit, offset := parsePagination(r, 50)
+
 	var items []models.MealFood
-	if err := s.db.Preload("Food").Where("meal_id = ?", mealID).Find(&items).Error; err != nil {
+	if err := s.db.Preload("Food").Where("meal_id = ?", mealID).Limit(limit).Offset(offset).Find(&items).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

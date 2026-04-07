@@ -57,11 +57,18 @@ func (s *Server) handleCreateExercise(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, exercise)
 }
 
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
+}
+
 func (s *Server) handleListExercises(w http.ResponseWriter, r *http.Request) {
 	query := s.db.Model(&models.Exercise{})
 
 	if name := strings.TrimSpace(r.URL.Query().Get("name")); name != "" {
-		query = query.Where("name LIKE ?", "%"+name+"%")
+		query = query.Where("name LIKE ?", "%"+escapeLike(name)+"%")
 	}
 
 	if muscleGroup := strings.TrimSpace(r.URL.Query().Get("muscle_group")); muscleGroup != "" {
@@ -75,6 +82,9 @@ func (s *Server) handleListExercises(w http.ResponseWriter, r *http.Request) {
 	if difficulty := strings.TrimSpace(r.URL.Query().Get("difficulty")); difficulty != "" {
 		query = query.Where("difficulty = ?", difficulty)
 	}
+
+	limit, offset := parsePagination(r, 50)
+	query = query.Limit(limit).Offset(offset)
 
 	var exercises []models.Exercise
 	if err := query.Order("name asc").Find(&exercises).Error; err != nil {

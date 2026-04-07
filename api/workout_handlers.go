@@ -176,8 +176,11 @@ func (s *Server) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("type = ?", workoutType)
 	}
 
+	limit, offset := parsePagination(r, 50)
+	query = query.Limit(limit).Offset(offset)
+
 	var workouts []models.Workout
-	if err := query.Order("date desc, created_at desc").Find(&workouts).Error; err != nil {
+	if err := query.Order("date desc, created_at desc").Preload("WorkoutExercises.Exercise").Preload("WorkoutExercises.WorkoutSets").Find(&workouts).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -473,8 +476,11 @@ func (s *Server) handleListWorkoutExercises(w http.ResponseWriter, r *http.Reque
 		query = query.Where("exercise_id = ?", exerciseID)
 	}
 
+	limit, offset := parsePagination(r, 50)
+	query = query.Limit(limit).Offset(offset)
+
 	var workoutExercises []models.WorkoutExercise
-	if err := query.Order("workout_exercises.\"order\" asc, workout_exercises.created_at asc").Find(&workoutExercises).Error; err != nil {
+	if err := query.Preload("Exercise").Preload("WorkoutSets").Order("workout_exercises.\"order\" asc, workout_exercises.created_at asc").Find(&workoutExercises).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -729,6 +735,9 @@ func (s *Server) handleListWorkoutSets(w http.ResponseWriter, r *http.Request) {
 		}
 		query = query.Where("workout_exercise_id = ?", workoutExerciseID)
 	}
+
+	limit, offset := parsePagination(r, 50)
+	query = query.Limit(limit).Offset(offset)
 
 	var sets []models.WorkoutSet
 	if err := query.Order("workout_sets.set_number asc").Find(&sets).Error; err != nil {
@@ -1113,6 +1122,7 @@ func createWorkoutSets(tx *gorm.DB, workoutExerciseID uuid.UUID, requests []crea
 func nextWorkoutExerciseOrder(tx *gorm.DB, workoutID uuid.UUID) (int, error) {
 	var maxOrder int
 	err := tx.Model(&models.WorkoutExercise{}).
+		Unscoped().
 		Select("COALESCE(MAX(\"order\"), 0)").
 		Where("workout_id = ?", workoutID).
 		Scan(&maxOrder).Error
@@ -1125,6 +1135,7 @@ func nextWorkoutExerciseOrder(tx *gorm.DB, workoutID uuid.UUID) (int, error) {
 func (s *Server) nextSetNumber(workoutExerciseID uuid.UUID) (int, error) {
 	var maxSetNumber int
 	err := s.db.Model(&models.WorkoutSet{}).
+		Unscoped().
 		Select("COALESCE(MAX(set_number), 0)").
 		Where("workout_exercise_id = ?", workoutExerciseID).
 		Scan(&maxSetNumber).Error

@@ -69,8 +69,11 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if name := strings.TrimSpace(r.URL.Query().Get("name")); name != "" {
-		query = query.Where("name LIKE ?", "%"+name+"%")
+		query = query.Where("name LIKE ?", "%"+escapeLike(name)+"%")
 	}
+
+	limit, offset := parsePagination(r, 50)
+	query = query.Limit(limit).Offset(offset)
 
 	var users []models.User
 	if err := query.Order("created_at desc").Find(&users).Error; err != nil {

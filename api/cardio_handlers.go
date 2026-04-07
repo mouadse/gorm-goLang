@@ -55,8 +55,10 @@ func (s *Server) handleListWorkoutCardio(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	limit, offset := parsePagination(r, 50)
+
 	var entries []models.WorkoutCardioEntry
-	if err := s.db.Where("workout_id = ?", workoutID).Order("created_at asc").Find(&entries).Error; err != nil {
+	if err := s.db.Where("workout_id = ?", workoutID).Order("created_at asc").Limit(limit).Offset(offset).Find(&entries).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

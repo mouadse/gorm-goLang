@@ -96,9 +96,12 @@ func (s *Server) handleListRecipes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	limit, offset := parsePagination(r, 50)
+
 	var recipes []models.Recipe
 	if err := s.db.Where("user_id = ?", currentUserID).
 		Order("created_at desc").
+		Limit(limit).Offset(offset).
 		Preload("Items.Food").
 		Find(&recipes).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)

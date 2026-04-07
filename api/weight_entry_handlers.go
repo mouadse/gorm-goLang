@@ -116,6 +116,9 @@ func (s *Server) handleListWeightEntries(w http.ResponseWriter, r *http.Request)
 		query = query.Where("date <= ?", parsedEnd)
 	}
 
+	limit, offset := parsePagination(r, 50)
+	query = query.Limit(limit).Offset(offset)
+
 	var entries []models.WeightEntry
 	if err := query.Order("date desc, created_at desc").Find(&entries).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)

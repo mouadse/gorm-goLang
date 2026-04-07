@@ -102,6 +102,9 @@ func (s *Server) handleListMeals(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("meal_type = ?", mealType)
 	}
 
+	limit, offset := parsePagination(r, 50)
+	query = query.Limit(limit).Offset(offset)
+
 	var meals []models.Meal
 	if err := query.Preload("Items.Food").Order("date desc, created_at desc").Find(&meals).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, err)
