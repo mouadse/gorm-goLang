@@ -61,19 +61,19 @@ func (s *Server) handleListExercises(w http.ResponseWriter, r *http.Request) {
 	query := s.db.Model(&models.Exercise{})
 
 	if name := strings.TrimSpace(r.URL.Query().Get("name")); name != "" {
-		query = query.Where("name LIKE ?", "%"+name+"%")
+		query = query.Where("LOWER(name) LIKE ?", "%"+strings.ToLower(name)+"%")
 	}
 
 	if muscleGroup := strings.TrimSpace(r.URL.Query().Get("muscle_group")); muscleGroup != "" {
-		query = query.Where("muscle_group = ?", muscleGroup)
+		query = applyExerciseListFilter(query, "muscle_group", expandExerciseFilter(muscleGroup, exerciseMuscleGroupAliases))
 	}
 
 	if equipment := strings.TrimSpace(r.URL.Query().Get("equipment")); equipment != "" {
-		query = query.Where("equipment = ?", equipment)
+		query = applyExerciseListFilter(query, "equipment", expandExerciseFilter(equipment, exerciseEquipmentAliases))
 	}
 
 	if difficulty := strings.TrimSpace(r.URL.Query().Get("difficulty")); difficulty != "" {
-		query = query.Where("difficulty = ?", difficulty)
+		query = applyExerciseListFilter(query, "difficulty", expandExerciseFilter(difficulty, exerciseDifficultyAliases))
 	}
 
 	var exercises []models.Exercise
@@ -83,6 +83,85 @@ func (s *Server) handleListExercises(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, ensureSlice(exercises))
+}
+
+var exerciseMuscleGroupAliases = map[string][]string{
+	"chest":      {"chest"},
+	"back":       {"back"},
+	"leg":        {"legs"},
+	"legs":       {"legs"},
+	"hamstring":  {"hamstrings"},
+	"hamstrings": {"hamstrings"},
+	"shoulder":   {"shoulders"},
+	"shoulders":  {"shoulders"},
+}
+
+var exerciseEquipmentAliases = map[string][]string{
+	"band":             {"band", "resistance band"},
+	"bands":            {"band", "resistance band"},
+	"bodyweight":       {"bodyweight"},
+	"dumbbell":         {"dumbbell"},
+	"dumbbells":        {"dumbbell"},
+	"home":             {"bodyweight", "dumbbell", "kettlebell", "band", "resistance band"},
+	"home equipment":   {"bodyweight", "dumbbell", "kettlebell", "band", "resistance band"},
+	"home equipement":  {"bodyweight", "dumbbell", "kettlebell", "band", "resistance band"},
+	"home gym":         {"bodyweight", "dumbbell", "kettlebell", "band", "resistance band"},
+	"kettlebell":       {"kettlebell"},
+	"resistance band":  {"band", "resistance band"},
+	"resistance bands": {"band", "resistance band"},
+}
+
+var exerciseDifficultyAliases = map[string][]string{
+	"advanced":     {"advanced"},
+	"beginner":     {"beginner"},
+	"easy":         {"beginner"},
+	"expert":       {"advanced"},
+	"intermediate": {"intermediate"},
+	"moderate":     {"intermediate"},
+	"newbie":       {"beginner"},
+	"novice":       {"beginner"},
+	"starter":      {"beginner"},
+}
+
+func applyExerciseListFilter(query *gorm.DB, column string, values []string) *gorm.DB {
+	if len(values) == 0 {
+		return query
+	}
+
+	return query.Where("LOWER("+column+") IN ?", values)
+}
+
+func expandExerciseFilter(raw string, aliases map[string][]string) []string {
+	normalized := normalizeExerciseFilter(raw)
+	if normalized == "" {
+		return nil
+	}
+
+	candidates := aliases[normalized]
+	if len(candidates) == 0 {
+		candidates = []string{normalized}
+	}
+
+	seen := make(map[string]struct{}, len(candidates))
+	expanded := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		candidate = normalizeExerciseFilter(candidate)
+		if candidate == "" {
+			continue
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		expanded = append(expanded, candidate)
+	}
+
+	return expanded
+}
+
+func normalizeExerciseFilter(value string) string {
+	replacer := strings.NewReplacer("-", " ", "_", " ")
+	return strings.Join(strings.Fields(strings.ToLower(replacer.Replace(strings.TrimSpace(value)))), " ")
 }
 
 func (s *Server) handleGetExercise(w http.ResponseWriter, r *http.Request) {

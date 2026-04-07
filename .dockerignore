@@ -1,0 +1,15 @@
+.env
+.git
+.github
+.gitignore
+.claude
+__pycache__
+*.pyc
+tests/
+test_api.py
+test_api.sh
+test_db.py
+coach_demo.sh
+function_calling_demo.py
+todo.txt
+*.md

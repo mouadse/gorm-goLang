@@ -34,6 +34,8 @@ type Server struct {
 	twoFactorTokens *twoFactorChallengeStore
 	adminSvc        *services.AdminDashboardService
 	redisClient     *redis.Client
+	llmClient       services.LLMClient
+	coachSvc        *services.CoachService
 }
 
 func NewServer(db *gorm.DB) *Server {
@@ -55,6 +57,8 @@ func NewServer(db *gorm.DB) *Server {
 		}
 	}
 
+	adminSvc := services.NewAdminDashboardService(db, redisClient, m)
+
 	server := &Server{
 		db:              db,
 		mux:             http.NewServeMux(),
@@ -68,8 +72,10 @@ func NewServer(db *gorm.DB) *Server {
 		twoFactorSvc:    services.NewTwoFactorService(db),
 		twoFactorLimit:  newTwoFactorAttemptLimiter(),
 		twoFactorTokens: newTwoFactorChallengeStore(),
-		adminSvc:        services.NewAdminDashboardService(db, redisClient, m),
+		adminSvc:        adminSvc,
 		redisClient:     redisClient,
+		llmClient:       services.NewOpenRouterClient("", ""),
+		coachSvc:        services.NewCoachService(db, services.NewWorkoutAnalyticsService(db), services.NewAdherenceService(db), services.NewNutritionTargetService(db), services.NewIntegrationRulesService(db), services.NewNotificationService(db)),
 	}
 	server.registerRoutes()
 	return server
@@ -123,6 +129,12 @@ func (s *Server) registerRoutes() {
 	protected("GET /v1/users/{user_id}/workout-stats", s.handleGetUserWorkoutStats)
 	protected("GET /v1/users/{user_id}/activity-calendar", s.handleGetUserActivityCalendar)
 	protected("GET /v1/users/{user_id}/streaks", s.handleGetUserStreaks)
+
+	// Chat & AI Coach
+	protected("POST /v1/chat", s.handleChat)
+	protected("GET /v1/chat/history", s.handleChatHistory)
+	protected("POST /v1/chat/feedback", s.handleChatFeedback)
+	protected("GET /v1/users/{user_id}/coach-summary", s.handleCoachSummary)
 
 	// Exercises
 	protected("POST /v1/exercises", s.handleCreateExercise)

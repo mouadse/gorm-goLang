@@ -58,7 +58,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	currentUserID, err := authenticatedUserID(r)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, http.StatusUnauthorized, err)
 		return
 	}
 

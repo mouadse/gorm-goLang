@@ -407,6 +407,50 @@ func TestExerciseReadRoutesStayPublicWhileWritesRequireAuth(t *testing.T) {
 	expectStatus(t, server, http.MethodDelete, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusUnauthorized)
 }
 
+func TestExerciseListSupportsNaturalLanguageFilters(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	userAuth := registerTestUser(t, server, "filters@example.com", "Filter Owner", "password123")
+
+	requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
+		"name":         "Dumbbell Shoulder Press",
+		"muscle_group": "Shoulders",
+		"equipment":    "Dumbbell",
+		"difficulty":   "Beginner",
+	}, http.StatusCreated)
+
+	requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
+		"name":         "Band Pull-Apart",
+		"muscle_group": "Back",
+		"equipment":    "Resistance Band",
+		"difficulty":   "Beginner",
+	}, http.StatusCreated)
+
+	requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
+		"name":         "Barbell Push Press",
+		"muscle_group": "Shoulders",
+		"equipment":    "Barbell",
+		"difficulty":   "Advanced",
+	}, http.StatusCreated)
+
+	shoulderExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?muscle_group=shoulder&equipment=home%20equipment&difficulty=novice", nil, http.StatusOK)
+	if len(shoulderExercises) != 1 {
+		t.Fatalf("expected 1 beginner home shoulder exercise, got %d", len(shoulderExercises))
+	}
+	if shoulderExercises[0].Name != "Dumbbell Shoulder Press" {
+		t.Fatalf("expected dumbbell shoulder press, got %q", shoulderExercises[0].Name)
+	}
+
+	backExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?muscle_group=back&equipment=home&difficulty=novice", nil, http.StatusOK)
+	if len(backExercises) != 1 {
+		t.Fatalf("expected 1 beginner home back exercise, got %d", len(backExercises))
+	}
+	if backExercises[0].Name != "Band Pull-Apart" {
+		t.Fatalf("expected band pull-apart, got %q", backExercises[0].Name)
+	}
+}
+
 func TestLoginMatchesLegacyEmailCaseAndBackfillsStoredEmail(t *testing.T) {
 	t.Parallel()
 

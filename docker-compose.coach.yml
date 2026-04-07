@@ -1,0 +1,21 @@
+services:
+  coach-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.coach
+    container_name: fitness-coach-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - BASE_URL=http://app:8080/v1
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - LLM_MODEL=${LLM_MODEL:-google/gemini-2.0-flash-001}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - fitness-network
+
+networks:
+  fitness-network:
+    # No 'external: true' here because we merge with docker-compose.yml which defines it.

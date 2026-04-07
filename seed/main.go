@@ -93,7 +93,7 @@ func main() {
 	log.Println("database seeding completed successfully")
 	log.Println("seeded data summary:")
 	log.Println("  - Users: 12")
-	log.Println("  - Exercises: 8")
+	log.Println("  - Exercises: 12")
 	log.Println("  - Foods: 8")
 	log.Println("  - Nutrients: 19")
 	log.Println("  - Workouts: 24")
@@ -116,7 +116,11 @@ func seedExercises(db *gorm.DB) ([]models.Exercise, error) {
 		{Name: "Deadlift", MuscleGroup: "Back", Equipment: "Barbell", Difficulty: "Advanced", Instructions: "Drive through the floor and stand tall with the bar.", VideoURL: "https://www.youtube.com/watch?v=op9kVnSso6Q"},
 		{Name: "Pull-Up", MuscleGroup: "Back", Equipment: "Bodyweight", Difficulty: "Intermediate", Instructions: "Pull until the chin clears the bar.", VideoURL: "https://www.youtube.com/watch?v=eGo4IYlbE5g"},
 		{Name: "Overhead Press", MuscleGroup: "Shoulders", Equipment: "Barbell", Difficulty: "Intermediate", Instructions: "Press vertically from shoulder rack position.", VideoURL: "https://www.youtube.com/watch?v=2yjwXTZQDDI"},
+		{Name: "Dumbbell Shoulder Press", MuscleGroup: "Shoulders", Equipment: "Dumbbell", Difficulty: "Beginner", Instructions: "Press both dumbbells overhead while keeping your ribs down.", VideoURL: "https://www.youtube.com/watch?v=qEwKCR5JCog"},
+		{Name: "Lateral Raise", MuscleGroup: "Shoulders", Equipment: "Dumbbell", Difficulty: "Beginner", Instructions: "Raise the dumbbells out to shoulder height with a soft bend in the elbows.", VideoURL: "https://www.youtube.com/watch?v=3VcKaXpzqRo"},
 		{Name: "Dumbbell Row", MuscleGroup: "Back", Equipment: "Dumbbell", Difficulty: "Beginner", Instructions: "Row toward the hip while staying square.", VideoURL: "https://www.youtube.com/watch?v=pYcpY20QaE8"},
+		{Name: "Band Pull-Apart", MuscleGroup: "Back", Equipment: "Resistance Band", Difficulty: "Beginner", Instructions: "Pull the band apart at chest height while keeping the shoulders down.", VideoURL: "https://www.youtube.com/watch?v=JObYtU7Y7ag"},
+		{Name: "Superman Hold", MuscleGroup: "Back", Equipment: "Bodyweight", Difficulty: "Beginner", Instructions: "Lift the arms and legs slightly off the floor and hold with the core braced.", VideoURL: "https://www.youtube.com/watch?v=z6PJMT2y8GQ"},
 		{Name: "Romanian Deadlift", MuscleGroup: "Hamstrings", Equipment: "Barbell", Difficulty: "Intermediate", Instructions: "Hinge at the hips and keep the bar close.", VideoURL: "https://www.youtube.com/watch?v=JC5UYl3qPTs"},
 		{Name: "Walking Lunge", MuscleGroup: "Legs", Equipment: "Bodyweight", Difficulty: "Beginner", Instructions: "Step forward and control the knee to the floor.", VideoURL: "https://www.youtube.com/watch?v=QOVaHwm-Q6U"},
 	}

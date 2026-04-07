@@ -1,6 +1,12 @@
-.PHONY: up down logs seed api test db-shell help dev monitor monitoring-up monitoring-down monitoring-logs monitoring-status
+.PHONY: up down logs seed api test db-shell help dev monitor monitoring-up monitoring-down monitoring-logs monitoring-status coach
+
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
 
 COMPOSE ?= docker compose
+FULL_COMPOSE := $(COMPOSE) -f docker-compose.yml -f docker-compose.coach.yml
 DB_SERVICES := postgres pgadmin
 MONITORING_SERVICES := prometheus grafana
 MONITORED_STACK_SERVICES := postgres pgadmin app prometheus grafana
@@ -24,6 +30,9 @@ help:
 	@echo "  make monitoring-logs - Show monitoring container logs"
 	@echo "  make monitoring-status - Show monitoring services status"
 	@echo ""
+	@echo "AI Coach Commands:"
+	@echo "  make coach           - Start the Streamlit AI Coach demo (requires OPENROUTER_API_KEY)"
+	@echo ""
 	@echo "Quick Start: make up && make seed && make api"
 	@echo "With Monitoring: make monitor"
 
@@ -44,7 +53,7 @@ up:
 
 down:
 	@echo "🛑 Stopping containers..."
-	$(COMPOSE) down
+	$(FULL_COMPOSE) down --remove-orphans
 
 logs:
 	$(COMPOSE) logs -f
@@ -123,3 +132,16 @@ monitoring-status:
 	@echo "   Prometheus: http://localhost:9090"
 	@echo "   Grafana:    http://localhost:3000"
 	@echo "   Metrics:    http://localhost:8080/metrics"
+
+# AI Coach
+coach:
+	@if [ -z "$(OPENROUTER_API_KEY)" ]; then \
+		echo "❌ Error: OPENROUTER_API_KEY is not set in environment or .env file."; \
+		echo "   Run: OPENROUTER_API_KEY=your_key make coach or add it to .env"; \
+		exit 1; \
+	fi
+	@echo "🧠 Starting AI Coach UI and Backend..."
+	@OPENROUTER_API_KEY=$(OPENROUTER_API_KEY) $(FULL_COMPOSE) up -d app coach-ui
+	@echo ""
+	@echo "✅ AI Coach UI is running at http://localhost:8501"
+	@echo "✅ Backend is running at http://localhost:8080"
