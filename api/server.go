@@ -76,9 +76,9 @@ func NewServer(db *gorm.DB) *Server {
 		adminSvc:        adminSvc,
 		redisClient:     redisClient,
 		llmClient:       services.NewOpenRouterClient("", ""),
-		coachSvc:        services.NewCoachService(db, services.NewWorkoutAnalyticsService(db), services.NewAdherenceService(db), services.NewNutritionTargetService(db), services.NewIntegrationRulesService(db), services.NewNotificationService(db)),
 		exerciseLibSvc:  services.NewExerciseLibClient(),
 	}
+	server.coachSvc = services.NewCoachService(db, server.analyticsSvc, server.adherenceSvc, services.NewNutritionTargetService(db), services.NewIntegrationRulesService(db), server.notificationSvc, server.exerciseLibSvc)
 	server.registerRoutes()
 	return server
 }

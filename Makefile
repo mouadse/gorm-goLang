@@ -1,4 +1,4 @@
-.PHONY: up down logs seed api test db-shell help dev monitor monitoring-up monitoring-down monitoring-logs monitoring-status coach
+.PHONY: up down logs seed api test db-shell help dev monitor monitoring-up monitoring-down monitoring-logs monitoring-status coach restart-app restart-coach restart
 
 ifneq (,$(wildcard ./.env))
     include .env
@@ -32,6 +32,11 @@ help:
 	@echo ""
 	@echo "AI Coach Commands:"
 	@echo "  make coach           - Start the Streamlit AI Coach demo (requires OPENROUTER_API_KEY)"
+	@echo ""
+	@echo "Restart Commands:"
+	@echo "  make restart-app     - Rebuild and restart the Go API server"
+	@echo "  make restart-coach   - Rebuild and restart the Streamlit AI Coach UI"
+	@echo "  make restart         - Rebuild and restart both API and Coach UI"
 	@echo ""
 	@echo "Quick Start: make up && make seed && make api"
 	@echo "With Monitoring: make monitor"
@@ -145,3 +150,24 @@ coach:
 	@echo ""
 	@echo "✅ AI Coach UI is running at http://localhost:8501"
 	@echo "✅ Backend is running at http://localhost:8080"
+
+# Restart commands
+restart-app:
+	@echo "🔄 Rebuilding and restarting Go API server..."
+	$(COMPOSE) up -d --build app
+	@echo "⏳ Waiting for health check..."
+	@sleep 3
+	@curl -sf http://localhost:8080/healthz > /dev/null && echo "✅ API server is healthy at http://localhost:8080" || echo "⚠️  API server not ready yet, check 'docker logs fitness-app'"
+
+restart-coach:
+	@echo "🔄 Rebuilding and restarting Streamlit AI Coach UI..."
+	$(FULL_COMPOSE) up -d --build coach-ui
+	@echo "✅ Coach UI restarted at http://localhost:8501"
+
+restart: restart-app
+	@echo "🔄 Rebuilding and restarting Streamlit AI Coach UI..."
+	$(FULL_COMPOSE) up -d --build coach-ui
+	@echo ""
+	@echo "✅ All services restarted!"
+	@echo "   API:      http://localhost:8080"
+	@echo "   Coach UI: http://localhost:8501"

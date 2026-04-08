@@ -37,8 +37,6 @@ services:
       dockerfile: Dockerfile
     container_name: fitness-exercise-lib
     cpus: "${APP_CPUS:-2.0}"
-    ports:
-      - "8000:8000"
     environment:
       - PORT=8000
       - EXERCISE_DATA_DIR=/app/exercise_data

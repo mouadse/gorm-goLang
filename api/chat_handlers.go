@@ -70,11 +70,20 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare messages for LLM
 	var llmMessages []services.LLMMessage
-	
+
 	// Add system prompt
-	systemPrompt := "You are a helpful AI fitness coach. Answer questions based on the user's data using tools. Keep answers concise."
+	systemPrompt := `You are a helpful AI fitness coach. Answer questions based on the user's data using tools. Keep answers concise.
+
+You have access to exercise library tools. Use them when the user:
+- Asks about exercises for specific muscles or goals (use search_exercises)
+- Wants a workout program or training plan (use generate_program)
+- Asks what equipment, levels, or muscle groups are available (use get_exercise_library_meta)
+
+When generating a program, try to infer the user's level and goals from their workout stats and records before calling generate_program. If unsure about available equipment profiles or options, call get_exercise_library_meta first.
+
+When searching exercises, use natural language queries like "chest compound exercises" or "back and biceps isolation moves". You can combine search results with the user's personal records to give tailored advice.`
 	llmMessages = append(llmMessages, services.LLMMessage{Role: "system", Content: systemPrompt})
-	
+
 	for _, m := range conv.Messages {
 		msg := services.LLMMessage{
 			Role:       m.Role,
@@ -108,7 +117,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	llmMessages = append(llmMessages, services.LLMMessage{Role: "user", Content: req.Message})
 
 	tools := s.coachSvc.GetTools()
-	
+
 	// Call LLM
 	llmResp, err := s.llmClient.Chat(llmMessages, tools)
 	if err != nil {
@@ -119,7 +128,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	// Handle tool calls
 	if len(llmResp.ToolCalls) > 0 {
 		llmMessages = append(llmMessages, *llmResp)
-		
+
 		// Save one assistant message with all tool calls
 		toolCallsJSON, _ := json.Marshal(llmResp.ToolCalls)
 		toolCallsStr := string(toolCallsJSON)
@@ -159,7 +168,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 				ToolCallID: tc.ID,
 			})
 		}
-		
+
 		// Second call
 		llmResp, err = s.llmClient.Chat(llmMessages, nil)
 		if err != nil {
