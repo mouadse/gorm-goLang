@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -359,4 +360,35 @@ func (s *Server) handleExerciseLibraryMeta(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, http.StatusOK, meta)
+}
+
+func (s *Server) handleExerciseImageProxy(w http.ResponseWriter, r *http.Request) {
+	imagePath := r.PathValue("path")
+	if imagePath == "" {
+		writeError(w, http.StatusBadRequest, errors.New("missing image path"))
+		return
+	}
+
+	proxyURL := s.exerciseLibSvc.BaseURL() + "/exercise-images/" + imagePath
+	resp, err := http.Get(proxyURL)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, fmt.Errorf("exercise image proxy: %w", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		writeError(w, resp.StatusCode, errors.New("image not found"))
+		return
+	}
+
+	for key, values := range resp.Header {
+		if strings.EqualFold(key, "Content-Type") || strings.EqualFold(key, "Content-Length") || strings.EqualFold(key, "Cache-Control") {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, resp.Body)
 }

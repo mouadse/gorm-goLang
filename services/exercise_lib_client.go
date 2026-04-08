@@ -145,6 +145,10 @@ type LibProgramResponse struct {
 	Days         []LibProgramDay `json:"days"`
 }
 
+func (c *ExerciseLibClient) BaseURL() string {
+	return c.baseURL
+}
+
 // --- Methods ---
 
 func (c *ExerciseLibClient) Init() (*LibInitResponse, error) {

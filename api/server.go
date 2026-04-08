@@ -154,6 +154,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /v1/exercises/search", s.handleSearchExercises)
 	s.mux.HandleFunc("POST /v1/exercises/program", s.handleGenerateProgram)
 	s.mux.HandleFunc("GET /v1/exercises/library-meta", s.handleExerciseLibraryMeta)
+	s.mux.HandleFunc("GET /v1/exercise-images/{path...}", s.handleExerciseImageProxy)
 
 	// Weight entries
 	protected("POST /v1/weight-entries", s.handleCreateWeightEntry)
