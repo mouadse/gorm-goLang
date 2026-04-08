@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Form Atlas — Workout Program and Exercise Recommender</title>
+    <meta
+      name="description"
+      content="Build weekly workout splits and explore 873 local exercises with offline images, structured filters, and a clean training-focused interface."
+    />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏋️</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark">FA</div>
+          <div>
+            <p class="eyebrow">Local Training Atlas</p>
+            <h1>Form Atlas</h1>
+          </div>
+        </div>
+        <div class="status-cluster">
+          <span class="status-pill" id="health-pill">Booting catalog</span>
+          <button class="ghost-button" id="rebuild-button" type="button">Rebuild Atlas</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">Exercise data + local image sequences</p>
+            <h2>Build a weekly split from a fully local exercise library.</h2>
+            <p class="hero-text">
+              This local movement planner runs on 873 vendored exercises, local JPG demos, a fast local
+              vector index, and a UI that pivots between weekly programming and direct exercise discovery.
+            </p>
+
+            <div class="metric-ribbon">
+              <article class="ribbon-block">
+                <span>Library</span>
+                <strong id="library-size">873</strong>
+                <p>Exercises loaded locally</p>
+              </article>
+              <article class="ribbon-block">
+                <span>Focus groups</span>
+                <strong id="library-muscles">17</strong>
+                <p>Muscle groups indexed</p>
+              </article>
+              <article class="ribbon-block">
+                <span>Movement types</span>
+                <strong id="library-categories">7</strong>
+                <p>Categories ready to filter</p>
+              </article>
+            </div>
+          </div>
+
+          <aside class="hero-gallery" id="hero-gallery">
+            <article class="gallery-card gallery-card--wide">
+              <div class="gallery-copy">
+                <p>Loading local exercise spotlights...</p>
+              </div>
+            </article>
+          </aside>
+        </section>
+
+        <section class="workspace-grid">
+          <section class="panel panel--form">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Weekly Planner</p>
+                <h3>Generate a split</h3>
+              </div>
+              <p class="panel-note">Built from the local exercise catalog and tuned to your setup.</p>
+            </div>
+
+            <form id="program-form" class="form-grid">
+              <label>
+                <span>Goal</span>
+                <select id="goal" name="goal">
+                  <option value="build_muscle">Build Muscle</option>
+                  <option value="get_stronger">Get Stronger</option>
+                  <option value="lose_fat">Lose Fat</option>
+                  <option value="move_better">Move Better</option>
+                  <option value="athletic_engine">Athletic Engine</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Days per week</span>
+                <select id="days-per-week" name="days_per_week">
+                  <option value="2">2 days</option>
+                  <option value="3">3 days</option>
+                  <option value="4" selected>4 days</option>
+                  <option value="5">5 days</option>
+                  <option value="6">6 days</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Session length</span>
+                <select id="session-minutes" name="session_minutes">
+                  <option value="30">30 min</option>
+                  <option value="45" selected>45 min</option>
+                  <option value="60">60 min</option>
+                  <option value="75">75 min</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Experience</span>
+                <select id="level" name="level">
+                  <option value="beginner" selected>Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="expert">Expert</option>
+                </select>
+              </label>
+
+              <label class="form-grid__wide">
+                <span>Equipment setup</span>
+                <select id="equipment-profile" name="equipment_profile"></select>
+              </label>
+
+              <div class="form-grid__wide">
+                <span class="label-title">Bias the program toward</span>
+                <div class="focus-grid" id="focus-grid"></div>
+              </div>
+
+              <label class="form-grid__wide">
+                <span>Notes</span>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  rows="4"
+                  placeholder="Examples: keep it joint-friendly, emphasize posture, make it athletic but doable at home."
+                ></textarea>
+              </label>
+
+              <button class="primary-button form-grid__wide" id="program-button" type="submit">
+                Build My Split
+              </button>
+            </form>
+          </section>
+
+          <section class="panel panel--output">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Program Board</p>
+                <h3>Current recommendation</h3>
+              </div>
+              <p class="panel-note" id="program-status">Preparing an initial recommendation.</p>
+            </div>
+
+            <section class="summary-band">
+              <p class="summary-text" id="program-summary">
+                Program output will land here with a weekly split, exercise prescriptions, and recovery guidance.
+              </p>
+              <p class="recovery-note" id="recovery-note">Recovery guidance will appear after the first plan is generated.</p>
+            </section>
+
+            <section class="warmup-strip">
+              <div class="strip-header">
+                <p class="eyebrow">Warm-up</p>
+                <span>Keep it short and repeatable</span>
+              </div>
+              <ul id="warmup-list">
+                <li>Load the catalog to see the daily warm-up outline.</li>
+              </ul>
+            </section>
+
+            <div class="program-days" id="program-days">
+              <article class="empty-state">
+                <p class="empty-state__eyebrow">Planner loading</p>
+                <h4>Generating a starter split from the local catalog.</h4>
+                <p>Once ready, each day will show movement picks, prescriptions, and the local exercise imagery.</p>
+              </article>
+            </div>
+          </section>
+        </section>
+
+        <section class="atlas-section">
+          <div class="atlas-header">
+            <div>
+              <p class="eyebrow">Exercise Atlas</p>
+              <h3>Search the movement library</h3>
+            </div>
+            <p class="panel-note" id="atlas-status">Use natural language plus filters to pull specific exercises.</p>
+          </div>
+
+          <form id="search-form" class="search-grid">
+            <label class="search-grid__query">
+              <span>Search prompt</span>
+              <input
+                id="query"
+                name="query"
+                type="text"
+                autocomplete="off"
+                placeholder="Try: home push workout for chest and shoulders"
+                required
+              />
+            </label>
+
+            <label>
+              <span>Level</span>
+              <select id="search-level" name="search_level">
+                <option value="">All</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Equipment</span>
+              <select id="search-equipment" name="search_equipment">
+                <option value="">All</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Category</span>
+              <select id="search-category" name="search_category">
+                <option value="">All</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Muscle</span>
+              <select id="search-muscle" name="search_muscle">
+                <option value="">All</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Results</span>
+              <select id="top-k" name="top_k">
+                <option value="6">6</option>
+                <option value="9" selected>9</option>
+                <option value="12">12</option>
+              </select>
+            </label>
+
+            <button class="primary-button" id="search-button" type="submit">Search Atlas</button>
+          </form>
+
+          <div class="sample-query-row" id="sample-query-row"></div>
+
+          <div class="results-header">
+            <p class="eyebrow">Search Results</p>
+            <span id="results-count">No search yet</span>
+          </div>
+
+          <div class="results-grid" id="results-grid">
+            <article class="empty-state">
+              <p class="empty-state__eyebrow">Atlas ready</p>
+              <h4>Search by outcome, muscle group, or training setup.</h4>
+              <p>Examples: “posterior-chain strength with barbell”, “mobility for tight hips”, “bodyweight core finisher”.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

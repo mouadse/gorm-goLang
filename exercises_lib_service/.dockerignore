@@ -1,0 +1,20 @@
+.git
+.gitignore
+.env
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.ruff_cache/
+
+# Large runtime assets should be mounted, not baked into the image.
+exercise_data/
+.catalog_cache/
+
+# Local-only dev and research files.
+tests/
+benchmarks/
+autoresearch*
+README.md

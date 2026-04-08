@@ -1,0 +1,6 @@
+setuptools<81
+fastapi==0.115.6
+uvicorn==0.34.0
+pydantic==2.10.4
+fastembed==0.8.0
+numpy==2.4.4
