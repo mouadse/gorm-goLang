@@ -17,7 +17,7 @@ func TestCardioEntryCRUD(t *testing.T) {
 
 	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
 		"name":         "Bench Press",
-		"muscle_group": "Chest",
+		"primary_muscles": "Chest",
 		"equipment":    "Barbell",
 	}, http.StatusCreated)
 

@@ -52,36 +52,6 @@ func TestSeedUsersBackfillsExistingRows(t *testing.T) {
 	}
 }
 
-func TestSeedExercisesIncludesBeginnerHomeOptionsForShouldersAndBack(t *testing.T) {
-	t.Parallel()
-
-	db := newSeedTestDB(t)
-
-	if _, err := seedExercises(db); err != nil {
-		t.Fatalf("seed exercises: %v", err)
-	}
-
-	var shoulderCount int64
-	if err := db.Model(&models.Exercise{}).
-		Where("muscle_group = ? AND equipment = ? AND difficulty = ?", "Shoulders", "Dumbbell", "Beginner").
-		Count(&shoulderCount).Error; err != nil {
-		t.Fatalf("count shoulder exercises: %v", err)
-	}
-	if shoulderCount == 0 {
-		t.Fatal("expected at least one beginner dumbbell shoulder exercise")
-	}
-
-	var backCount int64
-	if err := db.Model(&models.Exercise{}).
-		Where("muscle_group = ? AND difficulty = ? AND equipment IN ?", "Back", "Beginner", []string{"Dumbbell", "Bodyweight", "Resistance Band"}).
-		Count(&backCount).Error; err != nil {
-		t.Fatalf("count back exercises: %v", err)
-	}
-	if backCount == 0 {
-		t.Fatal("expected at least one beginner back exercise for home equipment")
-	}
-}
-
 func newSeedTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 

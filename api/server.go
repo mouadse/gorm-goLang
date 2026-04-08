@@ -36,6 +36,7 @@ type Server struct {
 	redisClient     *redis.Client
 	llmClient       services.LLMClient
 	coachSvc        *services.CoachService
+	exerciseLibSvc  *services.ExerciseLibClient
 }
 
 func NewServer(db *gorm.DB) *Server {
@@ -76,6 +77,7 @@ func NewServer(db *gorm.DB) *Server {
 		redisClient:     redisClient,
 		llmClient:       services.NewOpenRouterClient("", ""),
 		coachSvc:        services.NewCoachService(db, services.NewWorkoutAnalyticsService(db), services.NewAdherenceService(db), services.NewNutritionTargetService(db), services.NewIntegrationRulesService(db), services.NewNotificationService(db)),
+		exerciseLibSvc:  services.NewExerciseLibClient(),
 	}
 	server.registerRoutes()
 	return server
@@ -99,6 +101,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /docs/", s.handleSwaggerUI)
 	s.mux.HandleFunc("GET /login", s.handleLoginPage)
 	s.mux.HandleFunc("GET /register", s.handleRegisterPage)
+
+	// Serve static frontend files
+	s.mux.Handle("/", http.FileServer(http.Dir("frontend")))
+
 	s.mux.HandleFunc("POST /v1/auth/register", s.handleRegisterWithSessions)
 	s.mux.HandleFunc("POST /v1/auth/login", s.handleLoginWithSessions)
 	s.mux.HandleFunc("POST /v1/auth/refresh", s.handleRefreshToken)
@@ -143,6 +149,11 @@ func (s *Server) registerRoutes() {
 	protected("PATCH /v1/exercises/{id}", s.handleUpdateExercise)
 	protected("DELETE /v1/exercises/{id}", s.handleDeleteExercise)
 	protected("GET /v1/exercises/{id}/history", s.handleGetExerciseHistory)
+
+	// Exercise library proxy endpoints
+	s.mux.HandleFunc("POST /v1/exercises/search", s.handleSearchExercises)
+	s.mux.HandleFunc("POST /v1/exercises/program", s.handleGenerateProgram)
+	s.mux.HandleFunc("GET /v1/exercises/library-meta", s.handleExerciseLibraryMeta)
 
 	// Weight entries
 	protected("POST /v1/weight-entries", s.handleCreateWeightEntry)

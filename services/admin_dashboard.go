@@ -264,7 +264,7 @@ func (s *AdminDashboardService) GetWorkoutAnalytics(ctx context.Context) (map[st
 			LEFT JOIN workout_exercises we ON e.id = we.exercise_id
 			LEFT JOIN workouts w ON we.workout_id = w.id
 			WHERE w.deleted_at IS NULL
-			GROUP BY e.id, e.name, e.muscle_group
+			GROUP BY e.id, e.name, e.primary_muscles
 			ORDER BY usage_count DESC
 			LIMIT 20
 		`).Scan(&stats.PopularExercises)

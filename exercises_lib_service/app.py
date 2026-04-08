@@ -430,6 +430,26 @@ class SearchResponse(BaseModel):
     results: list[ExerciseResult]
 
 
+class CatalogExercise(BaseModel):
+    exercise_id: str
+    name: str
+    force: str
+    level: str
+    mechanic: str
+    equipment: str
+    category: str
+    primary_muscles: list[str]
+    secondary_muscles: list[str]
+    instructions: list[str]
+    image_url: Optional[str] = None
+    alt_image_url: Optional[str] = None
+
+
+class CatalogExercisesResponse(BaseModel):
+    total: int
+    exercises: list[CatalogExercise]
+
+
 class InitResponse(BaseModel):
     status: str
     exercises_loaded: int
@@ -2217,6 +2237,32 @@ async def catalog_meta_endpoint():
     return MetaResponse(**catalog_meta)
 
 
+@app.get("/catalog/exercises", response_model=CatalogExercisesResponse)
+async def list_catalog_exercises(limit: int = 1000, offset: int = 0):
+    ensure_catalog()
+    page = catalog[offset : offset + limit]
+    return CatalogExercisesResponse(
+        total=len(catalog),
+        exercises=[
+            CatalogExercise(
+                exercise_id=item["exercise_id"],
+                name=item["name"],
+                force=item.get("force", ""),
+                level=item.get("level", ""),
+                mechanic=item.get("mechanic", ""),
+                equipment=item.get("equipment", ""),
+                category=item.get("category", ""),
+                primary_muscles=item.get("primary_muscles", []),
+                secondary_muscles=item.get("secondary_muscles", []),
+                instructions=item.get("instructions", []),
+                image_url=item.get("image_url"),
+                alt_image_url=item.get("alt_image_url"),
+            )
+            for item in page
+        ],
+    )
+
+
 @app.post("/init", response_model=InitResponse)
 async def initialize_database():
     try:
@@ -2248,7 +2294,7 @@ async def search_exercises(request: SearchRequest):
             extra_context=search_context_terms(request, query_signals),
         )
 
-        ranked_results: list[tuple[float, dict[str, Any], list[str]]] = []
+        ranked_results: list[tuple[float, float, dict[str, Any], list[str]]] = []
         for index, score in raw_results:
             item = catalog[index]
             if not matches_search_intent(
@@ -2270,6 +2316,7 @@ async def search_exercises(request: SearchRequest):
             ranked_results.append(
                 (
                     reranked_score,
+                    match_strength,
                     item,
                     build_match_reasons(
                         item,
@@ -2285,8 +2332,8 @@ async def search_exercises(request: SearchRequest):
         top_results = ranked_results[: request.top_k]
         return SearchResponse.model_construct(
             results=[
-                serialize_exercise(item, reranked_score, match_reasons)
-                for reranked_score, item, match_reasons in top_results
+                serialize_exercise(item, match_strength, match_reasons)
+                for reranked_score, match_strength, item, match_reasons in top_results
             ]
         )
     except HTTPException:

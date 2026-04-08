@@ -13,6 +13,12 @@ import (
 	"gorm.io/gorm"
 )
 
+type migratedExerciseRow struct {
+	ID            string
+	Name          string
+	ExerciseLibID string
+}
+
 func TestMigrateCreatesRequiredTables(t *testing.T) {
 	t.Parallel()
 
@@ -162,6 +168,60 @@ func TestMigrateDropsLegacySQLiteNotificationsTable(t *testing.T) {
 	}
 	if err := db.Create(&notification).Error; err != nil {
 		t.Fatalf("create notification after migration: %v", err)
+	}
+}
+
+func TestMigrateBackfillsExerciseLibIDForLegacyExercises(t *testing.T) {
+	t.Parallel()
+
+	db := openTestDB(t)
+
+	if err := db.Exec(`CREATE TABLE exercises (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		equipment TEXT,
+		muscle_group TEXT,
+		difficulty TEXT,
+		created_at DATETIME,
+		updated_at DATETIME,
+		deleted_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("create legacy exercises table: %v", err)
+	}
+
+	firstID := uuid.NewString()
+	secondID := uuid.NewString()
+
+	if err := db.Exec(`INSERT INTO exercises (id, name, equipment, muscle_group, difficulty, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+		       (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		firstID, "Legacy Split Squat", "Dumbbell", "Legs", "Beginner",
+		secondID, "Legacy Push-Up", "Bodyweight", "Chest", "Intermediate",
+	).Error; err != nil {
+		t.Fatalf("seed legacy exercises: %v", err)
+	}
+
+	if err := database.Migrate(db); err != nil {
+		t.Fatalf("migrate database with legacy exercises: %v", err)
+	}
+
+	var exercises []migratedExerciseRow
+	if err := db.Table("exercises").
+		Select("CAST(id AS TEXT) AS id, name, exercise_lib_id").
+		Order("name asc").
+		Scan(&exercises).Error; err != nil {
+		t.Fatalf("load migrated exercises: %v", err)
+	}
+
+	if len(exercises) != 2 {
+		t.Fatalf("expected 2 migrated exercises, got %d", len(exercises))
+	}
+
+	for _, exercise := range exercises {
+		wantLibID := "local-" + exercise.ID
+		if exercise.ExerciseLibID != wantLibID {
+			t.Fatalf("expected exercise %q to have exercise_lib_id %q, got %q", exercise.Name, wantLibID, exercise.ExerciseLibID)
+		}
 	}
 }
 

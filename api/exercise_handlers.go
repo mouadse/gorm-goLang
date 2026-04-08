@@ -2,29 +2,68 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"fitness-tracker/models"
+	"fitness-tracker/services"
 	"gorm.io/gorm"
 )
 
 type createExerciseRequest struct {
-	Name         string `json:"name"`
-	MuscleGroup  string `json:"muscle_group"`
-	Equipment    string `json:"equipment"`
-	Difficulty   string `json:"difficulty"`
-	Instructions string `json:"instructions"`
-	VideoURL     string `json:"video_url"`
+	ExerciseLibID    string `json:"exercise_lib_id"`
+	Name             string `json:"name"`
+	Force            string `json:"force"`
+	Level            string `json:"level"`
+	Mechanic         string `json:"mechanic"`
+	Equipment        string `json:"equipment"`
+	Category         string `json:"category"`
+	PrimaryMuscles   string `json:"primary_muscles"`
+	SecondaryMuscles string `json:"secondary_muscles"`
+	Instructions     string `json:"instructions"`
+	ImageURL         string `json:"image_url"`
+	AltImageURL      string `json:"alt_image_url"`
 }
 
 type updateExerciseRequest struct {
-	Name         *string `json:"name"`
-	MuscleGroup  *string `json:"muscle_group"`
-	Equipment    *string `json:"equipment"`
-	Difficulty   *string `json:"difficulty"`
-	Instructions *string `json:"instructions"`
-	VideoURL     *string `json:"video_url"`
+	Name             *string `json:"name"`
+	Force            *string `json:"force"`
+	Level            *string `json:"level"`
+	Mechanic         *string `json:"mechanic"`
+	Equipment        *string `json:"equipment"`
+	Category         *string `json:"category"`
+	PrimaryMuscles   *string `json:"primary_muscles"`
+	SecondaryMuscles *string `json:"secondary_muscles"`
+	Instructions     *string `json:"instructions"`
+	ImageURL         *string `json:"image_url"`
+	AltImageURL      *string `json:"alt_image_url"`
+}
+
+func normalizeExerciseFilterValue(raw string) string {
+	return strings.ToLower(strings.TrimSpace(raw))
+}
+
+func exerciseEquipmentFilterAliases(raw string) []string {
+	normalized := normalizeExerciseFilterValue(raw)
+	switch normalized {
+	case "", "any":
+		return nil
+	case "body only", "bodyweight", "body weight", "body":
+		return []string{"body only", "bodyweight", "body weight"}
+	default:
+		return []string{normalized}
+	}
+}
+
+func writeExerciseLibProxyError(w http.ResponseWriter, context string, err error) {
+	var upstreamErr *services.ExerciseLibAPIError
+	if errors.As(err, &upstreamErr) {
+		writeError(w, upstreamErr.StatusCode, fmt.Errorf("%s: %w", context, upstreamErr))
+		return
+	}
+
+	writeError(w, http.StatusBadGateway, fmt.Errorf("%s: %w", context, err))
 }
 
 func (s *Server) handleCreateExercise(w http.ResponseWriter, r *http.Request) {
@@ -41,12 +80,18 @@ func (s *Server) handleCreateExercise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	exercise := models.Exercise{
-		Name:         name,
-		MuscleGroup:  strings.TrimSpace(req.MuscleGroup),
-		Equipment:    strings.TrimSpace(req.Equipment),
-		Difficulty:   strings.TrimSpace(req.Difficulty),
-		Instructions: strings.TrimSpace(req.Instructions),
-		VideoURL:     strings.TrimSpace(req.VideoURL),
+		ExerciseLibID:    strings.TrimSpace(req.ExerciseLibID),
+		Name:             name,
+		Force:            strings.TrimSpace(req.Force),
+		Level:            strings.TrimSpace(req.Level),
+		Mechanic:         strings.TrimSpace(req.Mechanic),
+		Equipment:        strings.TrimSpace(req.Equipment),
+		Category:         strings.TrimSpace(req.Category),
+		PrimaryMuscles:   strings.TrimSpace(req.PrimaryMuscles),
+		SecondaryMuscles: strings.TrimSpace(req.SecondaryMuscles),
+		Instructions:     strings.TrimSpace(req.Instructions),
+		ImageURL:         strings.TrimSpace(req.ImageURL),
+		AltImageURL:      strings.TrimSpace(req.AltImageURL),
 	}
 
 	if err := s.db.Create(&exercise).Error; err != nil {
@@ -64,16 +109,21 @@ func (s *Server) handleListExercises(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("LOWER(name) LIKE ?", "%"+strings.ToLower(name)+"%")
 	}
 
-	if muscleGroup := strings.TrimSpace(r.URL.Query().Get("muscle_group")); muscleGroup != "" {
-		query = applyExerciseListFilter(query, "muscle_group", expandExerciseFilter(muscleGroup, exerciseMuscleGroupAliases))
+	if level := strings.TrimSpace(r.URL.Query().Get("level")); level != "" {
+		query = query.Where("LOWER(level) = ?", normalizeExerciseFilterValue(level))
 	}
 
 	if equipment := strings.TrimSpace(r.URL.Query().Get("equipment")); equipment != "" {
-		query = applyExerciseListFilter(query, "equipment", expandExerciseFilter(equipment, exerciseEquipmentAliases))
+		query = query.Where("LOWER(equipment) IN ?", exerciseEquipmentFilterAliases(equipment))
 	}
 
-	if difficulty := strings.TrimSpace(r.URL.Query().Get("difficulty")); difficulty != "" {
-		query = applyExerciseListFilter(query, "difficulty", expandExerciseFilter(difficulty, exerciseDifficultyAliases))
+	if category := strings.TrimSpace(r.URL.Query().Get("category")); category != "" {
+		query = query.Where("category = ?", category)
+	}
+
+	if muscle := strings.TrimSpace(r.URL.Query().Get("muscle")); muscle != "" {
+		m := "%" + strings.ToLower(muscle) + "%"
+		query = query.Where("LOWER(primary_muscles) LIKE ? OR LOWER(secondary_muscles) LIKE ?", m, m)
 	}
 
 	var exercises []models.Exercise
@@ -82,86 +132,11 @@ func (s *Server) handleListExercises(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(exercises))
-}
-
-var exerciseMuscleGroupAliases = map[string][]string{
-	"chest":      {"chest"},
-	"back":       {"back"},
-	"leg":        {"legs"},
-	"legs":       {"legs"},
-	"hamstring":  {"hamstrings"},
-	"hamstrings": {"hamstrings"},
-	"shoulder":   {"shoulders"},
-	"shoulders":  {"shoulders"},
-}
-
-var exerciseEquipmentAliases = map[string][]string{
-	"band":             {"band", "resistance band"},
-	"bands":            {"band", "resistance band"},
-	"bodyweight":       {"bodyweight"},
-	"dumbbell":         {"dumbbell"},
-	"dumbbells":        {"dumbbell"},
-	"home":             {"bodyweight", "dumbbell", "kettlebell", "band", "resistance band"},
-	"home equipment":   {"bodyweight", "dumbbell", "kettlebell", "band", "resistance band"},
-	"home equipement":  {"bodyweight", "dumbbell", "kettlebell", "band", "resistance band"},
-	"home gym":         {"bodyweight", "dumbbell", "kettlebell", "band", "resistance band"},
-	"kettlebell":       {"kettlebell"},
-	"resistance band":  {"band", "resistance band"},
-	"resistance bands": {"band", "resistance band"},
-}
-
-var exerciseDifficultyAliases = map[string][]string{
-	"advanced":     {"advanced"},
-	"beginner":     {"beginner"},
-	"easy":         {"beginner"},
-	"expert":       {"advanced"},
-	"intermediate": {"intermediate"},
-	"moderate":     {"intermediate"},
-	"newbie":       {"beginner"},
-	"novice":       {"beginner"},
-	"starter":      {"beginner"},
-}
-
-func applyExerciseListFilter(query *gorm.DB, column string, values []string) *gorm.DB {
-	if len(values) == 0 {
-		return query
+	if exercises == nil {
+		exercises = []models.Exercise{}
 	}
 
-	return query.Where("LOWER("+column+") IN ?", values)
-}
-
-func expandExerciseFilter(raw string, aliases map[string][]string) []string {
-	normalized := normalizeExerciseFilter(raw)
-	if normalized == "" {
-		return nil
-	}
-
-	candidates := aliases[normalized]
-	if len(candidates) == 0 {
-		candidates = []string{normalized}
-	}
-
-	seen := make(map[string]struct{}, len(candidates))
-	expanded := make([]string, 0, len(candidates))
-	for _, candidate := range candidates {
-		candidate = normalizeExerciseFilter(candidate)
-		if candidate == "" {
-			continue
-		}
-		if _, ok := seen[candidate]; ok {
-			continue
-		}
-		seen[candidate] = struct{}{}
-		expanded = append(expanded, candidate)
-	}
-
-	return expanded
-}
-
-func normalizeExerciseFilter(value string) string {
-	replacer := strings.NewReplacer("-", " ", "_", " ")
-	return strings.Join(strings.Fields(strings.ToLower(replacer.Replace(strings.TrimSpace(value)))), " ")
+	writeJSON(w, http.StatusOK, exercises)
 }
 
 func (s *Server) handleGetExercise(w http.ResponseWriter, r *http.Request) {
@@ -216,24 +191,48 @@ func (s *Server) handleUpdateExercise(w http.ResponseWriter, r *http.Request) {
 		exercise.Name = name
 	}
 
-	if req.MuscleGroup != nil {
-		exercise.MuscleGroup = strings.TrimSpace(*req.MuscleGroup)
+	if req.Force != nil {
+		exercise.Force = strings.TrimSpace(*req.Force)
+	}
+
+	if req.Level != nil {
+		exercise.Level = strings.TrimSpace(*req.Level)
+	}
+
+	if req.Mechanic != nil {
+		exercise.Mechanic = strings.TrimSpace(*req.Mechanic)
 	}
 
 	if req.Equipment != nil {
 		exercise.Equipment = strings.TrimSpace(*req.Equipment)
 	}
 
-	if req.Difficulty != nil {
-		exercise.Difficulty = strings.TrimSpace(*req.Difficulty)
+	if req.Category != nil {
+		exercise.Category = strings.TrimSpace(*req.Category)
+	}
+
+	if req.PrimaryMuscles != nil {
+		exercise.PrimaryMuscles = strings.TrimSpace(*req.PrimaryMuscles)
+	}
+
+	if req.SecondaryMuscles != nil {
+		exercise.SecondaryMuscles = strings.TrimSpace(*req.SecondaryMuscles)
 	}
 
 	if req.Instructions != nil {
 		exercise.Instructions = strings.TrimSpace(*req.Instructions)
 	}
 
-	if req.VideoURL != nil {
-		exercise.VideoURL = strings.TrimSpace(*req.VideoURL)
+	if req.ImageURL != nil {
+		exercise.ImageURL = strings.TrimSpace(*req.ImageURL)
+	}
+
+	if req.AltImageURL != nil {
+		exercise.AltImageURL = strings.TrimSpace(*req.AltImageURL)
+	}
+
+	if strings.TrimSpace(exercise.ExerciseLibID) == "" {
+		exercise.ExerciseLibID = "local-" + exercise.ID.String()
 	}
 
 	if err := s.db.Save(&exercise).Error; err != nil {
@@ -280,4 +279,84 @@ func (s *Server) handleDeleteExercise(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type searchExercisesRequest struct {
+	Query     string  `json:"query"`
+	TopK      int     `json:"top_k"`
+	Level     *string `json:"level,omitempty"`
+	Equipment *string `json:"equipment,omitempty"`
+	Category  *string `json:"category,omitempty"`
+	Muscle    *string `json:"muscle,omitempty"`
+}
+
+func (s *Server) handleSearchExercises(w http.ResponseWriter, r *http.Request) {
+	var req searchExercisesRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	topK := req.TopK
+	if topK <= 0 {
+		topK = 8
+	}
+
+	libResp, err := s.exerciseLibSvc.Search(services.LibSearchRequest{
+		Query:     req.Query,
+		TopK:      topK,
+		Level:     req.Level,
+		Equipment: req.Equipment,
+		Category:  req.Category,
+		Muscle:    req.Muscle,
+	})
+	if err != nil {
+		writeExerciseLibProxyError(w, "exercise library search", err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, libResp)
+}
+
+type generateProgramRequest struct {
+	Goal             string   `json:"goal"`
+	DaysPerWeek      int      `json:"days_per_week"`
+	SessionMinutes   int      `json:"session_minutes"`
+	Level            string   `json:"level"`
+	EquipmentProfile string   `json:"equipment_profile"`
+	Focus            []string `json:"focus"`
+	Notes            string   `json:"notes"`
+}
+
+func (s *Server) handleGenerateProgram(w http.ResponseWriter, r *http.Request) {
+	var req generateProgramRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	libResp, err := s.exerciseLibSvc.GetProgram(services.LibProgramRequest{
+		Goal:             req.Goal,
+		DaysPerWeek:      req.DaysPerWeek,
+		SessionMinutes:   req.SessionMinutes,
+		Level:            req.Level,
+		EquipmentProfile: req.EquipmentProfile,
+		Focus:            req.Focus,
+		Notes:            req.Notes,
+	})
+	if err != nil {
+		writeExerciseLibProxyError(w, "exercise library program", err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, libResp)
+}
+
+func (s *Server) handleExerciseLibraryMeta(w http.ResponseWriter, r *http.Request) {
+	meta, err := s.exerciseLibSvc.GetMeta()
+	if err != nil {
+		writeExerciseLibProxyError(w, "exercise library meta", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, meta)
 }

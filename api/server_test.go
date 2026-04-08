@@ -33,9 +33,9 @@ func TestCoreCRUDFlow(t *testing.T) {
 	user := userAuth.User
 
 	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
-		"name":         "Bench Press",
-		"muscle_group": "Chest",
-		"equipment":    "Barbell",
+		"name":            "Bench Press",
+		"primary_muscles": "Chest",
+		"equipment":       "Barbell",
 	}, http.StatusCreated)
 
 	workout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
@@ -403,38 +403,45 @@ func TestExerciseReadRoutesStayPublicWhileWritesRequireAuth(t *testing.T) {
 	}, http.StatusCreated)
 
 	expectStatus(t, server, http.MethodGet, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusOK)
-	expectStatus(t, server, http.MethodPatch, "/v1/exercises/"+exercise.ID.String(), map[string]any{"difficulty": "Advanced"}, http.StatusUnauthorized)
+	expectStatus(t, server, http.MethodPatch, "/v1/exercises/"+exercise.ID.String(), map[string]any{"level": "Advanced"}, http.StatusUnauthorized)
 	expectStatus(t, server, http.MethodDelete, "/v1/exercises/"+exercise.ID.String(), nil, http.StatusUnauthorized)
 }
 
-func TestExerciseListSupportsNaturalLanguageFilters(t *testing.T) {
+func TestExerciseListFilters(t *testing.T) {
 	t.Parallel()
 
 	server := newTestServer(t)
 	userAuth := registerTestUser(t, server, "filters@example.com", "Filter Owner", "password123")
 
 	requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
-		"name":         "Dumbbell Shoulder Press",
-		"muscle_group": "Shoulders",
-		"equipment":    "Dumbbell",
-		"difficulty":   "Beginner",
+		"name":            "Dumbbell Shoulder Press",
+		"primary_muscles": "Shoulders",
+		"equipment":       "Dumbbell",
+		"level":           "Beginner",
 	}, http.StatusCreated)
 
 	requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
-		"name":         "Band Pull-Apart",
-		"muscle_group": "Back",
-		"equipment":    "Resistance Band",
-		"difficulty":   "Beginner",
+		"name":            "Band Pull-Apart",
+		"primary_muscles": "Back",
+		"equipment":       "Resistance Band",
+		"level":           "Beginner",
 	}, http.StatusCreated)
 
 	requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
-		"name":         "Barbell Push Press",
-		"muscle_group": "Shoulders",
-		"equipment":    "Barbell",
-		"difficulty":   "Advanced",
+		"name":            "Barbell Push Press",
+		"primary_muscles": "Shoulders",
+		"equipment":       "Barbell",
+		"level":           "Advanced",
 	}, http.StatusCreated)
 
-	shoulderExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?muscle_group=shoulder&equipment=home%20equipment&difficulty=novice", nil, http.StatusOK)
+	requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
+		"name":            "Air Squat",
+		"primary_muscles": "Legs",
+		"equipment":       "Bodyweight",
+		"level":           "Beginner",
+	}, http.StatusCreated)
+
+	shoulderExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?muscle=shoulder&equipment=dumbbell&level=beginner", nil, http.StatusOK)
 	if len(shoulderExercises) != 1 {
 		t.Fatalf("expected 1 beginner home shoulder exercise, got %d", len(shoulderExercises))
 	}
@@ -442,12 +449,20 @@ func TestExerciseListSupportsNaturalLanguageFilters(t *testing.T) {
 		t.Fatalf("expected dumbbell shoulder press, got %q", shoulderExercises[0].Name)
 	}
 
-	backExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?muscle_group=back&equipment=home&difficulty=novice", nil, http.StatusOK)
+	backExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?muscle=back&equipment=Resistance%20Band&level=Beginner", nil, http.StatusOK)
 	if len(backExercises) != 1 {
 		t.Fatalf("expected 1 beginner home back exercise, got %d", len(backExercises))
 	}
 	if backExercises[0].Name != "Band Pull-Apart" {
 		t.Fatalf("expected band pull-apart, got %q", backExercises[0].Name)
+	}
+
+	bodyweightExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?equipment=body%20only&level=beginner", nil, http.StatusOK)
+	if len(bodyweightExercises) != 1 {
+		t.Fatalf("expected 1 bodyweight beginner exercise, got %d", len(bodyweightExercises))
+	}
+	if bodyweightExercises[0].Name != "Air Squat" {
+		t.Fatalf("expected air squat, got %q", bodyweightExercises[0].Name)
 	}
 }
 

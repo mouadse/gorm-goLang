@@ -19,7 +19,7 @@ func TestWorkoutAnalyticsHandlers(t *testing.T) {
 
 	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
 		"name":         "Squat",
-		"muscle_group": "Legs",
+		"primary_muscles": "Legs",
 		"equipment":    "Barbell",
 	}, http.StatusCreated)
 

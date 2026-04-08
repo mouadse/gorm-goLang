@@ -42,7 +42,7 @@ func EnsureAdminViews(db *gorm.DB) error {
 			SELECT 
 				e.id as exercise_id,
 				e.name as exercise_name,
-				e.muscle_group,
+				e.primary_muscles AS muscle_group,
 				COUNT(we.id) as usage_count,
 				COUNT(DISTINCT w.user_id) as unique_users,
 				MAX(w.date) as last_used
@@ -50,7 +50,7 @@ func EnsureAdminViews(db *gorm.DB) error {
 			LEFT JOIN workout_exercises we ON e.id = we.exercise_id
 			LEFT JOIN workouts w ON we.workout_id = w.id
 			WHERE w.deleted_at IS NULL
-			GROUP BY e.id, e.name, e.muscle_group;
+			GROUP BY e.id, e.name, e.primary_muscles;
 		`,
 		"user_retention_cohorts": `
 			CREATE MATERIALIZED VIEW IF NOT EXISTS user_retention_cohorts AS

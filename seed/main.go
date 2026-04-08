@@ -1,8 +1,11 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"math/rand"
+	"strings"
 	"time"
 
 	"fitness-tracker/database"
@@ -108,21 +111,85 @@ func main() {
 }
 
 func seedExercises(db *gorm.DB) ([]models.Exercise, error) {
-	log.Println("  seeding exercises...")
+	log.Println("  syncing exercises from exercise library service...")
 
+	client := services.NewExerciseLibClient()
+
+	initResp, err := client.Init()
+	if err != nil {
+		log.Printf("  warning: exercise lib init failed (%v), falling back to DB", err)
+		var exercises []models.Exercise
+		if err := db.Find(&exercises).Error; err != nil {
+			return nil, err
+		}
+		if len(exercises) == 0 {
+			log.Println("  warning: no exercises in DB, seeding defaults")
+			return seedLegacyExercises(db)
+		}
+		return exercises, nil
+	}
+	log.Printf("  exercise library initialized: %d exercises", initResp.ExercisesLoaded)
+
+	catalog, err := client.GetAllExercises()
+	if err != nil {
+		return nil, fmt.Errorf("fetch exercises: %w", err)
+	}
+
+	exercises := make([]models.Exercise, 0, len(catalog))
+	for _, item := range catalog {
+		exercise := models.Exercise{
+			ExerciseLibID:    item.ExerciseID,
+			Name:             item.Name,
+			Force:            item.Force,
+			Level:            item.Level,
+			Mechanic:         item.Mechanic,
+			Equipment:        item.Equipment,
+			Category:         item.Category,
+			PrimaryMuscles:   strings.Join(item.PrimaryMuscles, ","),
+			SecondaryMuscles: strings.Join(item.SecondaryMuscles, ","),
+			Instructions:     strings.Join(item.Instructions, "\n"),
+			ImageURL:         derefString(item.ImageURL),
+			AltImageURL:      derefString(item.AltImageURL),
+		}
+
+		var persisted models.Exercise
+		err := db.Where("exercise_lib_id = ? OR name = ?", exercise.ExerciseLibID, exercise.Name).First(&persisted).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				if err := db.Create(&exercise).Error; err != nil {
+					return nil, err
+				}
+				persisted = exercise
+			} else {
+				return nil, err
+			}
+		} else {
+			// Found, update it
+			if err := db.Model(&persisted).Updates(exercise).Error; err != nil {
+				return nil, err
+			}
+		}
+		exercises = append(exercises, persisted)
+	}
+
+	log.Printf("  synced %d exercises", len(exercises))
+	return exercises, nil
+}
+
+func seedLegacyExercises(db *gorm.DB) ([]models.Exercise, error) {
 	seeds := []models.Exercise{
-		{Name: "Bench Press", MuscleGroup: "Chest", Equipment: "Barbell", Difficulty: "Intermediate", Instructions: "Press the bar from chest to lockout.", VideoURL: "https://www.youtube.com/watch?v=gRVjAtPip0Y"},
-		{Name: "Back Squat", MuscleGroup: "Legs", Equipment: "Barbell", Difficulty: "Intermediate", Instructions: "Squat to depth while keeping the torso braced.", VideoURL: "https://www.youtube.com/watch?v=ultWZbUMPL8"},
-		{Name: "Deadlift", MuscleGroup: "Back", Equipment: "Barbell", Difficulty: "Advanced", Instructions: "Drive through the floor and stand tall with the bar.", VideoURL: "https://www.youtube.com/watch?v=op9kVnSso6Q"},
-		{Name: "Pull-Up", MuscleGroup: "Back", Equipment: "Bodyweight", Difficulty: "Intermediate", Instructions: "Pull until the chin clears the bar.", VideoURL: "https://www.youtube.com/watch?v=eGo4IYlbE5g"},
-		{Name: "Overhead Press", MuscleGroup: "Shoulders", Equipment: "Barbell", Difficulty: "Intermediate", Instructions: "Press vertically from shoulder rack position.", VideoURL: "https://www.youtube.com/watch?v=2yjwXTZQDDI"},
-		{Name: "Dumbbell Shoulder Press", MuscleGroup: "Shoulders", Equipment: "Dumbbell", Difficulty: "Beginner", Instructions: "Press both dumbbells overhead while keeping your ribs down.", VideoURL: "https://www.youtube.com/watch?v=qEwKCR5JCog"},
-		{Name: "Lateral Raise", MuscleGroup: "Shoulders", Equipment: "Dumbbell", Difficulty: "Beginner", Instructions: "Raise the dumbbells out to shoulder height with a soft bend in the elbows.", VideoURL: "https://www.youtube.com/watch?v=3VcKaXpzqRo"},
-		{Name: "Dumbbell Row", MuscleGroup: "Back", Equipment: "Dumbbell", Difficulty: "Beginner", Instructions: "Row toward the hip while staying square.", VideoURL: "https://www.youtube.com/watch?v=pYcpY20QaE8"},
-		{Name: "Band Pull-Apart", MuscleGroup: "Back", Equipment: "Resistance Band", Difficulty: "Beginner", Instructions: "Pull the band apart at chest height while keeping the shoulders down.", VideoURL: "https://www.youtube.com/watch?v=JObYtU7Y7ag"},
-		{Name: "Superman Hold", MuscleGroup: "Back", Equipment: "Bodyweight", Difficulty: "Beginner", Instructions: "Lift the arms and legs slightly off the floor and hold with the core braced.", VideoURL: "https://www.youtube.com/watch?v=z6PJMT2y8GQ"},
-		{Name: "Romanian Deadlift", MuscleGroup: "Hamstrings", Equipment: "Barbell", Difficulty: "Intermediate", Instructions: "Hinge at the hips and keep the bar close.", VideoURL: "https://www.youtube.com/watch?v=JC5UYl3qPTs"},
-		{Name: "Walking Lunge", MuscleGroup: "Legs", Equipment: "Bodyweight", Difficulty: "Beginner", Instructions: "Step forward and control the knee to the floor.", VideoURL: "https://www.youtube.com/watch?v=QOVaHwm-Q6U"},
+		{Name: "Bench Press", PrimaryMuscles: "Chest", Equipment: "Barbell", Level: "Intermediate", Instructions: "Press the bar from chest to lockout."},
+		{Name: "Back Squat", PrimaryMuscles: "Legs", Equipment: "Barbell", Level: "Intermediate", Instructions: "Squat to depth while keeping the torso braced."},
+		{Name: "Deadlift", PrimaryMuscles: "Back", Equipment: "Barbell", Level: "Advanced", Instructions: "Drive through the floor and stand tall with the bar."},
+		{Name: "Pull-Up", PrimaryMuscles: "Back", Equipment: "Bodyweight", Level: "Intermediate", Instructions: "Pull until the chin clears the bar."},
+		{Name: "Overhead Press", PrimaryMuscles: "Shoulders", Equipment: "Barbell", Level: "Intermediate", Instructions: "Press vertically from shoulder rack position."},
+		{Name: "Dumbbell Shoulder Press", PrimaryMuscles: "Shoulders", Equipment: "Dumbbell", Level: "Beginner", Instructions: "Press both dumbbells overhead while keeping your ribs down."},
+		{Name: "Lateral Raise", PrimaryMuscles: "Shoulders", Equipment: "Dumbbell", Level: "Beginner", Instructions: "Raise the dumbbells out to shoulder height with a soft bend in the elbows."},
+		{Name: "Dumbbell Row", PrimaryMuscles: "Back", Equipment: "Dumbbell", Level: "Beginner", Instructions: "Row toward the hip while staying square."},
+		{Name: "Band Pull-Apart", PrimaryMuscles: "Back", Equipment: "Resistance Band", Level: "Beginner", Instructions: "Pull the band apart at chest height while keeping the shoulders down."},
+		{Name: "Superman Hold", PrimaryMuscles: "Back", Equipment: "Bodyweight", Level: "Beginner", Instructions: "Lift the arms and legs slightly off the floor and hold with the core braced."},
+		{Name: "Romanian Deadlift", PrimaryMuscles: "Hamstrings", Equipment: "Barbell", Level: "Intermediate", Instructions: "Hinge at the hips and keep the bar close."},
+		{Name: "Walking Lunge", PrimaryMuscles: "Legs", Equipment: "Bodyweight", Level: "Beginner", Instructions: "Step forward and control the knee to the floor."},
 	}
 
 	exercises := make([]models.Exercise, 0, len(seeds))
@@ -135,6 +202,13 @@ func seedExercises(db *gorm.DB) ([]models.Exercise, error) {
 	}
 
 	return exercises, nil
+}
+
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func seedUsers(db *gorm.DB) ([]models.User, error) {

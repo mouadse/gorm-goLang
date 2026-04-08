@@ -272,7 +272,7 @@ func createTestExercise(t *testing.T, db *gorm.DB, name, muscleGroup string) *mo
 
 	exercise := models.Exercise{
 		Name:        name,
-		MuscleGroup: muscleGroup,
+		PrimaryMuscles: muscleGroup,
 	}
 
 	if err := db.Create(&exercise).Error; err != nil {
