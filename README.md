@@ -87,6 +87,11 @@ Environment variables:
 - `APP_MODE`: `api`, `migrate`, or `worker` when running the shared binary
 - `APP_ENV`: `development`, `test`, or `production`
 - `GORM_LOG_LEVEL`: `silent`, `error`, `warn`, or `info`
+- `CORS_ALLOWED_ORIGINS`: Comma-separated frontend origins. Defaults to common localhost frontend ports outside production; set explicitly in production, for example `https://app.example.com`
+- `CORS_ALLOWED_METHODS`: Defaults to `GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS`
+- `CORS_ALLOWED_HEADERS`: Optional comma-separated allowed request headers. If unset, preflights echo requested headers or use safe API defaults.
+- `CORS_ALLOW_CREDENTIALS`: Defaults to `true` for explicit origins. Automatically disabled when `CORS_ALLOWED_ORIGINS=*`.
+- `CORS_MAX_AGE_SECONDS`: Browser preflight cache duration. Defaults to `600`.
 - `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME`: Database pool tuning
 - `PG*` (PGHOST, PGPORT, etc.): Individual connection parameters
 

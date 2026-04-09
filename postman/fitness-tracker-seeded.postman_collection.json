@@ -1,0 +1,5185 @@
+{
+  "info": {
+    "name": "Fitness Tracker API - Seeded Local",
+    "description": "Generated from api/server.go.\nRun the Auth/Login seeded admin request first, or run the collection from the top.\nSeeded default credentials: alex@example.com / password123.\nManual/destructive endpoints are included but disabled by default.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get(\"seedAdminEmail\")) pm.collectionVariables.set(\"seedAdminEmail\", \"alex@example.com\");",
+          "if (!pm.collectionVariables.get(\"seedPassword\")) pm.collectionVariables.set(\"seedPassword\", \"password123\");",
+          "if (!pm.collectionVariables.get(\"exerciseImagePath\")) pm.collectionVariables.set(\"exerciseImagePath\", \"Ab_Crunch_Machine/0.jpg\");",
+          "if (!pm.collectionVariables.get(\"usdaDatasetPath\")) pm.collectionVariables.set(\"usdaDatasetPath\", \"FoodData_Central_foundation_food_json_2025-12-18.json\");"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"response is not an unexpected server error\", function () {",
+          "  pm.expect(pm.response.code).to.not.equal(500);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health and Metrics",
+      "item": [
+        {
+          "name": "GET /metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "metrics"
+              ],
+              "query": []
+            },
+            "description": "GET /metrics"
+          }
+        },
+        {
+          "name": "GET /livez",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/livez",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "livez"
+              ],
+              "query": []
+            },
+            "description": "GET /livez"
+          }
+        },
+        {
+          "name": "GET /healthz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ],
+              "query": []
+            },
+            "description": "GET /healthz"
+          }
+        },
+        {
+          "name": "GET /readyz",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/readyz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "readyz"
+              ],
+              "query": []
+            },
+            "description": "GET /readyz"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Docs and Pages",
+      "item": [
+        {
+          "name": "GET /openapi.yaml",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/openapi.yaml",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "openapi.yaml"
+              ],
+              "query": []
+            },
+            "description": "GET /openapi.yaml"
+          }
+        },
+        {
+          "name": "GET /docs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/docs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "docs"
+              ],
+              "query": []
+            },
+            "description": "GET /docs"
+          }
+        },
+        {
+          "name": "GET /docs/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/docs/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "docs"
+              ],
+              "query": []
+            },
+            "description": "GET /docs/"
+          }
+        },
+        {
+          "name": "GET /login",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ],
+              "query": []
+            },
+            "description": "GET /login"
+          }
+        },
+        {
+          "name": "GET /register",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "register"
+              ],
+              "query": []
+            },
+            "description": "GET /register"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /v1/auth/register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "register"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman.runner+{{$timestamp}}@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Postman Runner\",\n  \"avatar\": \"https://api.dicebear.com/7.x/avataaars/svg?seed=postman\",\n  \"date_of_birth\": \"1994-04-09\",\n  \"weight\": 72,\n  \"height\": 175,\n  \"goal\": \"maintain\",\n  \"activity_level\": \"moderately_active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"registered or duplicate-safe\", function () { pm.expect(pm.response.code).to.be.oneOf([201, 400, 409]); });",
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set(\"registeredUserId\", json.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{seedAdminEmail}}\",\n  \"password\": \"{{seedPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"login succeeded\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 202]); });",
+                  "const json = pm.response.json();",
+                  "if (json.access_token) pm.environment.set(\"accessToken\", json.access_token);",
+                  "if (json.refresh_token) pm.environment.set(\"refreshToken\", json.refresh_token);",
+                  "if (json.user && json.user.id) {",
+                  "  pm.environment.set(\"userId\", json.user.id);",
+                  "  pm.environment.set(\"adminUserId\", json.user.id);",
+                  "}",
+                  "if (json.two_factor_token) pm.environment.set(\"twoFactorToken\", json.two_factor_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/auth/refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "refresh"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"refresh succeeded\", function () { pm.expect(pm.response.code).to.equal(200); });",
+                  "const json = pm.response.json();",
+                  "if (json.access_token) pm.environment.set(\"accessToken\", json.access_token);",
+                  "if (json.refresh_token) pm.environment.set(\"refreshToken\", json.refresh_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/auth/sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "sessions"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/auth/sessions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"sessionId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Manual and Destructive",
+      "item": [
+        {
+          "name": "POST /v1/auth/2fa/setup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/2fa/setup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "2fa",
+                "setup"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/auth/2fa/setup\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly."
+          },
+          "disabled": true
+        },
+        {
+          "name": "POST /v1/auth/2fa/verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/2fa/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "2fa",
+                "verify"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/auth/2fa/verify\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{totpCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "disabled": true
+        },
+        {
+          "name": "POST /v1/auth/2fa/disable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/2fa/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "2fa",
+                "disable"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/auth/2fa/disable\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{totpCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "disabled": true
+        },
+        {
+          "name": "POST /v1/auth/2fa/recover",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/2fa/recover",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "2fa",
+                "recover"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/auth/2fa/recover\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"two_factor_token\": \"{{twoFactorToken}}\",\n  \"recovery_code\": \"{{recoveryCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "disabled": true
+        },
+        {
+          "name": "POST /v1/auth/logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "logout"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/auth/logout\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "disabled": true
+        },
+        {
+          "name": "DELETE /v1/auth/sessions/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/sessions/{{sessionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "sessions",
+                "{{sessionId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/auth/sessions/{id}\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly."
+          },
+          "disabled": true
+        },
+        {
+          "name": "DELETE /v1/users/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{postmanCreatedUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{postmanCreatedUserId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/users/{id}\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly."
+          },
+          "disabled": true
+        },
+        {
+          "name": "POST /v1/chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "chat"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/chat\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Summarize my recent training and nutrition from seeded data.\",\n  \"conversation_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) pm.environment.set(\"conversationId\", pm.response.json().conversation_id);"
+                ]
+              }
+            }
+          ],
+          "disabled": true
+        },
+        {
+          "name": "POST /v1/chat/feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/chat/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "chat",
+                "feedback"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/chat/feedback\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message_id\": \"{{chatMessageId}}\",\n  \"feedback\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "disabled": true
+        },
+        {
+          "name": "GET /v1/admin/dashboard/realtime",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/dashboard/realtime",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "dashboard",
+                "realtime"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/dashboard/realtime\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly."
+          },
+          "disabled": true
+        },
+        {
+          "name": "DELETE /v1/admin/users/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{postmanCreatedUserId}}?confirm=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users",
+                "{{postmanCreatedUserId}}"
+              ],
+              "query": [
+                {
+                  "key": "confirm",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "DELETE /v1/admin/users/{id}\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly."
+          },
+          "disabled": true
+        },
+        {
+          "name": "POST /v1/admin/import-usda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/import-usda",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "import-usda"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/admin/import-usda\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_path\": \"{{usdaDatasetPath}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "disabled": true
+        },
+        {
+          "name": "POST /v1/account/delete-request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/account/delete-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "account",
+                "delete-request"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/account/delete-request\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly."
+          },
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "POST /v1/users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman.created+{{$timestamp}}@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Postman Created User\",\n  \"avatar\": \"https://api.dicebear.com/7.x/avataaars/svg?seed=created\",\n  \"date_of_birth\": \"1995-01-15\",\n  \"weight\": 70,\n  \"height\": 172,\n  \"goal\": \"maintain\",\n  \"activity_level\": \"lightly_active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"postmanCreatedUserId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users?email={{seedAdminEmail}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "{{seedAdminEmail}}"
+                }
+              ]
+            },
+            "description": "GET /v1/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"userId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/users/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/users/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/users/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/users/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alex Johnson\",\n  \"goal\": \"build_muscle\",\n  \"activity_level\": \"moderately_active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/summary?date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/users/{user_id}/summary"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/weekly-summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/weekly-summary?date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "weekly-summary"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/users/{user_id}/weekly-summary"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "recommendations"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/users/{user_id}/recommendations"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/nutrition-targets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/nutrition-targets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "nutrition-targets"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/users/{user_id}/nutrition-targets"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/records",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "records"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/users/{user_id}/records"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/workout-stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/workout-stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "workout-stats"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/users/{user_id}/workout-stats"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/activity-calendar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/activity-calendar?start=2026-01-01&end=2026-01-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "activity-calendar"
+              ],
+              "query": [
+                {
+                  "key": "start",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "end",
+                  "value": "2026-01-31"
+                }
+              ]
+            },
+            "description": "GET /v1/users/{user_id}/activity-calendar"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/streaks",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/streaks?date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "streaks"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/users/{user_id}/streaks"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/coach-summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/coach-summary?date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "coach-summary"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/users/{user_id}/coach-summary"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/weight-entries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/weight-entries?start_date=2026-01-01&end_date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "weight-entries"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/users/{user_id}/weight-entries"
+          }
+        },
+        {
+          "name": "POST /v1/users/{user_id}/weight-entries",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/weight-entries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "weight-entries"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/users/{user_id}/weight-entries",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weight\": 77.8,\n  \"date\": \"2026-04-09\",\n  \"notes\": \"Scoped Postman check-in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/workouts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/workouts?type=push",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "workouts"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "push"
+                }
+              ]
+            },
+            "description": "GET /v1/users/{user_id}/workouts"
+          }
+        },
+        {
+          "name": "POST /v1/users/{user_id}/workouts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/workouts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "workouts"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/users/{user_id}/workouts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-04-09\",\n  \"duration\": 35,\n  \"type\": \"pull\",\n  \"notes\": \"Scoped Postman workout\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/meals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/meals?date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "meals"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/users/{user_id}/meals"
+          }
+        },
+        {
+          "name": "POST /v1/users/{user_id}/meals",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/meals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "meals"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/users/{user_id}/meals",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meal_type\": \"lunch\",\n  \"date\": \"2026-04-09\",\n  \"notes\": \"Scoped Postman meal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/favorites",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/favorites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "favorites"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/users/{user_id}/favorites"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Summaries",
+      "item": [
+        {
+          "name": "GET /v1/summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/summary?date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/summary"
+          }
+        },
+        {
+          "name": "GET /v1/weekly-summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/weekly-summary?date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "weekly-summary"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/weekly-summary"
+          }
+        },
+        {
+          "name": "GET /v1/recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "recommendations"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/recommendations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "GET /v1/chat/history",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/chat/history?conversation_id={{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "chat",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "conversation_id",
+                  "value": "{{conversationId}}"
+                }
+              ]
+            },
+            "description": "GET /v1/chat/history"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Exercises and Leaderboard",
+      "item": [
+        {
+          "name": "POST /v1/exercises",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/exercises",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Curl {{$timestamp}}\",\n  \"force\": \"pull\",\n  \"level\": \"beginner\",\n  \"mechanic\": \"isolation\",\n  \"equipment\": \"dumbbell\",\n  \"category\": \"strength\",\n  \"primary_muscles\": \"biceps\",\n  \"instructions\": \"Curl with control.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdExerciseId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/leaderboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/leaderboard?period=weekly&pillar=all&offset=0&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "leaderboard"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "weekly"
+                },
+                {
+                  "key": "pillar",
+                  "value": "all"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "GET /v1/leaderboard"
+          }
+        },
+        {
+          "name": "GET /v1/exercises",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises?muscle=back&level=beginner",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises"
+              ],
+              "query": [
+                {
+                  "key": "muscle",
+                  "value": "back"
+                },
+                {
+                  "key": "level",
+                  "value": "beginner"
+                }
+              ]
+            },
+            "description": "GET /v1/exercises"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"exerciseId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/exercises/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises/{{exerciseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises",
+                "{{exerciseId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/exercises/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/exercises/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises/{{createdExerciseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises",
+                "{{createdExerciseId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/exercises/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"level\": \"intermediate\",\n  \"instructions\": \"Curl with control and pause at the top.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/exercises/{id}/history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises/{{exerciseId}}/history?limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises",
+                "{{exerciseId}}",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "GET /v1/exercises/{id}/history"
+          }
+        },
+        {
+          "name": "POST /v1/exercises/search",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises",
+                "search"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/exercises/search",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"beginner dumbbell shoulder exercises\",\n  \"top_k\": 5,\n  \"level\": \"beginner\",\n  \"equipment\": \"dumbbell\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/exercises/program",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises/program",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises",
+                "program"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/exercises/program",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"goal\": \"build muscle\",\n  \"days_per_week\": 3,\n  \"session_minutes\": 45,\n  \"level\": \"beginner\",\n  \"equipment_profile\": \"dumbbell\",\n  \"focus\": [\n    \"chest\",\n    \"back\",\n    \"legs\"\n  ],\n  \"notes\": \"Use seeded exercise library data.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/exercises/library-meta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises/library-meta",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises",
+                "library-meta"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/exercises/library-meta"
+          }
+        },
+        {
+          "name": "GET /v1/exercise-images/{path...}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercise-images/{{exerciseImagePath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercise-images",
+                "{{exerciseImagePath}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/exercise-images/{path...}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Weight Entries",
+      "item": [
+        {
+          "name": "POST /v1/weight-entries",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/weight-entries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "weight-entries"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/weight-entries",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"weight\": 77.5,\n  \"date\": \"2026-04-09\",\n  \"notes\": \"Postman check-in\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdWeightEntryId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/weight-entries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/weight-entries?start_date=2026-01-01&end_date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "weight-entries"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/weight-entries"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"weightEntryId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/weight-entries/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/weight-entries/{{weightEntryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "weight-entries",
+                "{{weightEntryId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/weight-entries/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/weight-entries/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/weight-entries/{{createdWeightEntryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "weight-entries",
+                "{{createdWeightEntryId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/weight-entries/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weight\": 77.2,\n  \"notes\": \"Updated from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workouts",
+      "item": [
+        {
+          "name": "POST /v1/workouts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/workouts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"date\": \"2026-04-09\",\n  \"duration\": 45,\n  \"type\": \"push\",\n  \"notes\": \"Postman workout\",\n  \"exercises\": [\n    {\n      \"exercise_id\": \"{{exerciseId}}\",\n      \"order\": 1,\n      \"sets\": 3,\n      \"reps\": 10,\n      \"weight\": 42.5,\n      \"rest_time\": 90,\n      \"notes\": \"Controlled reps\",\n      \"set_entries\": [\n        {\n          \"set_number\": 1,\n          \"reps\": 10,\n          \"weight\": 42.5,\n          \"rpe\": 7,\n          \"rest_seconds\": 90,\n          \"completed\": true\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) { const w = pm.response.json(); pm.environment.set(\"createdWorkoutId\", w.id); if (w.workout_exercises?.[0]?.id) pm.environment.set(\"createdWorkoutExerciseId\", w.workout_exercises[0].id); if (w.workout_exercises?.[0]?.workout_sets?.[0]?.id) pm.environment.set(\"createdWorkoutSetId\", w.workout_exercises[0].workout_sets[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workouts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts?type=push",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "push"
+                }
+              ]
+            },
+            "description": "GET /v1/workouts"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"workoutId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workouts/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts/{{workoutId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts",
+                "{{workoutId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workouts/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/workouts/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts/{{createdWorkoutId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts",
+                "{{createdWorkoutId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/workouts/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration\": 50,\n  \"notes\": \"Updated from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/workout-exercises",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-exercises",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-exercises"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/workout-exercises",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workout_id\": \"{{createdWorkoutId}}\",\n  \"exercise_id\": \"{{exerciseId}}\",\n  \"order\": 2,\n  \"sets\": 3,\n  \"reps\": 8,\n  \"weight\": 50,\n  \"rest_time\": 120,\n  \"notes\": \"Added from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdWorkoutExerciseId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workout-exercises",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-exercises?workout_id={{workoutId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-exercises"
+              ],
+              "query": [
+                {
+                  "key": "workout_id",
+                  "value": "{{workoutId}}"
+                }
+              ]
+            },
+            "description": "GET /v1/workout-exercises"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"workoutExerciseId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workouts/{id}/exercises",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts/{{workoutId}}/exercises",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts",
+                "{{workoutId}}",
+                "exercises"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workouts/{id}/exercises"
+          }
+        },
+        {
+          "name": "POST /v1/workouts/{id}/exercises",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts/{{createdWorkoutId}}/exercises",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts",
+                "{{createdWorkoutId}}",
+                "exercises"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/workouts/{id}/exercises",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"exercise_id\": \"{{exerciseId}}\",\n  \"order\": 3,\n  \"sets\": 2,\n  \"reps\": 12,\n  \"weight\": 30,\n  \"rest_time\": 75,\n  \"notes\": \"Nested add from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/workout-exercises/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-exercises/{{workoutExerciseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-exercises",
+                "{{workoutExerciseId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workout-exercises/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/workout-exercises/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-exercises/{{createdWorkoutExerciseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-exercises",
+                "{{createdWorkoutExerciseId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/workout-exercises/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reps\": 9,\n  \"weight\": 52.5,\n  \"notes\": \"Updated from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/workout-sets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-sets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-sets"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/workout-sets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workout_exercise_id\": \"{{createdWorkoutExerciseId}}\",\n  \"set_number\": 4,\n  \"reps\": 8,\n  \"weight\": 50,\n  \"rpe\": 8,\n  \"rest_seconds\": 120,\n  \"completed\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdWorkoutSetId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workout-sets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-sets?workout_exercise_id={{workoutExerciseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-sets"
+              ],
+              "query": [
+                {
+                  "key": "workout_exercise_id",
+                  "value": "{{workoutExerciseId}}"
+                }
+              ]
+            },
+            "description": "GET /v1/workout-sets"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"workoutSetId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workout-exercises/{id}/sets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-exercises/{{workoutExerciseId}}/sets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-exercises",
+                "{{workoutExerciseId}}",
+                "sets"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workout-exercises/{id}/sets"
+          }
+        },
+        {
+          "name": "POST /v1/workout-exercises/{id}/sets",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-exercises/{{createdWorkoutExerciseId}}/sets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-exercises",
+                "{{createdWorkoutExerciseId}}",
+                "sets"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/workout-exercises/{id}/sets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"set_number\": 5,\n  \"reps\": 8,\n  \"weight\": 50,\n  \"rpe\": 7.5,\n  \"rest_seconds\": 120,\n  \"completed\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/workout-sets/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-sets/{{workoutSetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-sets",
+                "{{workoutSetId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workout-sets/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/workout-sets/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-sets/{{createdWorkoutSetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-sets",
+                "{{createdWorkoutSetId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/workout-sets/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reps\": 9,\n  \"weight\": 52.5,\n  \"rpe\": 8.5,\n  \"completed\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/workouts/{id}/cardio",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts/{{workoutId}}/cardio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts",
+                "{{workoutId}}",
+                "cardio"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workouts/{id}/cardio"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"cardioId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/workouts/{id}/cardio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts/{{createdWorkoutId}}/cardio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts",
+                "{{createdWorkoutId}}",
+                "cardio"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/workouts/{id}/cardio",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modality\": \"running\",\n  \"duration_minutes\": 25,\n  \"distance\": 4.2,\n  \"distance_unit\": \"km\",\n  \"calories_burned\": 260,\n  \"avg_heart_rate\": 142,\n  \"notes\": \"Postman cardio\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdCardioId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workout-cardio/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-cardio/{{cardioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-cardio",
+                "{{cardioId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workout-cardio/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/workout-cardio/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-cardio/{{createdCardioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-cardio",
+                "{{createdCardioId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/workout-cardio/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration_minutes\": 30,\n  \"notes\": \"Updated from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/workout-templates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-templates"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/workout-templates",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner_id\": \"{{userId}}\",\n  \"name\": \"Postman Push Template {{$timestamp}}\",\n  \"type\": \"push\",\n  \"notes\": \"Generated in Postman\",\n  \"exercises\": [\n    {\n      \"exercise_id\": \"{{exerciseId}}\",\n      \"order\": 1,\n      \"sets\": 3,\n      \"reps\": 10,\n      \"weight\": 40,\n      \"rest_time\": 90,\n      \"notes\": \"Template movement\",\n      \"set_entries\": [\n        {\n          \"set_number\": 1,\n          \"reps\": 10,\n          \"weight\": 40,\n          \"rest_seconds\": 90\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdTemplateId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workout-templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-templates"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workout-templates"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"templateId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/workout-templates/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-templates/{{templateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-templates",
+                "{{templateId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/workout-templates/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/workout-templates/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-templates/{{createdTemplateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-templates",
+                "{{createdTemplateId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/workout-templates/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Updated from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/workout-templates/{id}/apply",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-templates/{{createdTemplateId}}/apply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-templates",
+                "{{createdTemplateId}}",
+                "apply"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/workout-templates/{id}/apply",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"date\": \"2026-04-09\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Nutrition",
+      "item": [
+        {
+          "name": "POST /v1/meals",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/meals",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"meal_type\": \"snack\",\n  \"date\": \"2026-04-09\",\n  \"notes\": \"Postman meal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdMealId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/meals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals?date=2026-04-09",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-04-09"
+                }
+              ]
+            },
+            "description": "GET /v1/meals"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"mealId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/meals/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals/{{mealId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals",
+                "{{mealId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/meals/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/meals/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals/{{createdMealId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals",
+                "{{createdMealId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/meals/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meal_type\": \"snack\",\n  \"notes\": \"Updated from Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/meals/recent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals/recent?days=7",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals",
+                "recent"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7"
+                }
+              ]
+            },
+            "description": "GET /v1/meals/recent"
+          }
+        },
+        {
+          "name": "POST /v1/meals/{id}/clone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals/{{mealId}}/clone",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals",
+                "{{mealId}}",
+                "clone"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/meals/{id}/clone"
+          }
+        },
+        {
+          "name": "GET /v1/foods",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/foods?name=Chicken",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "foods"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "Chicken"
+                }
+              ]
+            },
+            "description": "GET /v1/foods"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"foodId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/foods/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/foods/{{foodId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "foods",
+                "{{foodId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/foods/{id}"
+          }
+        },
+        {
+          "name": "POST /v1/foods",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/foods",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "foods"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/foods",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Protein Bar {{$timestamp}}\",\n  \"brand\": \"Postman\",\n  \"serving_size\": 60,\n  \"serving_unit\": \"g\",\n  \"calories\": 210,\n  \"protein\": 20,\n  \"carbohydrates\": 23,\n  \"fat\": 7,\n  \"fiber\": 5,\n  \"sugar\": 3,\n  \"sodium\": 140\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdFoodId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /v1/foods/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/foods/{{createdFoodId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "foods",
+                "{{createdFoodId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/foods/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"calories\": 215,\n  \"protein\": 21\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/foods/recent",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/foods/recent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "foods",
+                "recent"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/foods/recent"
+          }
+        },
+        {
+          "name": "POST /v1/foods/{id}/favorite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/foods/{{createdFoodId}}/favorite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "foods",
+                "{{createdFoodId}}",
+                "favorite"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/foods/{id}/favorite"
+          }
+        },
+        {
+          "name": "POST /v1/meal-foods",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meal-foods",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meal-foods"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/meal-foods",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"meal_id\": \"{{createdMealId}}\",\n  \"food_id\": \"{{foodId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdMealFoodId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/meals/{id}/foods",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals/{{mealId}}/foods",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals",
+                "{{mealId}}",
+                "foods"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/meals/{id}/foods"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"mealFoodId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/meals/{id}/foods",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals/{{createdMealId}}/foods",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals",
+                "{{createdMealId}}",
+                "foods"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/meals/{id}/foods",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"food_id\": \"{{createdFoodId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/meal-foods/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meal-foods/{{mealFoodId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meal-foods",
+                "{{mealFoodId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/meal-foods/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/meal-foods/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meal-foods/{{createdMealFoodId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meal-foods",
+                "{{createdMealFoodId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/meal-foods/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 1.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/recipes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/recipes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "recipes"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/recipes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Protein Bowl {{$timestamp}}\",\n  \"servings\": 2,\n  \"notes\": \"Generated in Postman\",\n  \"items\": [\n    {\n      \"food_id\": \"{{foodId}}\",\n      \"quantity\": 1\n    },\n    {\n      \"food_id\": \"{{createdFoodId}}\",\n      \"quantity\": 0.5\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"createdRecipeId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/recipes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/recipes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "recipes"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/recipes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"recipeId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/recipes/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/recipes/{{recipeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "recipes",
+                "{{recipeId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/recipes/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/recipes/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/recipes/{{createdRecipeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "recipes",
+                "{{createdRecipeId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/recipes/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Updated from Postman\",\n  \"servings\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/recipes/{id}/nutrition",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/recipes/{{recipeId}}/nutrition",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "recipes",
+                "{{recipeId}}",
+                "nutrition"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/recipes/{id}/nutrition"
+          }
+        },
+        {
+          "name": "POST /v1/recipes/{id}/log-to-meal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/recipes/{{createdRecipeId}}/log-to-meal",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "recipes",
+                "{{createdRecipeId}}",
+                "log-to-meal"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/recipes/{id}/log-to-meal",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-04-09\",\n  \"meal_type\": \"dinner\",\n  \"servings\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "GET /v1/admin/dashboard/summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/dashboard/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "dashboard",
+                "summary"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/dashboard/summary"
+          }
+        },
+        {
+          "name": "GET /v1/admin/dashboard/trends",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/dashboard/trends",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "dashboard",
+                "trends"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/dashboard/trends"
+          }
+        },
+        {
+          "name": "GET /v1/admin/users/stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users",
+                "stats"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/users/stats"
+          }
+        },
+        {
+          "name": "GET /v1/admin/users/growth",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/growth",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users",
+                "growth"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/users/growth"
+          }
+        },
+        {
+          "name": "GET /v1/admin/workouts/stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/workouts/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "workouts",
+                "stats"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/workouts/stats"
+          }
+        },
+        {
+          "name": "GET /v1/admin/workouts/exercises/popular",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/workouts/exercises/popular",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "workouts",
+                "exercises",
+                "popular"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/workouts/exercises/popular"
+          }
+        },
+        {
+          "name": "GET /v1/admin/nutrition/stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/nutrition/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "nutrition",
+                "stats"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/nutrition/stats"
+          }
+        },
+        {
+          "name": "GET /v1/admin/moderation/stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/moderation/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "moderation",
+                "stats"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/moderation/stats"
+          }
+        },
+        {
+          "name": "GET /v1/admin/system/health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/system/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "system",
+                "health"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/system/health"
+          }
+        },
+        {
+          "name": "GET /v1/admin/audit-logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/audit-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "audit-logs"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/audit-logs"
+          }
+        },
+        {
+          "name": "GET /v1/admin/users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users?role=user&status=active&page=1&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "user"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "GET /v1/admin/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json(); const u = (json.users || []).find(x => x.email === \"sarah@example.com\") || (json.users || [])[0]; if (u?.id) pm.environment.set(\"targetUserId\", u.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/admin/users/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{targetUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users",
+                "{{targetUserId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/admin/users/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/admin/users/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{targetUserId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users",
+                "{{targetUserId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/admin/users/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sarah Williams\",\n  \"role\": \"user\",\n  \"goal\": \"lose_fat\",\n  \"activity_level\": \"lightly_active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/admin/users/{id}/ban",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{targetUserId}}/ban",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users",
+                "{{targetUserId}}",
+                "ban"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/admin/users/{id}/ban",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Postman moderation smoke test\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/admin/users/{id}/unban",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{targetUserId}}/unban",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "users",
+                "{{targetUserId}}",
+                "unban"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/admin/users/{id}/unban"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Exports and Account",
+      "item": [
+        {
+          "name": "POST /v1/exports",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exports"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/exports",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"json\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) pm.environment.set(\"exportId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/exports/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exports/{{exportId}}?download=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exports",
+                "{{exportId}}"
+              ],
+              "query": [
+                {
+                  "key": "download",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "GET /v1/exports/{id}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "GET /v1/notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/notifications?limit=20&offset=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "GET /v1/notifications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const arr = pm.response.json(); if (Array.isArray(arr) && arr[0]?.id) pm.environment.set(\"notificationId\", arr[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /v1/notifications/{id}/read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/notifications/{{notificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/notifications/{id}/read"
+          }
+        },
+        {
+          "name": "PATCH /v1/notifications/read-all",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "notifications",
+                "read-all"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/notifications/read-all"
+          }
+        },
+        {
+          "name": "GET /v1/notifications/unread-count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/notifications/unread-count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "notifications",
+                "unread-count"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/notifications/unread-count"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cleanup",
+      "item": [
+        {
+          "name": "DELETE /v1/meal-foods/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meal-foods/{{createdMealFoodId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meal-foods",
+                "{{createdMealFoodId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/meal-foods/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/workout-sets/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-sets/{{createdWorkoutSetId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-sets",
+                "{{createdWorkoutSetId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/workout-sets/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/workout-cardio/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-cardio/{{createdCardioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-cardio",
+                "{{createdCardioId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/workout-cardio/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/workout-exercises/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-exercises/{{createdWorkoutExerciseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-exercises",
+                "{{createdWorkoutExerciseId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/workout-exercises/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/workouts/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workouts/{{createdWorkoutId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workouts",
+                "{{createdWorkoutId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/workouts/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/meals/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/meals/{{createdMealId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "meals",
+                "{{createdMealId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/meals/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/foods/{id}/favorite",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/foods/{{createdFoodId}}/favorite",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "foods",
+                "{{createdFoodId}}",
+                "favorite"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/foods/{id}/favorite"
+          }
+        },
+        {
+          "name": "DELETE /v1/foods/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/foods/{{createdFoodId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "foods",
+                "{{createdFoodId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/foods/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/recipes/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/recipes/{{createdRecipeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "recipes",
+                "{{createdRecipeId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/recipes/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/workout-templates/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/workout-templates/{{createdTemplateId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "workout-templates",
+                "{{createdTemplateId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/workout-templates/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/weight-entries/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/weight-entries/{{createdWeightEntryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "weight-entries",
+                "{{createdWeightEntryId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/weight-entries/{id}"
+          }
+        },
+        {
+          "name": "DELETE /v1/exercises/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/exercises/{{createdExerciseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "exercises",
+                "{{createdExerciseId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/exercises/{id}"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "seedAdminEmail",
+      "value": "alex@example.com",
+      "type": "string"
+    },
+    {
+      "key": "seedPassword",
+      "value": "password123",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "targetUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "exerciseImagePath",
+      "value": "Ab_Crunch_Machine/0.jpg",
+      "type": "string"
+    },
+    {
+      "key": "usdaDatasetPath",
+      "value": "FoodData_Central_foundation_food_json_2025-12-18.json",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "postmanCreatedUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "registeredUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "exerciseId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdExerciseId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "foodId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdFoodId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "weightEntryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdWeightEntryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "workoutId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdWorkoutId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "workoutExerciseId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdWorkoutExerciseId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "workoutSetId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdWorkoutSetId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mealId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdMealId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mealFoodId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdMealFoodId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cardioId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdCardioId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "templateId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdTemplateId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recipeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdRecipeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "exportId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "chatMessageId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "twoFactorToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "totpCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recoveryCode",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

@@ -223,6 +223,109 @@ func TestDocsEndpoints(t *testing.T) {
 	}
 }
 
+func TestCORSPreflightAllowsConfiguredOriginBeforeAuth(t *testing.T) {
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://frontend.example.com")
+	t.Setenv("CORS_ALLOWED_HEADERS", "Authorization, Content-Type, X-Client-Version")
+	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
+	t.Setenv("CORS_MAX_AGE_SECONDS", "")
+
+	server := newTestServer(t)
+
+	request := httptest.NewRequest(http.MethodOptions, "/v1/workouts", nil)
+	request.Header.Set("Origin", "https://frontend.example.com")
+	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	request.Header.Set("Access-Control-Request-Headers", "Authorization, Content-Type, X-Client-Version")
+	recorder := httptest.NewRecorder()
+
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS /v1/workouts: expected status 204, got %d, body=%s", recorder.Code, recorder.Body.String())
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "https://frontend.example.com" {
+		t.Fatalf("unexpected Access-Control-Allow-Origin %q", got)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
+		t.Fatalf("unexpected Access-Control-Allow-Credentials %q", got)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Headers"); got != "Authorization, Content-Type, X-Client-Version" {
+		t.Fatalf("unexpected Access-Control-Allow-Headers %q", got)
+	}
+	if got := recorder.Header().Get("Access-Control-Max-Age"); got != "600" {
+		t.Fatalf("unexpected Access-Control-Max-Age %q", got)
+	}
+}
+
+func TestCORSPreflightRejectsUnconfiguredOrigin(t *testing.T) {
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://frontend.example.com")
+	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
+
+	server := newTestServer(t)
+
+	request := httptest.NewRequest(http.MethodOptions, "/v1/workouts", nil)
+	request.Header.Set("Origin", "https://malicious.example.com")
+	request.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	recorder := httptest.NewRecorder()
+
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("OPTIONS /v1/workouts: expected status 403, got %d", recorder.Code)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("unexpected Access-Control-Allow-Origin for rejected origin %q", got)
+	}
+	if got := recorder.Header().Get("Vary"); got != "Origin" {
+		t.Fatalf("unexpected Vary for rejected origin %q", got)
+	}
+}
+
+func TestCORSAddsVaryToRejectedOriginResponse(t *testing.T) {
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://frontend.example.com")
+	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
+
+	server := newTestServer(t)
+
+	request := httptest.NewRequest(http.MethodGet, "/livez", nil)
+	request.Header.Set("Origin", "https://malicious.example.com")
+	recorder := httptest.NewRecorder()
+
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /livez: expected status 200, got %d, body=%s", recorder.Code, recorder.Body.String())
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("unexpected Access-Control-Allow-Origin for rejected origin %q", got)
+	}
+	if got := recorder.Header().Get("Vary"); got != "Origin" {
+		t.Fatalf("unexpected Vary for rejected origin %q", got)
+	}
+}
+
+func TestCORSAddsHeadersToAllowedOriginResponse(t *testing.T) {
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://frontend.example.com")
+	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
+
+	server := newTestServer(t)
+
+	request := httptest.NewRequest(http.MethodGet, "/livez", nil)
+	request.Header.Set("Origin", "https://frontend.example.com")
+	recorder := httptest.NewRecorder()
+
+	server.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET /livez: expected status 200, got %d, body=%s", recorder.Code, recorder.Body.String())
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "https://frontend.example.com" {
+		t.Fatalf("unexpected Access-Control-Allow-Origin %q", got)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
+		t.Fatalf("unexpected Access-Control-Allow-Credentials %q", got)
+	}
+}
+
 func TestUserScopedCreateRoutes(t *testing.T) {
 	t.Parallel()
 

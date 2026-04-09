@@ -20,6 +20,7 @@ type Server struct {
 	db              *gorm.DB
 	mux             *http.ServeMux
 	metrics         *metrics.Metrics
+	cors            corsConfig
 	authSvc         *services.AuthService
 	analyticsSvc    *services.WorkoutAnalyticsService
 	adherenceSvc    *services.AdherenceService
@@ -44,6 +45,7 @@ func NewServer(db *gorm.DB) *Server {
 		db:              db,
 		mux:             http.NewServeMux(),
 		metrics:         m,
+		cors:            newCORSConfigFromEnv(),
 		authSvc:         services.NewAuthService(db),
 		analyticsSvc:    services.NewWorkoutAnalyticsService(db),
 		adherenceSvc:    services.NewAdherenceService(db),
@@ -64,7 +66,7 @@ func NewServer(db *gorm.DB) *Server {
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.metrics.Middleware(s.mux)
+	return s.cors.Middleware(s.metrics.Middleware(s.mux))
 }
 
 func (s *Server) registerRoutes() {
