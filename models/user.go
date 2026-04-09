@@ -24,6 +24,8 @@ type User struct {
 	TDEE          int            `gorm:"type:int" json:"tdee"`
 	Role          string         `gorm:"type:varchar(50);default:'user';not null" json:"role"`
 	AuthVersion   uint           `gorm:"type:integer;default:0" json:"-"`
+	BannedAt      *time.Time     `gorm:"type:timestamp" json:"banned_at"`
+	BanReason     string         `gorm:"type:text" json:"ban_reason"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`

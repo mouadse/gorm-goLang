@@ -246,6 +246,14 @@ func (s *Server) registerRoutes() {
 	admin("GET /v1/admin/audit-logs", s.handleAdminListAuditLogs)
 	s.mux.Handle("GET /v1/admin/dashboard/realtime", Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleAdminRealtimeWS))))
 
+	// Admin: User Management
+	admin("GET /v1/admin/users", s.handleAdminListUsers)
+	admin("GET /v1/admin/users/{id}", s.handleAdminGetUser)
+	admin("PATCH /v1/admin/users/{id}", s.handleAdminUpdateUser)
+	admin("DELETE /v1/admin/users/{id}", s.handleAdminDeleteUser)
+	admin("POST /v1/admin/users/{id}/ban", s.handleAdminBanUser)
+	admin("POST /v1/admin/users/{id}/unban", s.handleAdminUnbanUser)
+
 	// Admin: USDA Food Import
 	s.mux.Handle("POST /v1/admin/import-usda", Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleImportUSDA))))
 

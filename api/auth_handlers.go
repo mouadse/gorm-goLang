@@ -268,6 +268,10 @@ func (s *Server) resolveLoginUser(req services.LoginRequest) (models.User, strin
 		return models.User{}, "", errInvalidCredentials
 	}
 
+	if user.BannedAt != nil {
+		return models.User{}, "", errors.New("account banned")
+	}
+
 	return user, "", nil
 }
 

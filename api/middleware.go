@@ -44,9 +44,10 @@ func Authenticate(db *gorm.DB, next http.Handler) http.Handler {
 
 		var authState struct {
 			AuthVersion sql.NullInt64
+			BannedAt    sql.NullTime
 		}
 		if err := db.Model(&models.User{}).
-			Select("auth_version").
+			Select("auth_version, banned_at").
 			Where("id = ? AND deleted_at IS NULL", userID).
 			First(&authState).Error; err != nil {
 			writeError(w, http.StatusUnauthorized, errors.New("invalid or expired token"))
@@ -54,6 +55,10 @@ func Authenticate(db *gorm.DB, next http.Handler) http.Handler {
 		}
 		if authState.AuthVersion.Valid && uint(authState.AuthVersion.Int64) != tokenAuthVersion {
 			writeError(w, http.StatusUnauthorized, errors.New("invalid or expired token"))
+			return
+		}
+		if authState.BannedAt.Valid {
+			writeError(w, http.StatusForbidden, errors.New("account banned"))
 			return
 		}
 

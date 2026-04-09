@@ -412,6 +412,10 @@ func (s *AuthService) RefreshSession(refreshToken, userAgent, ipAddress string) 
 		return nil, err
 	}
 
+	if user.BannedAt != nil {
+		return nil, errors.New("account banned")
+	}
+
 	// Revoke old token
 	now := time.Now().UTC()
 	if err := s.db.Model(storedToken).Update("revoked_at", now).Error; err != nil {
