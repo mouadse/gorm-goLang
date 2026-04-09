@@ -3,8 +3,14 @@
 .github
 .gitignore
 .claude
+.codex
 __pycache__
 *.pyc
+*.db
+*.test
+api.test
+services.test
+fitness-tracker
 tests/
 test_api.py
 test_api.sh
@@ -13,3 +19,10 @@ coach_demo.sh
 function_calling_demo.py
 todo.txt
 *.md
+nutition_standalone_app/
+exercises_lib_service/
+rag/
+monitoring/
+scripts/
+FoodData_Central_foundation_food_json_2025-12-18.json
+devops_opz.md

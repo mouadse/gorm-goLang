@@ -16,6 +16,9 @@ COPY --link . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /fitness-tracker .
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /fitness-tracker-seed ./seed
 
 # Runtime stage
 FROM alpine:3.19
@@ -27,6 +30,7 @@ RUN apk --no-cache add ca-certificates tzdata
 
 # Copy binary from builder
 COPY --link --from=builder /fitness-tracker /app/fitness-tracker
+COPY --link --from=builder /fitness-tracker-seed /app/fitness-tracker-seed
 
 # Create non-root user
 RUN adduser -D -g '' appuser

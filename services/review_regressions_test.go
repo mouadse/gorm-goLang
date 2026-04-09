@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -340,6 +341,110 @@ func TestIntegrationRulesFormatNumericAdjustmentsAsDecimals(t *testing.T) {
 	if proteinRule != "Aim for 160g+ protein for muscle growth" {
 		t.Fatalf("unexpected protein warning text: %q", proteinRule)
 	}
+}
+
+func TestAdminDashboardSQLiteUsesBaseTables(t *testing.T) {
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+
+	db := openServicesTestDB(t,
+		&models.User{},
+		&models.Workout{},
+		&models.Meal{},
+		&models.WeightEntry{},
+	)
+
+	users := []models.User{
+		{
+			Email:         "recent-admin-metrics@example.com",
+			PasswordHash:  "hash",
+			Name:          "Recent User",
+			Goal:          "maintain",
+			ActivityLevel: "active",
+			CreatedAt:     today.AddDate(0, 0, -2),
+		},
+		{
+			Email:         "older-admin-metrics@example.com",
+			PasswordHash:  "hash",
+			Name:          "Older User",
+			Goal:          "lose_fat",
+			ActivityLevel: "active",
+			CreatedAt:     today.AddDate(0, 0, -20),
+		},
+	}
+	for i := range users {
+		if err := db.Create(&users[i]).Error; err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+	}
+
+	records := []interface{}{
+		&models.Workout{UserID: users[0].ID, Date: today, Type: "push"},
+		&models.Meal{UserID: users[0].ID, Date: today, MealType: "lunch"},
+		&models.Meal{UserID: users[1].ID, Date: today.AddDate(0, 0, -3), MealType: "dinner"},
+		&models.WeightEntry{UserID: users[1].ID, Date: today.AddDate(0, 0, -10), Weight: 82.5},
+	}
+	for _, record := range records {
+		if err := db.Create(record).Error; err != nil {
+			t.Fatalf("create activity: %v", err)
+		}
+	}
+
+	svc := NewAdminDashboardService(db, nil)
+
+	requireInt64 := func(t *testing.T, stats map[string]any, key string) int64 {
+		t.Helper()
+		value, ok := stats[key].(int64)
+		if !ok {
+			t.Fatalf("expected %s to be int64, got %T", key, stats[key])
+		}
+		return value
+	}
+
+	t.Run("executive summary", func(t *testing.T) {
+		summary, err := svc.GetExecutiveSummary(context.Background())
+		if err != nil {
+			t.Fatalf("get executive summary: %v", err)
+		}
+
+		if summary.TotalUsers != 2 {
+			t.Fatalf("expected total users to equal 2, got %d", summary.TotalUsers)
+		}
+		if summary.DAU != 1 {
+			t.Fatalf("expected DAU to equal 1, got %d", summary.DAU)
+		}
+		if summary.MAU != 2 {
+			t.Fatalf("expected MAU to equal 2, got %d", summary.MAU)
+		}
+		if summary.DAUMAU_Ratio != 50 {
+			t.Fatalf("expected DAU/MAU ratio to equal 50, got %v", summary.DAUMAU_Ratio)
+		}
+		if summary.NewUsers7d != 1 {
+			t.Fatalf("expected new users in 7 days to equal 1, got %d", summary.NewUsers7d)
+		}
+		if summary.WorkoutsToday != 1 {
+			t.Fatalf("expected workouts today to equal 1, got %d", summary.WorkoutsToday)
+		}
+		if summary.MealsToday != 1 {
+			t.Fatalf("expected meals today to equal 1, got %d", summary.MealsToday)
+		}
+	})
+
+	t.Run("user analytics", func(t *testing.T) {
+		stats, err := svc.GetUserAnalytics(context.Background())
+		if err != nil {
+			t.Fatalf("get user analytics: %v", err)
+		}
+
+		if got := requireInt64(t, stats, "total_users"); got != 2 {
+			t.Fatalf("expected total_users to equal 2, got %d", got)
+		}
+		if got := requireInt64(t, stats, "active_users_7d"); got != 2 {
+			t.Fatalf("expected active_users_7d to equal 2, got %d", got)
+		}
+		if got := requireInt64(t, stats, "mau"); got != 2 {
+			t.Fatalf("expected mau to equal 2, got %d", got)
+		}
+	})
 }
 
 func openServicesTestDB(t *testing.T, modelsToMigrate ...interface{}) *gorm.DB {

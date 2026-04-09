@@ -24,13 +24,13 @@ const (
 // Notification represents a user notification.
 type Notification struct {
 	ID          uuid.UUID        `gorm:"type:uuid;primaryKey" json:"id"`
-	UserID      uuid.UUID        `gorm:"type:uuid;not null;index" json:"user_id"`
+	UserID      uuid.UUID        `gorm:"type:uuid;not null;index:idx_notifications_user_created,priority:1;index:idx_notifications_user_read_created,priority:1" json:"user_id"`
 	Type        NotificationType `gorm:"type:varchar(50);not null" json:"type"`
 	Title       string           `gorm:"type:varchar(255);not null" json:"title"`
 	Message     string           `gorm:"type:text;not null" json:"message"`
 	PayloadJSON string           `gorm:"type:text" json:"payload_json,omitempty"`
-	ReadAt      *time.Time       `json:"read_at,omitempty"`
-	CreatedAt   time.Time        `json:"created_at"`
+	ReadAt      *time.Time       `gorm:"index:idx_notifications_user_read_created,priority:2" json:"read_at,omitempty"`
+	CreatedAt   time.Time        `gorm:"index:idx_notifications_user_created,priority:2;index:idx_notifications_user_read_created,priority:3,sort:desc" json:"created_at"`
 	UpdatedAt   time.Time        `json:"updated_at"`
 
 	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`

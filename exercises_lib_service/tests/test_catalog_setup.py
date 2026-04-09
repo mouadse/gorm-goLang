@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import tempfile
 import types
@@ -41,6 +42,8 @@ class CatalogSetupTests(unittest.TestCase):
         self.original_catalog_by_id = app.catalog_by_exercise_id
         self.original_catalog_embeddings = app.catalog_embeddings
         self.original_catalog_meta = app.catalog_meta
+        self.original_catalog_status = app.catalog_status
+        self.original_catalog_error = app.catalog_error
 
     def tearDown(self):
         app.embedding_model = self.original_embedding_model
@@ -48,6 +51,8 @@ class CatalogSetupTests(unittest.TestCase):
         app.catalog_by_exercise_id = self.original_catalog_by_id
         app.catalog_embeddings = self.original_catalog_embeddings
         app.catalog_meta = self.original_catalog_meta
+        app.catalog_status = self.original_catalog_status
+        app.catalog_error = self.original_catalog_error
 
     def test_build_query_embedding_initializes_model_lazily(self):
         app.embedding_model = None
@@ -85,6 +90,30 @@ class CatalogSetupTests(unittest.TestCase):
         self.assertEqual(total, len(items))
         self.assertTrue(np.array_equal(app.catalog_embeddings, cached_embeddings))
         self.assertEqual(set(app.catalog_by_exercise_id), {item["exercise_id"] for item in items})
+
+    def test_ensure_catalog_returns_503_while_background_init_runs(self):
+        app.catalog = []
+        app.catalog_status = "starting"
+        app.catalog_error = None
+
+        with patch("app.trigger_catalog_initialization"):
+            with self.assertRaises(app.HTTPException) as raised:
+                app.ensure_catalog()
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertIn("still initializing", raised.exception.detail)
+
+    def test_health_reports_starting_without_blocking_on_catalog(self):
+        app.catalog = []
+        app.catalog_status = "starting"
+        app.catalog_error = None
+
+        with patch("app.trigger_catalog_initialization"):
+            payload = asyncio.run(app.health())
+
+        self.assertEqual(payload["catalog_status"], "starting")
+        self.assertFalse(payload["ready"])
+        self.assertEqual(payload["exercises_loaded"], 0)
 
 
 if __name__ == "__main__":

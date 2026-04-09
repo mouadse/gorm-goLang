@@ -1,14 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
-	"fitness-tracker/database"
 	"fitness-tracker/models"
 
 	"github.com/google/uuid"
@@ -21,59 +20,6 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // In production, replace with proper origin check
 	},
-}
-
-type adminClient struct {
-	conn *websocket.Conn
-	send chan []byte
-}
-
-type adminHub struct {
-	clients    map[*adminClient]bool
-	broadcast  chan []byte
-	register   chan *adminClient
-	unregister chan *adminClient
-	mu         sync.Mutex
-}
-
-var hub = adminHub{
-	broadcast:  make(chan []byte),
-	register:   make(chan *adminClient),
-	unregister: make(chan *adminClient),
-	clients:    make(map[*adminClient]bool),
-}
-
-func (h *adminHub) run() {
-	for {
-		select {
-		case client := <-h.register:
-			h.mu.Lock()
-			h.clients[client] = true
-			h.mu.Unlock()
-		case client := <-h.unregister:
-			h.mu.Lock()
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
-			}
-			h.mu.Unlock()
-		case message := <-h.broadcast:
-			h.mu.Lock()
-			for client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(h.clients, client)
-				}
-			}
-			h.mu.Unlock()
-		}
-	}
-}
-
-func init() {
-	go hub.run()
 }
 
 func (s *Server) handleAdminDashboardSummary(w http.ResponseWriter, r *http.Request) {
@@ -134,7 +80,7 @@ func (s *Server) handleAdminUserStats(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminUserGrowth(w http.ResponseWriter, r *http.Request) {
 	var growth []map[string]any
-	
+
 	query := `
 		SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as new_users
 		FROM users
@@ -154,7 +100,7 @@ func (s *Server) handleAdminUserGrowth(w http.ResponseWriter, r *http.Request) {
 		`
 	}
 	s.db.Raw(query).Scan(&growth)
-	
+
 	writeJSON(w, http.StatusOK, growth)
 }
 
@@ -168,12 +114,7 @@ func (s *Server) handleAdminWorkoutStats(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleAdminPopularExercises(w http.ResponseWriter, r *http.Request) {
-	var popular []map[string]any
-	err := s.db.Table("exercise_popularity").
-		Select("exercise_name, usage_count, unique_users").
-		Order("usage_count DESC").
-		Limit(20).
-		Scan(&popular).Error
+	popular, err := s.adminSvc.GetPopularExercises(r.Context(), 20)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -223,86 +164,46 @@ func (s *Server) handleAdminRealtimeWS(w http.ResponseWriter, r *http.Request) {
 		log.Printf("websocket upgrade failed: %v", err)
 		return
 	}
-	client := &adminClient{conn: conn, send: make(chan []byte, 256)}
-	hub.register <- client
+	defer conn.Close()
 
-	go client.writePump()
-}
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 
-func (c *adminClient) writePump() {
-	defer func() {
-		hub.unregister <- c
-		c.conn.Close()
-	}()
 	for {
+		metrics, err := s.collectRealtimeMetrics(r.Context())
+		if err != nil {
+			log.Printf("collect realtime metrics failed: %v", err)
+			return
+		}
+		data, err := json.Marshal(metrics)
+		if err != nil {
+			log.Printf("marshal realtime metrics failed: %v", err)
+			return
+		}
+		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			return
+		}
+
 		select {
-		case message, ok := <-c.send:
-			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
-				return
-			}
+		case <-r.Context().Done():
+			return
+		case <-ticker.C:
 		}
 	}
 }
 
-// StartBackgroundTasks starts all recurring background tasks.
-func (s *Server) StartBackgroundTasks() {
-	// Real-time metrics broadcast
-	tickerWS := time.NewTicker(5 * time.Second)
-	go func() {
-		for range tickerWS.C {
-			metrics := s.collectRealtimeMetrics()
-			data, _ := json.Marshal(metrics)
-			hub.broadcast <- data
-		}
-	}()
-
-	// Refresh materialized views every hour
-	tickerMV := time.NewTicker(1 * time.Hour)
-	go func() {
-		// Initial refresh on startup
-		log.Println("refreshing admin materialized views on startup...")
-		if err := database.RefreshAdminViews(s.db); err != nil {
-			log.Printf("⚠️ failed to refresh admin views on startup: %v", err)
-		} else {
-			log.Println("✅ admin views refreshed on startup")
-		}
-
-		for range tickerMV.C {
-			log.Println("refreshing admin materialized views...")
-			if err := database.RefreshAdminViews(s.db); err != nil {
-				log.Printf("⚠️ failed to refresh admin views: %v", err)
-			} else {
-				log.Println("✅ admin views refreshed")
-			}
-		}
-	}()
-}
-
-func (s *Server) collectRealtimeMetrics() map[string]any {
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	var activeUsers, workoutsToday, mealsToday int64
-
-	s.db.Raw(`SELECT COUNT(DISTINCT user_id) FROM (
-		SELECT user_id FROM workouts WHERE date = ? AND deleted_at IS NULL
-		UNION ALL
-		SELECT user_id FROM meals WHERE date = ? AND deleted_at IS NULL
-		UNION ALL
-		SELECT user_id FROM weight_entries WHERE date = ? AND deleted_at IS NULL
-	) activities`, today, today, today).Scan(&activeUsers)
-
-	s.db.Model(&models.Workout{}).Where("date = ? AND deleted_at IS NULL", today).Count(&workoutsToday)
-	s.db.Model(&models.Meal{}).Where("date = ? AND deleted_at IS NULL", today).Count(&mealsToday)
+func (s *Server) collectRealtimeMetrics(ctx context.Context) (map[string]any, error) {
+	realtime, err := s.adminSvc.GetRealtimeMetrics(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	return map[string]any{
-		"active_users":   activeUsers,
-		"workouts_today": workoutsToday,
-		"meals_today":    mealsToday,
-		"timestamp":      time.Now(),
-	}
+		"active_users":   realtime.ActiveUsers,
+		"workouts_today": realtime.WorkoutsToday,
+		"meals_today":    realtime.MealsToday,
+		"timestamp":      realtime.Timestamp,
+	}, nil
 }
 
 func (s *Server) logAdminAction(r *http.Request, action, entityType string, entityID uuid.UUID, oldValue, newValue any) {

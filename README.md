@@ -47,19 +47,25 @@ The backend provides a robust API for full-spectrum fitness tracking:
 
 ### 1. Start Infrastructure
 ```bash
-docker-compose up -d
+cp .env.example .env
+docker compose up -d postgres pgadmin exercise-lib
 ```
 
-### 2. Seed Database
+### 2. Run Migrations
+```bash
+go run . migrate
+```
+
+### 3. Seed Database
 ```bash
 go run seed/main.go
 ```
 
-### 3. Run Application
+### 4. Run Application and Worker
 ```bash
-# Set secret and run
 export JWT_SECRET=your-secure-random-secret
-go run .
+go run . api
+go run . worker
 ```
 
 API default address: `http://localhost:8080`
@@ -78,6 +84,10 @@ Environment variables:
 - `DATABASE_URL`: Full PostgreSQL connection string
 - `JWT_SECRET`: Required for authentication
 - `PORT`: Default `8080`
+- `APP_MODE`: `api`, `migrate`, or `worker` when running the shared binary
+- `APP_ENV`: `development`, `test`, or `production`
+- `GORM_LOG_LEVEL`: `silent`, `error`, `warn`, or `info`
+- `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME`: Database pool tuning
 - `PG*` (PGHOST, PGPORT, etc.): Individual connection parameters
 
 ## Seed Data Summary

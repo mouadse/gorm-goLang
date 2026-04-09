@@ -210,6 +210,7 @@ func (s *WorkoutAnalyticsService) GetUserPersonalRecords(userID uuid.UUID) ([]Pe
 	// Get all workout exercises with their sets for this user
 	var workoutExercises []models.WorkoutExercise
 	err := s.db.
+		Preload("Workout").
 		Preload("Exercise").
 		Preload("WorkoutSets").
 		Joins("JOIN workouts ON workouts.id = workout_exercises.workout_id").
@@ -223,11 +224,6 @@ func (s *WorkoutAnalyticsService) GetUserPersonalRecords(userID uuid.UUID) ([]Pe
 	exerciseRecords := make(map[uuid.UUID]map[string]PersonalRecord)
 
 	for _, we := range workoutExercises {
-		var workout models.Workout
-		if err := s.db.First(&workout, "id = ?", we.WorkoutID).Error; err != nil {
-			continue
-		}
-
 		sets := make([]WorkoutSetData, len(we.WorkoutSets))
 		for i, s := range we.WorkoutSets {
 			sets[i] = WorkoutSetData{
@@ -247,60 +243,60 @@ func (s *WorkoutAnalyticsService) GetUserPersonalRecords(userID uuid.UUID) ([]Pe
 			current, exists := exerciseRecords[we.ExerciseID]["heaviest_set"]
 			if !exists || heaviest.Weight > current.Value {
 				exerciseRecords[we.ExerciseID]["heaviest_set"] = PersonalRecord{
-					Type:         "heaviest_set",
-					ExerciseID:   we.ExerciseID,
-					ExerciseName: we.Exercise.Name,
-					Value:        heaviest.Weight,
-					Date:         workout.Date,
-					WorkoutID:    workout.ID,
+						Type:         "heaviest_set",
+						ExerciseID:   we.ExerciseID,
+						ExerciseName: we.Exercise.Name,
+						Value:        heaviest.Weight,
+						Date:         we.Workout.Date,
+						WorkoutID:    we.Workout.ID,
+					}
 				}
 			}
-		}
 
 		// Check for best 1RM
 		if best1RM, ok := FindBest1RM(sets); ok {
 			current, exists := exerciseRecords[we.ExerciseID]["best_1rm"]
 			if !exists || best1RM > current.Value {
 				exerciseRecords[we.ExerciseID]["best_1rm"] = PersonalRecord{
-					Type:         "best_1rm",
-					ExerciseID:   we.ExerciseID,
-					ExerciseName: we.Exercise.Name,
-					Value:        best1RM,
-					Date:         workout.Date,
-					WorkoutID:    workout.ID,
+						Type:         "best_1rm",
+						ExerciseID:   we.ExerciseID,
+						ExerciseName: we.Exercise.Name,
+						Value:        best1RM,
+						Date:         we.Workout.Date,
+						WorkoutID:    we.Workout.ID,
+					}
 				}
 			}
-		}
 
 		// Check for best volume set
 		if bestVol, ok := FindBestVolumeSet(sets); ok {
 			current, exists := exerciseRecords[we.ExerciseID]["best_volume"]
 			if !exists || bestVol > current.Value {
 				exerciseRecords[we.ExerciseID]["best_volume"] = PersonalRecord{
-					Type:         "best_volume",
-					ExerciseID:   we.ExerciseID,
-					ExerciseName: we.Exercise.Name,
-					Value:        bestVol,
-					Date:         workout.Date,
-					WorkoutID:    workout.ID,
+						Type:         "best_volume",
+						ExerciseID:   we.ExerciseID,
+						ExerciseName: we.Exercise.Name,
+						Value:        bestVol,
+						Date:         we.Workout.Date,
+						WorkoutID:    we.Workout.ID,
+					}
 				}
 			}
-		}
 
 		// Check for best reps
 		if bestReps, ok := FindBestReps(sets); ok {
 			current, exists := exerciseRecords[we.ExerciseID]["best_reps"]
 			if !exists || float64(bestReps) > current.Value {
 				exerciseRecords[we.ExerciseID]["best_reps"] = PersonalRecord{
-					Type:         "best_reps",
-					ExerciseID:   we.ExerciseID,
-					ExerciseName: we.Exercise.Name,
-					Value:        float64(bestReps),
-					Date:         workout.Date,
-					WorkoutID:    workout.ID,
+						Type:         "best_reps",
+						ExerciseID:   we.ExerciseID,
+						ExerciseName: we.Exercise.Name,
+						Value:        float64(bestReps),
+						Date:         we.Workout.Date,
+						WorkoutID:    we.Workout.ID,
+					}
 				}
 			}
-		}
 	}
 
 	// Flatten records
@@ -317,6 +313,7 @@ func (s *WorkoutAnalyticsService) GetUserPersonalRecords(userID uuid.UUID) ([]Pe
 func (s *WorkoutAnalyticsService) GetExerciseHistory(userID, exerciseID uuid.UUID, limit int) ([]ExerciseHistoryEntry, error) {
 	var workoutExercises []models.WorkoutExercise
 	query := s.db.
+		Preload("Workout").
 		Preload("WorkoutSets").
 		Joins("JOIN workouts ON workouts.id = workout_exercises.workout_id").
 		Where("workouts.user_id = ? AND workout_exercises.exercise_id = ?", userID, exerciseID).
@@ -332,11 +329,6 @@ func (s *WorkoutAnalyticsService) GetExerciseHistory(userID, exerciseID uuid.UUI
 
 	var history []ExerciseHistoryEntry
 	for _, we := range workoutExercises {
-		var workout models.Workout
-		if err := s.db.First(&workout, "id = ?", we.WorkoutID).Error; err != nil {
-			continue
-		}
-
 		sets := make([]WorkoutSetData, len(we.WorkoutSets))
 		for i, s := range we.WorkoutSets {
 			sets[i] = WorkoutSetData{
@@ -353,9 +345,9 @@ func (s *WorkoutAnalyticsService) GetExerciseHistory(userID, exerciseID uuid.UUI
 		}
 
 		history = append(history, ExerciseHistoryEntry{
-			Date:         workout.Date,
-			WorkoutID:    workout.ID,
-			WorkoutType:  workout.Type,
+			Date:         we.Workout.Date,
+			WorkoutID:    we.Workout.ID,
+			WorkoutType:  we.Workout.Type,
 			Sets:         sets,
 			Volume:       CalculateExerciseSessionVolume(sets),
 			Estimated1RM: best1RM,

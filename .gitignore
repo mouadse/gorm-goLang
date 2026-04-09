@@ -8,6 +8,7 @@
 *.dll
 *.so
 *.dylib
+fitness-tracker
 
 # Test binary, built with `go test -c`
 *.test
@@ -27,7 +28,6 @@ go.work.sum
 
 # env file
 .env
-.env.example
 
 # Editor/IDE
 # .idea/
@@ -35,6 +35,7 @@ go.work.sum
 
 # Project-specific files
 .codex
+__pycache__/
 UM6P_FIT_Scope_Definition.pdf
 plan_stitch_sdk.md
 nutition_standalone_app

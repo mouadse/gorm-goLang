@@ -304,14 +304,19 @@ func (s *IntegrationRulesService) GetWorkoutNutritionContext(userID uuid.UUID, d
 		Find(&workouts).Error
 	if err == nil {
 		ctx.WeeklyWorkouts = len(workouts)
+		workoutIDs := make([]uuid.UUID, 0, len(workouts))
 		for _, w := range workouts {
-			var wes []models.WorkoutExercise
-			s.db.Preload("WorkoutSets").Where("workout_id = ?", w.ID).Find(&wes)
-			for _, we := range wes {
-				for _, set := range we.WorkoutSets {
-					if set.Completed {
-						ctx.WeeklyVolume += set.Weight * float64(set.Reps)
-					}
+			workoutIDs = append(workoutIDs, w.ID)
+		}
+
+		var workoutExercises []models.WorkoutExercise
+		if len(workoutIDs) > 0 {
+			_ = s.db.Preload("WorkoutSets").Where("workout_id IN ?", workoutIDs).Find(&workoutExercises).Error
+		}
+		for _, we := range workoutExercises {
+			for _, set := range we.WorkoutSets {
+				if set.Completed {
+					ctx.WeeklyVolume += set.Weight * float64(set.Reps)
 				}
 			}
 		}

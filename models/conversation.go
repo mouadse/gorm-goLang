@@ -9,12 +9,12 @@ import (
 
 type Conversation struct {
 	ID        uuid.UUID             `gorm:"type:uuid;primaryKey" json:"id"`
-	UserID    uuid.UUID             `gorm:"type:uuid;not null;index" json:"user_id"`
+	UserID    uuid.UUID             `gorm:"type:uuid;not null;index:idx_conversations_user_updated,priority:1" json:"user_id"`
 	User      User                  `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
 	Title     string                `gorm:"type:varchar(255)" json:"title"`
 	Messages  []ConversationMessage `gorm:"foreignKey:ConversationID;constraint:OnDelete:CASCADE" json:"messages"`
 	CreatedAt time.Time             `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time             `gorm:"autoUpdateTime" json:"updated_at"`
+	UpdatedAt time.Time             `gorm:"autoUpdateTime;index:idx_conversations_user_updated,priority:2,sort:desc" json:"updated_at"`
 }
 
 func (c *Conversation) BeforeCreate(tx *gorm.DB) error {

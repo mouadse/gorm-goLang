@@ -10,8 +10,8 @@ import (
 // Workout represents a single workout session logged by a user.
 type Workout struct {
 	ID        uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-	UserID    uuid.UUID      `gorm:"type:uuid;not null;index" json:"user_id"`
-	Date      time.Time      `gorm:"type:date;not null" json:"date"`
+	UserID    uuid.UUID      `gorm:"type:uuid;not null;index:idx_workouts_user_date,priority:1,where:deleted_at IS NULL;index:idx_workouts_date_user,priority:2,where:deleted_at IS NULL" json:"user_id"`
+	Date      time.Time      `gorm:"type:date;not null;index:idx_workouts_user_date,priority:2,where:deleted_at IS NULL;index:idx_workouts_date_user,priority:1,where:deleted_at IS NULL" json:"date"`
 	Duration  int            `gorm:"type:int" json:"duration"`
 	Notes     string         `gorm:"type:text" json:"notes"`
 	Type      string         `gorm:"type:varchar(50)" json:"type"` // push/pull/legs/cardio

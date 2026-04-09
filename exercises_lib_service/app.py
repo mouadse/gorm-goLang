@@ -367,6 +367,7 @@ SCORING_WEIGHTS = {
 
 _catalog_lock = threading.Lock()
 _embedding_model_lock = threading.Lock()
+_catalog_state_lock = threading.Lock()
 
 GoalType = Literal[
     "build_muscle",
@@ -398,6 +399,9 @@ catalog_category_masks: dict[str, np.ndarray] = {}
 catalog_muscle_masks: dict[str, np.ndarray] = {}
 catalog_all_indices = np.empty(0, dtype=np.int32)
 catalog_program_cache: dict[tuple[str, str], dict[str, Any]] = {}
+catalog_status = "not_started"
+catalog_error: str | None = None
+_catalog_init_thread: threading.Thread | None = None
 
 
 class SearchRequest(BaseModel):
@@ -1037,6 +1041,47 @@ def ensure_catalog_runtime_state() -> None:
         rebuild_catalog_runtime_state()
 
 
+def set_catalog_state(status: str, error: str | None = None) -> None:
+    global catalog_status, catalog_error
+    with _catalog_state_lock:
+        catalog_status = status
+        catalog_error = error
+
+
+def get_catalog_state() -> tuple[str, str | None]:
+    with _catalog_state_lock:
+        return catalog_status, catalog_error
+
+
+def trigger_catalog_initialization(force_rebuild: bool = False) -> None:
+    global _catalog_init_thread, catalog_status, catalog_error
+
+    with _catalog_state_lock:
+        if _catalog_init_thread and _catalog_init_thread.is_alive():
+            return
+        if not force_rebuild and catalog_status == "ready" and catalog:
+            return
+
+        catalog_status = "starting"
+        catalog_error = None
+
+        def runner() -> None:
+            global _catalog_init_thread
+            try:
+                initialize_catalog(force_rebuild=force_rebuild)
+            except Exception as exc:
+                set_catalog_state("error", str(exc))
+            finally:
+                with _catalog_state_lock:
+                    _catalog_init_thread = None
+
+        _catalog_init_thread = threading.Thread(
+            target=runner,
+            name="catalog-initializer",
+            daemon=True,
+        )
+        _catalog_init_thread.start()
+
 
 def initialize_catalog(force_rebuild: bool = False) -> int:
     global catalog, catalog_by_exercise_id, catalog_embeddings, catalog_meta
@@ -1065,13 +1110,23 @@ def initialize_catalog(force_rebuild: bool = False) -> int:
         catalog_embeddings = embeddings
         catalog_meta = build_catalog_meta(items)
         rebuild_catalog_runtime_state()
+    set_catalog_state("ready")
     return len(items)
 
 
 def ensure_catalog() -> None:
     if not catalog:
-        initialize_catalog()
-        return
+        trigger_catalog_initialization()
+        status, error = get_catalog_state()
+        if status == "error":
+            raise HTTPException(
+                status_code=503,
+                detail=f"Catalog initialization failed: {error}",
+            )
+        raise HTTPException(
+            status_code=503,
+            detail="Catalog is still initializing. Retry in a moment.",
+        )
     ensure_catalog_runtime_state()
 
 
@@ -2202,7 +2257,7 @@ def build_program(request: ProgramRequest) -> ProgramResponse:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    ensure_catalog()
+    trigger_catalog_initialization()
     yield
 
 
@@ -2222,12 +2277,16 @@ async def index():
 
 @app.get("/health")
 async def health():
-    ensure_catalog()
+    trigger_catalog_initialization()
+    state, error = get_catalog_state()
     return {
-        "status": "healthy",
-        "indexed": bool(catalog),
+        "status": "healthy" if state == "ready" else state,
+        "catalog_status": state,
+        "ready": state == "ready",
+        "indexed": bool(catalog) and state == "ready",
         "exercises_loaded": len(catalog),
         "embedding_model": EMBEDDING_MODEL_NAME,
+        "error": error,
     }
 
 
@@ -2266,11 +2325,13 @@ async def list_catalog_exercises(limit: int = 1000, offset: int = 0):
 @app.post("/init", response_model=InitResponse)
 async def initialize_database():
     try:
+        set_catalog_state("starting")
         total_exercises = initialize_catalog(force_rebuild=True)
         return InitResponse(status="initialized", exercises_loaded=total_exercises)
     except HTTPException:
         raise
     except Exception as exc:
+        set_catalog_state("error", str(exc))
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

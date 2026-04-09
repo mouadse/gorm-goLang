@@ -17,6 +17,19 @@ func EnsureAdminViews(db *gorm.DB) error {
 	}
 
 	views := map[string]string{
+		"user_activity_days": `
+			CREATE MATERIALIZED VIEW IF NOT EXISTS user_activity_days AS
+			SELECT DISTINCT
+				user_id,
+				date AS stat_date
+			FROM (
+				SELECT user_id, date FROM workouts WHERE deleted_at IS NULL
+				UNION ALL
+				SELECT user_id, date FROM meals WHERE deleted_at IS NULL
+				UNION ALL
+				SELECT user_id, date FROM weight_entries WHERE deleted_at IS NULL
+			) activity_days;
+		`,
 		"daily_user_stats": `
 			CREATE MATERIALIZED VIEW IF NOT EXISTS daily_user_stats AS
 			WITH all_activities AS (
@@ -90,7 +103,10 @@ func EnsureAdminViews(db *gorm.DB) error {
 	}
 
 	indices := map[string]string{
+		"idx_user_activity_days_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_activity_days_unique ON user_activity_days(user_id, stat_date)",
+		"idx_user_activity_days_date":   "CREATE INDEX IF NOT EXISTS idx_user_activity_days_date ON user_activity_days(stat_date)",
 		"idx_daily_user_stats_date":     "CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_user_stats_date ON daily_user_stats(stat_date)",
+		"idx_exercise_popularity_id":    "CREATE UNIQUE INDEX IF NOT EXISTS idx_exercise_popularity_id ON exercise_popularity(exercise_id)",
 		"idx_exercise_popularity_usage": "CREATE INDEX IF NOT EXISTS idx_exercise_popularity_usage ON exercise_popularity(usage_count DESC)",
 		"idx_cohort_month":              "CREATE UNIQUE INDEX IF NOT EXISTS idx_cohort_month ON user_retention_cohorts(cohort_month)",
 	}
@@ -116,9 +132,9 @@ func RefreshAdminViews(db *gorm.DB) error {
 		return nil
 	}
 
-	views := []string{"daily_user_stats", "exercise_popularity", "user_retention_cohorts"}
+	views := []string{"user_activity_days", "daily_user_stats", "exercise_popularity", "user_retention_cohorts"}
 	for _, view := range views {
-		if err := db.Exec(fmt.Sprintf("REFRESH MATERIALIZED VIEW %s", view)).Error; err != nil {
+		if err := db.Exec(fmt.Sprintf("REFRESH MATERIALIZED VIEW CONCURRENTLY %s", view)).Error; err != nil {
 			return fmt.Errorf("refresh materialized view %s: %w", view, err)
 		}
 	}

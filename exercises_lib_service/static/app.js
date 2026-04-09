@@ -48,6 +48,10 @@ function setHealth(label, tone = "idle") {
   healthPill.dataset.tone = tone;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function populateSelect(select, values, labels = {}) {
   const current = select.value;
   select.innerHTML = '<option value="">All</option>';
@@ -280,10 +284,32 @@ async function refreshHealth() {
     const response = await fetch("/health");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
-    setHealth(`Atlas ready · ${payload.exercises_loaded}`, "ok");
+    if (payload.catalog_status === "ready") {
+      setHealth(`Atlas ready · ${payload.exercises_loaded}`, "ok");
+    } else if (payload.catalog_status === "error") {
+      setHealth("Catalog failed", "error");
+    } else {
+      setHealth("Booting catalog", "idle");
+    }
+    return payload;
   } catch (error) {
     setHealth("Backend offline", "error");
+    return null;
   }
+}
+
+async function waitForCatalogReady() {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const payload = await refreshHealth();
+    if (payload?.ready) {
+      return payload;
+    }
+    if (payload?.catalog_status === "error") {
+      throw new Error(payload.error || "Catalog initialization failed.");
+    }
+    await sleep(1000);
+  }
+  throw new Error("Catalog initialization is taking longer than expected.");
 }
 
 async function loadMeta() {
@@ -441,7 +467,8 @@ rebuildButton.addEventListener("click", rebuildCatalog);
 
 async function init() {
   try {
-    await Promise.all([refreshHealth(), loadMeta()]);
+    await waitForCatalogReady();
+    await loadMeta();
   } catch (error) {
     setHealth("Catalog unavailable", "error");
     programStatus.textContent = String(error);

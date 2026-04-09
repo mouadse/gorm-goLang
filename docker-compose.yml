@@ -1,32 +1,77 @@
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fitness-migrate
+    command: ["migrate"]
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
+      - APP_ENV=${APP_ENV:-development}
+      - GORM_LOG_LEVEL=${GORM_LOG_LEVEL:-warn}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - fitness-network
+
   # Application
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: fitness-app
+    command: ["api"]
     ports:
       - "8080:8080"
     environment:
       - PORT=8080
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
-      - JWT_SECRET=your-secret-key-change-in-production
-      - REDIS_ADDR=redis:6379
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - LLM_MODEL=${LLM_MODEL:-google/gemini-2.0-flash-001}
+      - APP_ENV=${APP_ENV:-development}
+      - GORM_LOG_LEVEL=${GORM_LOG_LEVEL:-warn}
       - EXERCISE_LIB_URL=http://exercise-lib:8000
+      - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-25}
+      - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS:-5}
+      - DB_CONN_MAX_LIFETIME=${DB_CONN_MAX_LIFETIME:-30m}
+      - DB_CONN_MAX_IDLE_TIME=${DB_CONN_MAX_IDLE_TIME:-5m}
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      exercise-lib:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/readyz"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - fitness-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fitness-worker
+    command: ["worker"]
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
+      - APP_ENV=${APP_ENV:-development}
+      - GORM_LOG_LEVEL=${GORM_LOG_LEVEL:-warn}
+      - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-10}
+      - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS:-5}
+      - DB_CONN_MAX_LIFETIME=${DB_CONN_MAX_LIFETIME:-30m}
+      - DB_CONN_MAX_IDLE_TIME=${DB_CONN_MAX_IDLE_TIME:-5m}
+      - WORKER_EXPORT_POLL_INTERVAL=${WORKER_EXPORT_POLL_INTERVAL:-15s}
+      - WORKER_ADMIN_REFRESH_INTERVAL=${WORKER_ADMIN_REFRESH_INTERVAL:-1h}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - fitness-network
 
@@ -36,6 +81,10 @@ services:
       context: ./exercises_lib_service
       dockerfile: Dockerfile
     container_name: fitness-exercise-lib
+    env_file:
+      - ./exercises_lib_service/.env
+    ports:
+      - "8000:8000"
     cpus: "${APP_CPUS:-2.0}"
     environment:
       - PORT=8000
@@ -49,18 +98,9 @@ services:
       - ./exercises_lib_service/exercise_data:/app/exercise_data:ro
       - ./exercises_lib_service/.catalog_cache:/app/.catalog_cache
       - fastembed_cache:/var/cache/fastembed
-    networks:
-      - fitness-network
-
-  # Cache
-  redis:
-    image: redis:7.4-alpine
-    container_name: fitness-redis
-    ports:
-      - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8000/health"]
+      interval: 15s
       timeout: 5s
       retries: 5
     networks:
@@ -94,7 +134,7 @@ services:
       - "8081:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@fitness-tracker.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-change-me}
       PGADMIN_CONFIG_SERVER_MODE: "False"
     depends_on:
       postgres:

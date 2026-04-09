@@ -304,6 +304,21 @@ func (s *ExportService) ListExportJobs(userID uuid.UUID) ([]ExportJob, error) {
 	return jobs, err
 }
 
+// ListPendingJobs returns pending export jobs for worker processing.
+func (s *ExportService) ListPendingJobs(limit int) ([]ExportJob, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	var jobs []ExportJob
+	err := s.db.
+		Where("status = ?", ExportPending).
+		Order("created_at asc").
+		Limit(limit).
+		Find(&jobs).Error
+	return jobs, err
+}
+
 // ProcessExportJob processes an export job and generates the export data.
 func (s *ExportService) ProcessExportJob(jobID uuid.UUID) error {
 	var job ExportJob

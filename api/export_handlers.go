@@ -47,10 +47,18 @@ func (s *Server) handleCreateExportJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Process asynchronously
-	go func() {
-		_ = s.exportSvc.ProcessExportJob(job.ID)
-	}()
+	// Test and in-memory SQLite setups run without the external worker process.
+	if s.db.Dialector.Name() == "sqlite" {
+		if err := s.exportSvc.ProcessExportJob(job.ID); err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("process export job: %w", err))
+			return
+		}
+		job, err = s.exportSvc.GetExportJob(userID, job.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Errorf("reload export job: %w", err))
+			return
+		}
+	}
 
 	writeJSON(w, http.StatusAccepted, job)
 }

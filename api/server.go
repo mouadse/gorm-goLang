@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 	"fitness-tracker/services"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +30,6 @@ type Server struct {
 	twoFactorLimit  *twoFactorAttemptLimiter
 	twoFactorTokens *twoFactorChallengeStore
 	adminSvc        *services.AdminDashboardService
-	redisClient     *redis.Client
 	llmClient       services.LLMClient
 	coachSvc        *services.CoachService
 	exerciseLibSvc  *services.ExerciseLibClient
@@ -41,24 +37,7 @@ type Server struct {
 
 func NewServer(db *gorm.DB) *Server {
 	m := metrics.New()
-
-	var redisClient *redis.Client
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr != "" {
-		redisClient = redis.NewClient(&redis.Options{
-			Addr: redisAddr,
-		})
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		if err := redisClient.Ping(ctx).Err(); err != nil {
-			log.Printf("⚠️ Redis connection failed: %v. Continuing without cache.", err)
-			redisClient = nil
-		} else {
-			log.Println("✅ Redis connection established")
-		}
-	}
-
-	adminSvc := services.NewAdminDashboardService(db, redisClient, m)
+	adminSvc := services.NewAdminDashboardService(db, m)
 
 	server := &Server{
 		db:              db,
@@ -74,7 +53,6 @@ func NewServer(db *gorm.DB) *Server {
 		twoFactorLimit:  newTwoFactorAttemptLimiter(),
 		twoFactorTokens: newTwoFactorChallengeStore(),
 		adminSvc:        adminSvc,
-		redisClient:     redisClient,
 		llmClient:       services.NewOpenRouterClient("", ""),
 		exerciseLibSvc:  services.NewExerciseLibClient(),
 	}
@@ -95,7 +73,9 @@ func (s *Server) registerRoutes() {
 		s.mux.Handle(pattern, Authenticate(s.db, http.HandlerFunc(handler)))
 	}
 
-	s.mux.HandleFunc("GET /healthz", s.handleHealth)
+	s.mux.HandleFunc("GET /livez", s.handleLive)
+	s.mux.HandleFunc("GET /healthz", s.handleReady)
+	s.mux.HandleFunc("GET /readyz", s.handleReady)
 	s.mux.HandleFunc("GET /openapi.yaml", s.handleOpenAPISpec)
 	s.mux.HandleFunc("GET /docs", s.handleSwaggerUI)
 	s.mux.HandleFunc("GET /docs/", s.handleSwaggerUI)
@@ -278,8 +258,27 @@ func (s *Server) registerRoutes() {
 	protected("GET /v1/notifications/unread-count", s.handleGetUnreadNotificationCount)
 }
 
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleLive(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	health, err := s.adminSvc.GetSystemHealth(ctx)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, err)
+		return
+	}
+
+	status, _ := health["status"].(string)
+	if status != "healthy" {
+		writeJSON(w, http.StatusServiceUnavailable, health)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, health)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

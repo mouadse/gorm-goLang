@@ -2,27 +2,23 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"fitness-tracker/metrics"
 	"fitness-tracker/models"
 
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
 type AdminDashboardService struct {
-	db          *gorm.DB
-	redisClient *redis.Client
-	metrics     *metrics.Metrics
+	db      *gorm.DB
+	metrics *metrics.Metrics
 }
 
-func NewAdminDashboardService(db *gorm.DB, redis *redis.Client, m *metrics.Metrics) *AdminDashboardService {
+func NewAdminDashboardService(db *gorm.DB, m *metrics.Metrics) *AdminDashboardService {
 	return &AdminDashboardService{
-		db:          db,
-		redisClient: redis,
-		metrics:     m,
+		db:      db,
+		metrics: m,
 	}
 }
 
@@ -47,34 +43,142 @@ type RealtimeMetrics struct {
 	Timestamp         time.Time `json:"timestamp"`
 }
 
-func (s *AdminDashboardService) GetExecutiveSummary(ctx context.Context) (*ExecutiveSummary, error) {
-	cacheKey := "dashboard:executive_summary"
-	if s.redisClient != nil {
-		cached, err := s.redisClient.Get(ctx, cacheKey).Result()
-		if err == nil {
-			var summary ExecutiveSummary
-			if err := json.Unmarshal([]byte(cached), &summary); err == nil {
-				return &summary, nil
-			}
-		}
+type adminDailyStats struct {
+	TotalWorkouts int64
+	TotalMeals    int64
+}
+
+func (s *AdminDashboardService) countDistinctActivityUsersOn(statDate time.Time) (int64, error) {
+	if s.db.Dialector.Name() != "sqlite" {
+		var count int64
+		err := s.db.Table("user_activity_days").Where("stat_date = ?", statDate).Count(&count).Error
+		return count, err
 	}
 
+	var count int64
+	err := s.db.Raw(`
+		SELECT COUNT(DISTINCT user_id)
+		FROM (
+			SELECT user_id FROM workouts WHERE date = ? AND deleted_at IS NULL
+			UNION ALL
+			SELECT user_id FROM meals WHERE date = ? AND deleted_at IS NULL
+			UNION ALL
+			SELECT user_id FROM weight_entries WHERE date = ? AND deleted_at IS NULL
+		) activity_users
+	`, statDate, statDate, statDate).Scan(&count).Error
+	return count, err
+}
+
+func (s *AdminDashboardService) countDistinctActivityUsersBetween(startDate, endDate time.Time) (int64, error) {
+	if s.db.Dialector.Name() != "sqlite" {
+		var count int64
+		err := s.db.Table("user_activity_days").
+			Distinct("user_id").
+			Where("stat_date >= ? AND stat_date <= ?", startDate, endDate).
+			Count(&count).Error
+		return count, err
+	}
+
+	var count int64
+	err := s.db.Raw(`
+		SELECT COUNT(DISTINCT user_id)
+		FROM (
+			SELECT user_id, date AS stat_date FROM workouts WHERE deleted_at IS NULL
+			UNION ALL
+			SELECT user_id, date AS stat_date FROM meals WHERE deleted_at IS NULL
+			UNION ALL
+			SELECT user_id, date AS stat_date FROM weight_entries WHERE deleted_at IS NULL
+		) activity_days
+		WHERE stat_date >= ? AND stat_date <= ?
+	`, startDate, endDate).Scan(&count).Error
+	return count, err
+}
+
+func (s *AdminDashboardService) countDistinctActivityUsersSince(startDate time.Time) (int64, error) {
+	if s.db.Dialector.Name() != "sqlite" {
+		var count int64
+		err := s.db.Table("user_activity_days").
+			Distinct("user_id").
+			Where("stat_date >= ?", startDate).
+			Count(&count).Error
+		return count, err
+	}
+
+	var count int64
+	err := s.db.Raw(`
+		SELECT COUNT(DISTINCT user_id)
+		FROM (
+			SELECT user_id, date AS stat_date FROM workouts WHERE deleted_at IS NULL
+			UNION ALL
+			SELECT user_id, date AS stat_date FROM meals WHERE deleted_at IS NULL
+			UNION ALL
+			SELECT user_id, date AS stat_date FROM weight_entries WHERE deleted_at IS NULL
+		) activity_days
+		WHERE stat_date >= ?
+	`, startDate).Scan(&count).Error
+	return count, err
+}
+
+func (s *AdminDashboardService) loadDailyStats(statDate time.Time) (adminDailyStats, error) {
+	var stats adminDailyStats
+
+	if s.db.Dialector.Name() != "sqlite" {
+		err := s.db.Table("daily_user_stats").
+			Select("total_workouts, total_meals").
+			Where("stat_date = ?", statDate).
+			Scan(&stats).Error
+		return stats, err
+	}
+
+	if err := s.db.Model(&models.Workout{}).Where("date = ? AND deleted_at IS NULL", statDate).Count(&stats.TotalWorkouts).Error; err != nil {
+		return stats, err
+	}
+	if err := s.db.Model(&models.Meal{}).Where("date = ? AND deleted_at IS NULL", statDate).Count(&stats.TotalMeals).Error; err != nil {
+		return stats, err
+	}
+
+	return stats, nil
+}
+
+func (s *AdminDashboardService) GetExecutiveSummary(ctx context.Context) (*ExecutiveSummary, error) {
+	_ = ctx
 	summary, err := s.computeExecutiveSummary(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if s.redisClient != nil {
-		data, _ := json.Marshal(summary)
-		s.redisClient.Set(ctx, cacheKey, data, 5*time.Minute)
-	}
-
 	return summary, nil
 }
 
+// GetRealtimeMetrics returns the current admin realtime metrics snapshot.
+func (s *AdminDashboardService) GetRealtimeMetrics(ctx context.Context) (*RealtimeMetrics, error) {
+	_ = ctx
+	now := time.Now().UTC()
+	today := now.Truncate(24 * time.Hour)
+
+	activeUsers, err := s.countDistinctActivityUsersOn(today)
+	if err != nil {
+		return nil, err
+	}
+
+	todayStats, err := s.loadDailyStats(today)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RealtimeMetrics{
+		ActiveUsers:   int(activeUsers),
+		WorkoutsToday: int(todayStats.TotalWorkouts),
+		MealsToday:    int(todayStats.TotalMeals),
+		Timestamp:     now,
+	}, nil
+}
+
 func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*ExecutiveSummary, error) {
+	_ = ctx
+	now := time.Now().UTC()
 	summary := &ExecutiveSummary{
-		UpdatedAt: time.Now().UTC(),
+		UpdatedAt: now,
 	}
 
 	// 1. Total Users
@@ -83,42 +187,37 @@ func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*E
 	}
 
 	// 2. DAU (Unique users with activity today)
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	var rawDAU int64
-	s.db.Raw(`
-		SELECT COUNT(DISTINCT user_id) FROM (
-			SELECT user_id FROM workouts WHERE date = ? AND deleted_at IS NULL
-			UNION ALL
-			SELECT user_id FROM meals WHERE date = ? AND deleted_at IS NULL
-			UNION ALL
-			SELECT user_id FROM weight_entries WHERE date = ? AND deleted_at IS NULL
-		) activities`, today, today, today).Scan(&rawDAU)
-	summary.DAU = rawDAU
+	today := now.Truncate(24 * time.Hour)
+	dau, err := s.countDistinctActivityUsersOn(today)
+	if err != nil {
+		return nil, err
+	}
+	summary.DAU = dau
 
 	// 3. MAU (Last 30 days)
-	thirtyDaysAgo := time.Now().UTC().AddDate(0, 0, -30).Truncate(24 * time.Hour)
-	s.db.Raw(`
-		SELECT COUNT(DISTINCT user_id) FROM (
-			SELECT user_id FROM workouts WHERE date >= ? AND deleted_at IS NULL
-			UNION ALL
-			SELECT user_id FROM meals WHERE date >= ? AND deleted_at IS NULL
-			UNION ALL
-			SELECT user_id FROM weight_entries WHERE date >= ? AND deleted_at IS NULL
-		) activities`, thirtyDaysAgo, thirtyDaysAgo, thirtyDaysAgo).Scan(&summary.MAU)
+	thirtyDaysAgo := now.AddDate(0, 0, -30).Truncate(24 * time.Hour)
+	mau, err := s.countDistinctActivityUsersBetween(thirtyDaysAgo, today)
+	if err != nil {
+		return nil, err
+	}
+	summary.MAU = mau
 
 	if summary.MAU > 0 {
 		summary.DAUMAU_Ratio = float64(summary.DAU) / float64(summary.MAU) * 100
 	}
 
 	// 4. New Users 7d
-	sevenDaysAgo := time.Now().UTC().AddDate(0, 0, -7)
-	s.db.Model(&models.User{}).Where("created_at >= ? AND deleted_at IS NULL", sevenDaysAgo).Count(&summary.NewUsers7d)
+	sevenDaysAgo := now.AddDate(0, 0, -7)
+	if err := s.db.Model(&models.User{}).Where("created_at >= ? AND deleted_at IS NULL", sevenDaysAgo).Count(&summary.NewUsers7d).Error; err != nil {
+		return nil, err
+	}
 
-	// 5. Workouts Today
-	s.db.Model(&models.Workout{}).Where("date = ? AND deleted_at IS NULL", today).Count(&summary.WorkoutsToday)
-
-	// 6. Meals Today
-	s.db.Model(&models.Meal{}).Where("date = ? AND deleted_at IS NULL", today).Count(&summary.MealsToday)
+	todayStats, err := s.loadDailyStats(today)
+	if err != nil {
+		return nil, err
+	}
+	summary.WorkoutsToday = todayStats.TotalWorkouts
+	summary.MealsToday = todayStats.TotalMeals
 
 	// 7. Error Rate (mocked for now, should ideally come from prometheus metrics or logs)
 	summary.ErrorRate24h = 0.05 // 0.05%
@@ -126,7 +225,46 @@ func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*E
 	return summary, nil
 }
 
+func (s *AdminDashboardService) loadPopularExercises(limit int) ([]map[string]any, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	var popular []map[string]any
+	if s.db.Dialector.Name() == "sqlite" {
+		err := s.db.Raw(`
+			SELECT 
+				e.name as exercise_name,
+				COUNT(we.id) as usage_count,
+				COUNT(DISTINCT w.user_id) as unique_users
+			FROM exercises e
+			LEFT JOIN workout_exercises we ON e.id = we.exercise_id
+			LEFT JOIN workouts w ON we.workout_id = w.id
+			WHERE w.deleted_at IS NULL
+			GROUP BY e.id, e.name, e.primary_muscles
+			ORDER BY usage_count DESC
+			LIMIT ?
+		`, limit).Scan(&popular).Error
+		return popular, err
+	}
+
+	err := s.db.Table("exercise_popularity").
+		Select("exercise_name, usage_count, unique_users").
+		Order("usage_count DESC").
+		Limit(limit).
+		Scan(&popular).Error
+	return popular, err
+}
+
+// GetPopularExercises returns the top exercises by usage for the admin dashboard.
+func (s *AdminDashboardService) GetPopularExercises(ctx context.Context, limit int) ([]map[string]any, error) {
+	_ = ctx
+	return s.loadPopularExercises(limit)
+}
+
 func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[string]any, error) {
+	_ = ctx
+	now := time.Now().UTC()
 	var stats struct {
 		TotalUsers    int64            `json:"total_users"`
 		ActiveUsers7d int64            `json:"active_users_7d"`
@@ -136,31 +274,30 @@ func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[strin
 		Retention     []map[string]any `json:"retention"`
 	}
 
-	s.db.Model(&models.User{}).Where("deleted_at IS NULL").Count(&stats.TotalUsers)
+	if err := s.db.Model(&models.User{}).Where("deleted_at IS NULL").Count(&stats.TotalUsers).Error; err != nil {
+		return nil, err
+	}
 
-	sevenDaysAgo := time.Now().UTC().AddDate(0, 0, -7).Truncate(24 * time.Hour)
-	s.db.Raw(`SELECT COUNT(DISTINCT user_id) FROM (
-		SELECT user_id FROM workouts WHERE date >= ? AND deleted_at IS NULL
-		UNION ALL
-		SELECT user_id FROM meals WHERE date >= ? AND deleted_at IS NULL
-		UNION ALL
-		SELECT user_id FROM weight_entries WHERE date >= ? AND deleted_at IS NULL
-	) activities`, sevenDaysAgo, sevenDaysAgo, sevenDaysAgo).Scan(&stats.ActiveUsers7d)
+	sevenDaysAgo := now.AddDate(0, 0, -7).Truncate(24 * time.Hour)
+	activeUsers7d, err := s.countDistinctActivityUsersSince(sevenDaysAgo)
+	if err != nil {
+		return nil, err
+	}
+	stats.ActiveUsers7d = activeUsers7d
 
-	thirtyDaysAgo := time.Now().UTC().AddDate(0, 0, -30).Truncate(24 * time.Hour)
-	s.db.Raw(`SELECT COUNT(DISTINCT user_id) FROM (
-		SELECT user_id FROM workouts WHERE date >= ? AND deleted_at IS NULL
-		UNION ALL
-		SELECT user_id FROM meals WHERE date >= ? AND deleted_at IS NULL
-		UNION ALL
-		SELECT user_id FROM weight_entries WHERE date >= ? AND deleted_at IS NULL
-	) activities`, thirtyDaysAgo, thirtyDaysAgo, thirtyDaysAgo).Scan(&stats.MAU)
+	thirtyDaysAgo := now.AddDate(0, 0, -30).Truncate(24 * time.Hour)
+	stats.MAU, err = s.countDistinctActivityUsersSince(thirtyDaysAgo)
+	if err != nil {
+		return nil, err
+	}
 
-	s.db.Model(&models.User{}).
+	if err := s.db.Model(&models.User{}).
 		Select("goal, count(*) as count").
 		Where("deleted_at IS NULL").
 		Group("goal").
-		Scan(&stats.GoalBreakdown)
+		Scan(&stats.GoalBreakdown).Error; err != nil {
+		return nil, err
+	}
 
 	growthQuery := `
 		SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as new_users
@@ -180,10 +317,12 @@ func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[strin
 			LIMIT 30
 		`
 	}
-	s.db.Raw(growthQuery).Scan(&stats.Growth)
+	if err := s.db.Raw(growthQuery).Scan(&stats.Growth).Error; err != nil {
+		return nil, err
+	}
 
 	if s.db.Dialector.Name() == "sqlite" {
-		s.db.Raw(`
+		if err := s.db.Raw(`
 			WITH cohorts AS (
 				SELECT 
 					id as user_id,
@@ -217,12 +356,16 @@ func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[strin
 			GROUP BY c.cohort_month
 			ORDER BY c.cohort_month DESC
 			LIMIT 12
-		`).Scan(&stats.Retention)
+		`).Scan(&stats.Retention).Error; err != nil {
+			return nil, err
+		}
 	} else {
-		s.db.Table("user_retention_cohorts").
+		if err := s.db.Table("user_retention_cohorts").
 			Order("cohort_month DESC").
 			Limit(12).
-			Scan(&stats.Retention)
+			Scan(&stats.Retention).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	return map[string]any{
@@ -236,6 +379,7 @@ func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[strin
 }
 
 func (s *AdminDashboardService) GetWorkoutAnalytics(ctx context.Context) (map[string]any, error) {
+	_ = ctx
 	var stats struct {
 		TotalWorkouts    int64            `json:"total_workouts"`
 		WorkoutsToday    int64            `json:"workouts_today"`
@@ -254,27 +398,11 @@ func (s *AdminDashboardService) GetWorkoutAnalytics(ctx context.Context) (map[st
 		Group("type").
 		Scan(&stats.TypeBreakdown)
 
-	if s.db.Dialector.Name() == "sqlite" {
-		s.db.Raw(`
-			SELECT 
-				e.name as exercise_name,
-				COUNT(we.id) as usage_count,
-				COUNT(DISTINCT w.user_id) as unique_users
-			FROM exercises e
-			LEFT JOIN workout_exercises we ON e.id = we.exercise_id
-			LEFT JOIN workouts w ON we.workout_id = w.id
-			WHERE w.deleted_at IS NULL
-			GROUP BY e.id, e.name, e.primary_muscles
-			ORDER BY usage_count DESC
-			LIMIT 20
-		`).Scan(&stats.PopularExercises)
-	} else {
-		s.db.Table("exercise_popularity").
-			Select("exercise_name, usage_count, unique_users").
-			Order("usage_count DESC").
-			Limit(20).
-			Scan(&stats.PopularExercises)
+	popularExercises, err := s.loadPopularExercises(20)
+	if err != nil {
+		return nil, err
 	}
+	stats.PopularExercises = popularExercises
 
 	if s.db.Dialector.Name() == "sqlite" {
 		s.db.Raw(`
@@ -303,6 +431,7 @@ func (s *AdminDashboardService) GetWorkoutAnalytics(ctx context.Context) (map[st
 }
 
 func (s *AdminDashboardService) GetNutritionAnalytics(ctx context.Context) (map[string]any, error) {
+	_ = ctx
 	var stats struct {
 		TotalMealsLogged int64            `json:"total_meals_logged"`
 		MealsToday       int64            `json:"meals_today"`
@@ -338,6 +467,7 @@ func (s *AdminDashboardService) GetNutritionAnalytics(ctx context.Context) (map[
 }
 
 func (s *AdminDashboardService) GetModerationAnalytics(ctx context.Context) (map[string]any, error) {
+	_ = ctx
 	var stats struct {
 		PendingExports   int64 `json:"pending_exports"`
 		FailedExports    int64 `json:"failed_exports"`
@@ -381,17 +511,6 @@ func (s *AdminDashboardService) GetSystemHealth(ctx context.Context) (map[string
 				"idle":             stats.Idle,
 			}
 		}
-	}
-
-	// Check Redis
-	if s.redisClient != nil {
-		if err := s.redisClient.Ping(ctx).Err(); err != nil {
-			health["redis"] = "unhealthy"
-		} else {
-			health["redis"] = "healthy"
-		}
-	} else {
-		health["redis"] = "not_configured"
 	}
 
 	return health, nil
