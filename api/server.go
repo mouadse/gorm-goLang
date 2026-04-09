@@ -33,6 +33,7 @@ type Server struct {
 	llmClient       services.LLMClient
 	coachSvc        *services.CoachService
 	exerciseLibSvc  *services.ExerciseLibClient
+	leaderboardSvc  *services.LeaderboardService
 }
 
 func NewServer(db *gorm.DB) *Server {
@@ -55,6 +56,7 @@ func NewServer(db *gorm.DB) *Server {
 		adminSvc:        adminSvc,
 		llmClient:       services.NewOpenRouterClient("", ""),
 		exerciseLibSvc:  services.NewExerciseLibClient(),
+		leaderboardSvc:  services.NewLeaderboardService(db),
 	}
 	server.coachSvc = services.NewCoachService(db, server.analyticsSvc, server.adherenceSvc, services.NewNutritionTargetService(db), services.NewIntegrationRulesService(db), server.notificationSvc, server.exerciseLibSvc)
 	server.registerRoutes()
@@ -124,6 +126,7 @@ func (s *Server) registerRoutes() {
 
 	// Exercises
 	protected("POST /v1/exercises", s.handleCreateExercise)
+	s.mux.Handle("GET /v1/leaderboard", Authenticate(s.db, http.HandlerFunc(s.handleGetLeaderboard)))
 	s.mux.HandleFunc("GET /v1/exercises", s.handleListExercises)
 	s.mux.HandleFunc("GET /v1/exercises/{id}", s.handleGetExercise)
 	protected("PATCH /v1/exercises/{id}", s.handleUpdateExercise)

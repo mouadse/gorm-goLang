@@ -34,6 +34,47 @@ tags:
   - name: Admin Audit
   - name: Admin Food Import
 paths:
+  /v1/leaderboard:
+    get:
+      tags: [Leaderboard]
+      summary: Get Leaderboard
+      operationId: getLeaderboard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [weekly, monthly, yearly, alltime]
+            default: weekly
+        - name: pillar
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, training, nutrition, consistency]
+            default: all
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeaderboardResponse"
   /healthz:
     get:
       tags: [Health]
@@ -4762,3 +4803,59 @@ components:
           type: string
           format: date-time
           description: Timestamp when the notification was created.
+
+    LeaderboardResponse:
+      type: object
+      properties:
+        period:
+          type: string
+        pillar:
+          type: string
+        total:
+          type: integer
+        offset:
+          type: integer
+        limit:
+          type: integer
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        user_id:
+          type: string
+          format: uuid
+        user_name:
+          type: string
+        avatar:
+          type: string
+        score:
+          type: number
+        training_score:
+          type: number
+        nutrition_score:
+          type: number
+        consistency_score:
+          type: number
+        breakdown:
+          type: object
+          properties:
+            workouts:
+              type: integer
+            meals_logged:
+              type: integer
+            perfect_nutrition_days:
+              type: integer
+            all_3_days:
+              type: integer
+            streak_days:
+              type: integer
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

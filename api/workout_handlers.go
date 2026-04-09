@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"fitness-tracker/models"
 	"github.com/google/uuid"
@@ -146,6 +147,10 @@ func (s *Server) handleCreateWorkout(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	if workout.Duration >= 15 {
+		_ = s.leaderboardSvc.AwardPoints(userID, 10, "Workout logged (>=15 min)", "T1", models.PillarTraining, &workout.ID, time.Now())
 	}
 
 	writeJSON(w, http.StatusCreated, loadedWorkout)
@@ -316,6 +321,11 @@ func (s *Server) handleUpdateWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_ = s.leaderboardSvc.RevokePoints(workoutID, "T1")
+	if loadedWorkout.Duration >= 15 {
+		_ = s.leaderboardSvc.AwardPoints(loadedWorkout.UserID, 10, "Workout logged (>=15 min)", "T1", models.PillarTraining, &workoutID, time.Now())
+	}
+
 	writeJSON(w, http.StatusOK, loadedWorkout)
 }
 
@@ -360,6 +370,8 @@ func (s *Server) handleDeleteWorkout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	_ = s.leaderboardSvc.RevokePoints(workoutID, "T1")
 
 	w.WriteHeader(http.StatusNoContent)
 }
