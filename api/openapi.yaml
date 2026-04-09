@@ -11,13 +11,28 @@ tags:
   - name: Health
   - name: Auth
   - name: Users
+  - name: Analytics
+  - name: Adherence
+  - name: Chat
+  - name: AI Coach
   - name: Exercises
   - name: Workouts
   - name: Workout Exercises
   - name: Workout Sets
+  - name: Workout Cardio
+  - name: Workout Templates
   - name: Meals
+  - name: Foods
+  - name: Recipes
   - name: Weight Entries
+  - name: Summaries
+  - name: Exports
   - name: Notifications
+  - name: Admin Dashboard
+  - name: Admin Moderation
+  - name: Admin System
+  - name: Admin Audit
+  - name: Admin Food Import
 paths:
   /healthz:
     get:
@@ -31,10 +46,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user and create a session
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User created and session established.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionResponse"
+        default:
+          $ref: "#/components/responses/Error"
   /v1/auth/login:
     post:
       tags: [Auth]
-      summary: Login with password and optional 2FA code
+      summary: Login with password and optional 2FA code (session-based)
       operationId: login
       requestBody:
         required: true
@@ -44,7 +79,7 @@ paths:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: Login succeeded.
+          description: Login succeeded. Returns access and refresh tokens.
           content:
             application/json:
               schema:
@@ -54,7 +89,71 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TwoFactorChallengeResponse"
+                $ref: "#/components/schemas/AuthSessionResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh an existing session
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: New access and refresh tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshTokenResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout of current or all sessions
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequest"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List active sessions for the user
+      operationId: getSessions
+      responses:
+        "200":
+          description: List of active sessions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/auth/sessions/{id}:
+    delete:
+      tags: [Auth]
+      summary: Revoke a specific session
+      operationId: deleteSession
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
         default:
           $ref: "#/components/responses/Error"
   /v1/auth/2fa/setup:
@@ -328,6 +427,112 @@ paths:
         "403":
           $ref: "#/components/responses/Error"
 
+  /v1/chat:
+    post:
+      tags: [Chat]
+      summary: Send a message to the AI coach
+      operationId: chat
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: AI response message.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/chat/history:
+    get:
+      tags: [Chat]
+      summary: Get chat conversation history
+      operationId: getChatHistory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversation_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Optional. If provided, returns messages for this conversation. Otherwise returns a list of conversations.
+      responses:
+        "200":
+          description: List of conversations or conversation detail with messages.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Conversation"
+                  - $ref: "#/components/schemas/Conversation"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/chat/feedback:
+    post:
+      tags: [Chat]
+      summary: Provide feedback on an AI message
+      operationId: chatFeedback
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatFeedbackRequest"
+      responses:
+        "200":
+          description: Feedback received.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/coach-summary:
+    get:
+      tags: [AI Coach]
+      summary: Get AI-generated coach summary for a user
+      operationId: getCoachSummary
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Optional. Date for the summary (defaults to today).
+      responses:
+        "200":
+          description: Coach summary data.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
   /v1/exercises:
     get:
       tags: [Exercises]
@@ -462,6 +667,98 @@ paths:
         "400":
           $ref: "#/components/responses/Error"
         "401":
+          $ref: "#/components/responses/Error"
+  /v1/exercises/search:
+    post:
+      tags: [Exercises]
+      summary: Search the exercise library
+      operationId: searchExercises
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchExercisesRequest"
+      responses:
+        "200":
+          description: List of search results.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExerciseSearchResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "502":
+          description: Bad gateway to exercise library service.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/Error"
+  /v1/exercises/program:
+    post:
+      tags: [Exercises]
+      summary: Generate a workout program
+      operationId: generateProgram
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateProgramRequest"
+      responses:
+        "200":
+          description: Generated workout program.
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/Error"
+        "502":
+          $ref: "#/components/responses/Error"
+  /v1/exercises/library-meta:
+    get:
+      tags: [Exercises]
+      summary: Get metadata from the exercise library
+      operationId: getExerciseLibraryMeta
+      responses:
+        "200":
+          description: Library metadata (equipment, levels, muscles, etc.).
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          $ref: "#/components/responses/Error"
+  /v1/exercise-images/{path}:
+    get:
+      tags: [Exercises]
+      summary: Proxy an exercise image from the library
+      operationId: getExerciseImage
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Path to the image file.
+      responses:
+        "200":
+          description: Image content.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/Error"
+        "502":
           $ref: "#/components/responses/Error"
   /v1/weight-entries:
     get:
@@ -941,6 +1238,127 @@ paths:
           $ref: "#/components/responses/Error"
         "500":
           $ref: "#/components/responses/Error"
+  /v1/workouts/{id}/cardio:
+    get:
+      tags: [Workout Cardio]
+      summary: List cardio entries for a workout
+      operationId: listWorkoutCardio
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: List of cardio entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutCardioEntry"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workout Cardio]
+      summary: Create cardio entry for a workout
+      operationId: createCardioEntry
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCardioEntryRequest"
+      responses:
+        "201":
+          description: Created cardio entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutCardioEntry"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/workout-cardio/{id}:
+    get:
+      tags: [Workout Cardio]
+      summary: Get cardio entry
+      operationId: getCardioEntry
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Cardio entry detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutCardioEntry"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workout Cardio]
+      summary: Update cardio entry
+      operationId: updateCardioEntry
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCardioEntryRequest"
+      responses:
+        "200":
+          description: Updated cardio entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutCardioEntry"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workout Cardio]
+      summary: Delete cardio entry
+      operationId: deleteCardioEntry
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Cardio entry deleted.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
   /v1/workout-sets:
     get:
       tags: [Workout Sets]
@@ -1080,6 +1498,145 @@ paths:
         "404":
           $ref: "#/components/responses/Error"
         "500":
+          $ref: "#/components/responses/Error"
+  /v1/workout-templates:
+    get:
+      tags: [Workout Templates]
+      summary: List workout templates
+      operationId: listTemplates
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of workout templates.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutTemplate"
+        "401":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workout Templates]
+      summary: Create workout template
+      operationId: createTemplate
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTemplateRequest"
+      responses:
+        "201":
+          description: Created workout template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutTemplate"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/workout-templates/{id}:
+    get:
+      tags: [Workout Templates]
+      summary: Get workout template
+      operationId: getTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Workout template detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutTemplate"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workout Templates]
+      summary: Update workout template
+      operationId: updateTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTemplateRequest"
+      responses:
+        "200":
+          description: Updated workout template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutTemplate"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workout Templates]
+      summary: Delete workout template
+      operationId: deleteTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Workout template deleted.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/workout-templates/{id}/apply:
+    post:
+      tags: [Workout Templates]
+      summary: Apply a template to create a new workout
+      operationId: applyTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyTemplateRequest"
+      responses:
+        "201":
+          description: Workout created from template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
           $ref: "#/components/responses/Error"
   /v1/meals:
     get:
@@ -1238,6 +1795,540 @@ paths:
         "404":
           $ref: "#/components/responses/Error"
         "500":
+          $ref: "#/components/responses/Error"
+  /v1/meals/recent:
+    get:
+      tags: [Meals]
+      summary: Get recently logged meals
+      operationId: getRecentMeals
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 7
+          description: Number of days back to look.
+      responses:
+        "200":
+          description: List of recent meals.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meal"
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/meals/{id}/clone:
+    post:
+      tags: [Meals]
+      summary: Clone an existing meal
+      operationId: cloneMeal
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "201":
+          description: Meal cloned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/foods:
+    get:
+      tags: [Foods]
+      summary: List foods
+      operationId: listFoods
+      parameters:
+        - name: name
+          in: query
+          schema:
+            type: string
+        - name: brand
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: source
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of foods.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Food"
+    post:
+      tags: [Foods]
+      summary: Create food
+      operationId: createFood
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFoodRequest"
+      responses:
+        "201":
+          description: Created food.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Food"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/foods/recent:
+    get:
+      tags: [Foods]
+      summary: Get recently used foods
+      operationId: getRecentFoods
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of recently used foods.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Food"
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/foods/{id}:
+    get:
+      tags: [Foods]
+      summary: Get food detail
+      operationId: getFood
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Food detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Food"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Foods]
+      summary: Update food
+      operationId: updateFood
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFoodRequest"
+      responses:
+        "200":
+          description: Updated food.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Food"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Foods]
+      summary: Delete food
+      operationId: deleteFood
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Food deleted.
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          description: Food is in use and cannot be deleted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/Error"
+  /v1/foods/{id}/favorite:
+    post:
+      tags: [Foods]
+      summary: Favorite a food
+      operationId: favoriteFood
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "201":
+          description: Food favorited.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteFood"
+        "401":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Foods]
+      summary: Unfavorite a food
+      operationId: unfavoriteFood
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Food unfavorited.
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/favorites:
+    get:
+      tags: [Foods]
+      summary: Get user's favorite foods
+      operationId: getUserFavorites
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+      responses:
+        "200":
+          description: List of favorite foods.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FavoriteFood"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/meal-foods:
+    post:
+      tags: [Foods]
+      summary: Add food to a meal
+      operationId: createMealFood
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMealFoodRequest"
+      responses:
+        "201":
+          description: Food added to meal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealFood"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/meals/{id}/foods:
+    get:
+      tags: [Foods]
+      summary: List foods in a meal
+      operationId: listMealFoods
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: List of foods in the meal.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MealFood"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Foods]
+      summary: Add food to a specific meal
+      operationId: addFoodToMeal
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMealFoodRequest"
+      responses:
+        "201":
+          description: Food added to meal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealFood"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/meal-foods/{id}:
+    get:
+      tags: [Foods]
+      summary: Get meal food item detail
+      operationId: getMealFood
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Meal food item detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealFood"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Foods]
+      summary: Update meal food item quantity
+      operationId: updateMealFood
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMealFoodRequest"
+      responses:
+        "200":
+          description: Updated meal food item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MealFood"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Foods]
+      summary: Remove food from meal
+      operationId: deleteMealFood
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Food removed from meal.
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/recipes:
+    get:
+      tags: [Recipes]
+      summary: List user's recipes
+      operationId: listRecipes
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of recipes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recipe"
+        "401":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Recipes]
+      summary: Create recipe
+      operationId: createRecipe
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRecipeRequest"
+      responses:
+        "201":
+          description: Created recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/recipes/{id}:
+    get:
+      tags: [Recipes]
+      summary: Get recipe detail
+      operationId: getRecipe
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Recipe detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Recipes]
+      summary: Update recipe
+      operationId: updateRecipe
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecipeRequest"
+      responses:
+        "200":
+          description: Updated recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Recipes]
+      summary: Delete recipe
+      operationId: deleteRecipe
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Recipe deleted.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/recipes/{id}/nutrition:
+    get:
+      tags: [Recipes]
+      summary: Get recipe nutrition per serving
+      operationId: getRecipeNutrition
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Nutrition per serving.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/recipes/{id}/log-to-meal:
+    post:
+      tags: [Recipes]
+      summary: Log recipe to a meal
+      operationId: logRecipeToMeal
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogRecipeToMealRequest"
+      responses:
+        "201":
+          description: Recipe logged as a meal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meal"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
           $ref: "#/components/responses/Error"
   /v1/users/{user_id}/summary:
     get:
@@ -1486,6 +2577,319 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeletionRequest"
+  /v1/summary:
+    get:
+      tags: [Summaries]
+      summary: Get current user daily summary
+      operationId: getMyDailySummary
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily summary.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/weekly-summary:
+    get:
+      tags: [Summaries]
+      summary: Get current user weekly summary
+      operationId: getMyWeeklySummary
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Weekly summary.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/recommendations:
+    get:
+      tags: [Summaries]
+      summary: Get current user recommendations
+      operationId: getMyRecommendations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Nutrition recommendations.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/nutrition-targets:
+    get:
+      tags: [Summaries]
+      summary: Get user nutrition targets
+      operationId: getUserNutritionTargets
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+      responses:
+        "200":
+          description: Nutrition targets.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/dashboard/summary:
+    get:
+      tags: [Admin Dashboard]
+      summary: Get executive dashboard summary
+      operationId: getAdminDashboardSummary
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Admin dashboard summary.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/dashboard/trends:
+    get:
+      tags: [Admin Dashboard]
+      summary: Get activity trends
+      operationId: getAdminDashboardTrends
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of daily activity stats.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/users/stats:
+    get:
+      tags: [Admin Dashboard]
+      summary: Get user analytics
+      operationId: getAdminUserStats
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: User analytics.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/users/growth:
+    get:
+      tags: [Admin Dashboard]
+      summary: Get user growth stats
+      operationId: getAdminUserGrowth
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Daily new user counts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/workouts/stats:
+    get:
+      tags: [Admin Dashboard]
+      summary: Get workout analytics
+      operationId: getAdminWorkoutStats
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Workout analytics.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/workouts/exercises/popular:
+    get:
+      tags: [Admin Dashboard]
+      summary: Get popular exercises
+      operationId: getAdminPopularExercises
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of popular exercises.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/nutrition/stats:
+    get:
+      tags: [Admin Dashboard]
+      summary: Get nutrition analytics
+      operationId: getAdminNutritionStats
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Nutrition analytics.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/moderation/stats:
+    get:
+      tags: [Admin Moderation]
+      summary: Get moderation analytics
+      operationId: getAdminModerationStats
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Moderation analytics.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/system/health:
+    get:
+      tags: [Admin System]
+      summary: Get detailed system health
+      operationId: getAdminSystemHealth
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Detailed system health.
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/audit-logs:
+    get:
+      tags: [Admin Audit]
+      summary: List administrative audit logs
+      operationId: getAdminAuditLogs
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: List of audit logs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/dashboard/realtime:
+    get:
+      tags: [Admin Dashboard]
+      summary: Realtime metrics via WebSocket
+      operationId: getAdminRealtimeWS
+      security:
+        - BearerAuth: []
+      responses:
+        "101":
+          description: WebSocket connection established.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/admin/import-usda:
+    post:
+      tags: [Admin Food Import]
+      summary: Trigger USDA food data import
+      operationId: importUSDA
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportUSDARequest"
+      responses:
+        "200":
+          description: Import completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportUSDAResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
 components:
   parameters:
     ID:
@@ -1570,6 +2974,8 @@ components:
           $ref: "#/components/schemas/User"
         two_factor_required:
           type: boolean
+        two_factor_token:
+          type: string
     TwoFactorChallengeResponse:
       type: object
       required: [two_factor_required, user]
@@ -1598,6 +3004,362 @@ components:
             type: string
         verified:
           type: boolean
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+        avatar:
+          type: string
+        age:
+          type: integer
+        date_of_birth:
+          type: string
+          format: date
+        weight:
+          type: number
+        height:
+          type: number
+        goal:
+          type: string
+        activity_level:
+          type: string
+        tdee:
+          type: integer
+    RefreshTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+    SessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        user_agent:
+          type: string
+        last_ip:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+        all_sessions:
+          type: boolean
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        conversation_id:
+          type: string
+          format: uuid
+    ChatResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        conversation_id:
+          type: string
+          format: uuid
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationMessage"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ConversationMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          type: string
+        tool_call_id:
+          type: string
+        tool_name:
+          type: string
+        feedback:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    ChatFeedbackRequest:
+      type: object
+      required: [message_id, feedback]
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        feedback:
+          type: integer
+          description: Feedback value (e.g. 1 for positive, -1 for negative).
+    WorkoutCardioEntry:
+      type: object
+      required: [id, workout_id, modality, duration_minutes]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workout_id:
+          type: string
+          format: uuid
+        modality:
+          type: string
+        duration_minutes:
+          type: integer
+        distance:
+          type: number
+          format: float
+        distance_unit:
+          type: string
+        pace:
+          type: number
+          format: float
+        calories_burned:
+          type: integer
+        avg_heart_rate:
+          type: integer
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateCardioEntryRequest:
+      type: object
+      required: [modality, duration_minutes]
+      properties:
+        workout_id:
+          type: string
+          format: uuid
+        modality:
+          type: string
+        duration_minutes:
+          type: integer
+        distance:
+          type: number
+        distance_unit:
+          type: string
+        pace:
+          type: number
+        calories_burned:
+          type: integer
+        avg_heart_rate:
+          type: integer
+        notes:
+          type: string
+    UpdateCardioEntryRequest:
+      type: object
+      properties:
+        modality:
+          type: string
+        duration_minutes:
+          type: integer
+        distance:
+          type: number
+        distance_unit:
+          type: string
+        pace:
+          type: number
+        calories_burned:
+          type: integer
+        avg_heart_rate:
+          type: integer
+        notes:
+          type: string
+    WorkoutTemplate:
+      type: object
+      required: [id, owner_id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        notes:
+          type: string
+        workout_template_exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutTemplateExercise"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    WorkoutTemplateExercise:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        exercise_id:
+          type: string
+          format: uuid
+        order:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+        rest_time:
+          type: integer
+        notes:
+          type: string
+        exercise:
+          $ref: "#/components/schemas/ExerciseSummary"
+        workout_template_sets:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutTemplateSet"
+    WorkoutTemplateSet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_exercise_id:
+          type: string
+          format: uuid
+        set_number:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+        rest_seconds:
+          type: integer
+    CreateTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        owner_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        notes:
+          type: string
+        exercises:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateTemplateExerciseRequest"
+    CreateTemplateExerciseRequest:
+      type: object
+      required: [exercise_id]
+      properties:
+        exercise_id:
+          type: string
+          format: uuid
+        order:
+          type: integer
+        sets:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+        rest_time:
+          type: integer
+        notes:
+          type: string
+        set_entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateTemplateSetRequest"
+    CreateTemplateSetRequest:
+      type: object
+      properties:
+        set_number:
+          type: integer
+        reps:
+          type: integer
+        weight:
+          type: number
+        rest_seconds:
+          type: integer
+    UpdateTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        notes:
+          type: string
+    ApplyTemplateRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
     PersonalRecord:
       type: object
       required: [type, exercise_id, exercise_name, value, date, workout_id]
@@ -1706,13 +3468,7 @@ components:
         - id
         - email
         - name
-        - avatar
-        - age
-        - weight
-        - height
-        - goal
-        - activity_level
-        - tdee
+        - role
         - created_at
         - updated_at
       properties:
@@ -1726,11 +3482,16 @@ components:
           type: string
         avatar:
           type: string
+        role:
+          type: string
+          enum: [user, admin]
         age:
           type: integer
+          deprecated: true
+          description: Deprecated. Use date_of_birth instead.
         date_of_birth:
           type: string
-          format: date-time
+          format: date
           nullable: true
         weight:
           type: number
@@ -1933,6 +3694,277 @@ components:
         updated_at:
           type: string
           format: date-time
+    FavoriteFood:
+      type: object
+      required: [user_id, food_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        food_id:
+          type: string
+          format: uuid
+        food:
+          $ref: "#/components/schemas/Food"
+        created_at:
+          type: string
+          format: date-time
+    Food:
+      type: object
+      required: [id, name, serving_unit, calories]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        brand:
+          type: string
+        category:
+          type: string
+        source:
+          type: string
+        serving_size:
+          type: number
+        serving_unit:
+          type: string
+        calories:
+          type: number
+        protein:
+          type: number
+        carbohydrates:
+          type: number
+        fat:
+          type: number
+        fiber:
+          type: number
+        sugar:
+          type: number
+        sodium:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateFoodRequest:
+      type: object
+      required: [name, serving_unit, calories]
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+        serving_size:
+          type: number
+        serving_unit:
+          type: string
+        calories:
+          type: number
+        protein:
+          type: number
+        carbohydrates:
+          type: number
+        fat:
+          type: number
+        fiber:
+          type: number
+        sugar:
+          type: number
+        sodium:
+          type: number
+    UpdateFoodRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        brand:
+          type: string
+        serving_size:
+          type: number
+        serving_unit:
+          type: string
+        calories:
+          type: number
+        protein:
+          type: number
+        carbohydrates:
+          type: number
+        fat:
+          type: number
+        fiber:
+          type: number
+        sugar:
+          type: number
+        sodium:
+          type: number
+    MealFood:
+      type: object
+      required: [id, meal_id, food_id, quantity]
+      properties:
+        id:
+          type: string
+          format: uuid
+        meal_id:
+          type: string
+          format: uuid
+        food_id:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+        food:
+          $ref: "#/components/schemas/Food"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateMealFoodRequest:
+      type: object
+      required: [food_id, quantity]
+      properties:
+        meal_id:
+          type: string
+          format: uuid
+        food_id:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+    UpdateMealFoodRequest:
+      type: object
+      properties:
+        quantity:
+          type: number
+    Recipe:
+      type: object
+      required: [id, user_id, name, servings]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        servings:
+          type: integer
+        notes:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecipeItem"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    RecipeItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        recipe_id:
+          type: string
+          format: uuid
+        food_id:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+        food:
+          $ref: "#/components/schemas/Food"
+    CreateRecipeRequest:
+      type: object
+      required: [name, items]
+      properties:
+        name:
+          type: string
+        servings:
+          type: integer
+        notes:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            required: [food_id, quantity]
+            properties:
+              food_id:
+                type: string
+                format: uuid
+              quantity:
+                type: number
+    UpdateRecipeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        servings:
+          type: integer
+        notes:
+          type: string
+    LogRecipeToMealRequest:
+      type: object
+      required: [date, meal_type, servings]
+      properties:
+        date:
+          type: string
+          format: date
+        meal_type:
+          type: string
+        servings:
+          type: number
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        admin_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+          format: uuid
+        old_value:
+          type: string
+        new_value:
+          type: string
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ImportUSDARequest:
+      type: object
+      properties:
+        file_path:
+          type: string
+    ImportUSDAResponse:
+      type: object
+      properties:
+        food_count:
+          type: integer
+        new_foods:
+          type: integer
+        nutrient_rows:
+          type: integer
+        duration:
+          type: string
     Meal:
       type: object
       required:
