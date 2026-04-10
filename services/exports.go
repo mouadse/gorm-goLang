@@ -345,7 +345,27 @@ func (s *ExportService) ProcessExportJob(jobID uuid.UUID) error {
 	now := time.Now().UTC()
 	job.CompletedAt = &now
 
-	return s.db.Save(&job).Error
+	if err := s.db.Save(&job).Error; err != nil {
+		return err
+	}
+
+	_, err = NewNotificationService(s.db).CreateIfNotDuplicate(
+		job.UserID,
+		models.NotificationExportReady,
+		"Export ready",
+		"Your data export is ready to download.",
+		map[string]interface{}{
+			"export_id": job.ID.String(),
+			"format":    string(job.Format),
+			"file_path": job.FilePath,
+		},
+		0,
+	)
+	if err != nil {
+		return fmt.Errorf("create export ready notification: %w", err)
+	}
+
+	return nil
 }
 
 // generateExportData generates the user data export.

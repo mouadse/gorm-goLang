@@ -93,6 +93,7 @@ Environment variables:
 - `CORS_ALLOW_CREDENTIALS`: Defaults to `true` for explicit origins. Automatically disabled when `CORS_ALLOWED_ORIGINS=*`.
 - `CORS_MAX_AGE_SECONDS`: Browser preflight cache duration. Defaults to `600`.
 - `DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, `DB_CONN_MAX_LIFETIME`, `DB_CONN_MAX_IDLE_TIME`: Database pool tuning
+- `WORKER_EXPORT_POLL_INTERVAL`, `WORKER_ADMIN_REFRESH_INTERVAL`, `WORKER_NOTIFICATION_POLL_INTERVAL`: Background worker intervals for export jobs, admin view refreshes, and automated user notifications
 - `PG*` (PGHOST, PGPORT, etc.): Individual connection parameters
 
 ## Seed Data Summary
@@ -124,6 +125,7 @@ The API surface is organized into the following v1 namespaces:
 - `/v1/workouts`: Session logging, Cardio, Volume analytics
 - `/v1/templates`: Workout template management
 - `/v1/programs`: Multi-week training blocks
+- `/v1/program-assignments`: User-side workout program assignments and session application
 - `/v1/meals`: Daily food logging, Recipes, Favorite foods
 - `/v1/foods`: Nutritional database lookup
 - `/v1/notifications`: User alerts and reminders

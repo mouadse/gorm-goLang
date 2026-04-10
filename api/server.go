@@ -222,6 +222,13 @@ func (s *Server) registerRoutes() {
 	protected("DELETE /v1/workout-templates/{id}", s.handleDeleteTemplate)
 	protected("POST /v1/workout-templates/{id}/apply", s.handleApplyTemplate)
 
+	// Workout programs: user-side assignment retrieval and application
+	protected("GET /v1/program-assignments", s.handleListProgramAssignments)
+	protected("GET /v1/users/{user_id}/program-assignments", s.handleListProgramAssignments)
+	protected("GET /v1/program-assignments/{id}", s.handleGetProgramAssignment)
+	protected("PATCH /v1/program-assignments/{id}/status", s.handleUpdateOwnProgramAssignmentStatus)
+	protected("POST /v1/program-sessions/{id}/apply", s.handleApplyProgramSession)
+
 	// Recipes
 	protected("POST /v1/recipes", s.handleCreateRecipe)
 	protected("GET /v1/recipes", s.handleListRecipes)
@@ -255,6 +262,25 @@ func (s *Server) registerRoutes() {
 	admin("DELETE /v1/admin/users/{id}", s.handleAdminDeleteUser)
 	admin("POST /v1/admin/users/{id}/ban", s.handleAdminBanUser)
 	admin("POST /v1/admin/users/{id}/unban", s.handleAdminUnbanUser)
+
+	// Admin: Workout Programs
+	admin("POST /v1/programs", s.handleCreateProgram)
+	admin("GET /v1/programs", s.handleListPrograms)
+	admin("GET /v1/programs/{id}", s.handleGetProgram)
+	admin("PATCH /v1/programs/{id}", s.handleUpdateProgram)
+	admin("DELETE /v1/programs/{id}", s.handleDeleteProgram)
+	admin("POST /v1/programs/{id}/weeks", s.handleCreateProgramWeek)
+	admin("POST /v1/programs/{id}/assignments", s.handleCreateProgramAssignment)
+	admin("GET /v1/programs/{id}/assignments", s.handleListProgramAssignmentsForProgram)
+	admin("GET /v1/program-weeks/{id}", s.handleGetProgramWeek)
+	admin("PATCH /v1/program-weeks/{id}", s.handleUpdateProgramWeek)
+	admin("DELETE /v1/program-weeks/{id}", s.handleDeleteProgramWeek)
+	admin("POST /v1/program-weeks/{id}/sessions", s.handleCreateProgramSession)
+	admin("GET /v1/program-sessions/{id}", s.handleGetProgramSession)
+	admin("PATCH /v1/program-sessions/{id}", s.handleUpdateProgramSession)
+	admin("DELETE /v1/program-sessions/{id}", s.handleDeleteProgramSession)
+	admin("PATCH /v1/admin/program-assignments/{id}", s.handleAdminUpdateProgramAssignment)
+	admin("DELETE /v1/admin/program-assignments/{id}", s.handleDeleteProgramAssignment)
 
 	// Admin: USDA Food Import
 	s.mux.Handle("POST /v1/admin/import-usda", Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleImportUSDA))))

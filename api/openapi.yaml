@@ -21,6 +21,7 @@ tags:
   - name: Workout Sets
   - name: Workout Cardio
   - name: Workout Templates
+  - name: Workout Programs
   - name: Meals
   - name: Foods
   - name: Recipes
@@ -1673,6 +1674,562 @@ paths:
                 $ref: "#/components/schemas/Workout"
         "400":
           $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/programs:
+    get:
+      tags: [Workout Programs]
+      summary: List workout programs
+      operationId: listPrograms
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of workout programs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkoutProgram"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workout Programs]
+      summary: Create workout program
+      operationId: createProgram
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProgramRequest"
+      responses:
+        "201":
+          description: Created workout program.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutProgram"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/programs/{id}:
+    get:
+      tags: [Workout Programs]
+      summary: Get workout program
+      operationId: getProgram
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Workout program detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutProgram"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workout Programs]
+      summary: Update workout program
+      operationId: updateProgram
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProgramRequest"
+      responses:
+        "200":
+          description: Updated workout program.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkoutProgram"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workout Programs]
+      summary: Delete workout program
+      operationId: deleteProgram
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Workout program deleted.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/programs/{id}/weeks:
+    post:
+      tags: [Workout Programs]
+      summary: Add week to workout program
+      operationId: createProgramWeek
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProgramWeekRequest"
+      responses:
+        "201":
+          description: Created program week.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramWeek"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/programs/{id}/assignments:
+    get:
+      tags: [Workout Programs]
+      summary: List assignments for a program
+      operationId: listProgramAssignmentsForProgram
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Program assignments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgramAssignment"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+    post:
+      tags: [Workout Programs]
+      summary: Assign a program to a user
+      operationId: createProgramAssignment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProgramAssignmentRequest"
+      responses:
+        "201":
+          description: Created program assignment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramAssignment"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+  /v1/program-weeks/{id}:
+    get:
+      tags: [Workout Programs]
+      summary: Get program week
+      operationId: getProgramWeek
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Program week detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramWeek"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workout Programs]
+      summary: Update program week
+      operationId: updateProgramWeek
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProgramWeekRequest"
+      responses:
+        "200":
+          description: Updated program week.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramWeek"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workout Programs]
+      summary: Delete program week
+      operationId: deleteProgramWeek
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Program week deleted.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/program-weeks/{id}/sessions:
+    post:
+      tags: [Workout Programs]
+      summary: Add session to program week
+      operationId: createProgramSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProgramSessionRequest"
+      responses:
+        "201":
+          description: Created program session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramSession"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/program-sessions/{id}:
+    get:
+      tags: [Workout Programs]
+      summary: Get program session
+      operationId: getProgramSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Program session detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramSession"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Workout Programs]
+      summary: Update program session
+      operationId: updateProgramSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProgramSessionRequest"
+      responses:
+        "200":
+          description: Updated program session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramSession"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workout Programs]
+      summary: Delete program session
+      operationId: deleteProgramSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Program session deleted.
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/program-sessions/{id}/apply:
+    post:
+      tags: [Workout Programs]
+      summary: Apply an assigned program session to a workout
+      operationId: applyProgramSession
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyProgramSessionRequest"
+      responses:
+        "201":
+          description: Workout created from the program session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workout"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/program-assignments:
+    get:
+      tags: [Workout Programs]
+      summary: List current user's program assignments
+      operationId: listProgramAssignments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ProgramAssignmentStatus"
+      responses:
+        "200":
+          description: Program assignments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgramAssignment"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/users/{user_id}/program-assignments:
+    get:
+      tags: [Workout Programs]
+      summary: List program assignments for a user
+      operationId: listUserProgramAssignments
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/ProgramAssignmentStatus"
+      responses:
+        "200":
+          description: Program assignments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProgramAssignment"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+  /v1/program-assignments/{id}:
+    get:
+      tags: [Workout Programs]
+      summary: Get current user's program assignment
+      operationId: getProgramAssignment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Program assignment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramAssignment"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/program-assignments/{id}/status:
+    patch:
+      tags: [Workout Programs]
+      summary: Update current user's program assignment status
+      operationId: updateOwnProgramAssignmentStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOwnProgramAssignmentStatusRequest"
+      responses:
+        "200":
+          description: Updated program assignment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramAssignment"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/admin/program-assignments/{id}:
+    patch:
+      tags: [Workout Programs]
+      summary: Admin update program assignment
+      operationId: adminUpdateProgramAssignment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProgramAssignmentRequest"
+      responses:
+        "200":
+          description: Updated program assignment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramAssignment"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Workout Programs]
+      summary: Admin delete program assignment
+      operationId: deleteProgramAssignment
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Program assignment deleted.
         "401":
           $ref: "#/components/responses/Error"
         "403":
@@ -3608,6 +4165,233 @@ components:
         date:
           type: string
           format: date
+    ProgramAssignmentStatus:
+      type: string
+      enum: [assigned, in_progress, completed, cancelled]
+    WorkoutProgram:
+      type: object
+      required: [id, name, created_by]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        created_by:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramWeek"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProgramWeek:
+      type: object
+      required: [id, program_id, week_number]
+      properties:
+        id:
+          type: string
+          format: uuid
+        program_id:
+          type: string
+          format: uuid
+        week_number:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramSession"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProgramSession:
+      type: object
+      required: [id, week_id, day_number]
+      properties:
+        id:
+          type: string
+          format: uuid
+        week_id:
+          type: string
+          format: uuid
+        day_number:
+          type: integer
+          minimum: 1
+        workout_template_id:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+        template:
+          $ref: "#/components/schemas/WorkoutTemplate"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ProgramAssignment:
+      type: object
+      required: [id, user_id, program_id, assigned_at, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        program_id:
+          type: string
+          format: uuid
+        assigned_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ProgramAssignmentStatus"
+        program:
+          $ref: "#/components/schemas/WorkoutProgram"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateProgramRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        is_active:
+          type: boolean
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateProgramWeekRequest"
+    UpdateProgramRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        is_active:
+          type: boolean
+    CreateProgramWeekRequest:
+      type: object
+      properties:
+        week_number:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateProgramSessionRequest"
+    UpdateProgramWeekRequest:
+      type: object
+      properties:
+        week_number:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+    CreateProgramSessionRequest:
+      type: object
+      properties:
+        day_number:
+          type: integer
+          minimum: 1
+        workout_template_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+    UpdateProgramSessionRequest:
+      type: object
+      properties:
+        day_number:
+          type: integer
+          minimum: 1
+        workout_template_id:
+          type: string
+          format: uuid
+          nullable: true
+        notes:
+          type: string
+    CreateProgramAssignmentRequest:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        assigned_at:
+          type: string
+          description: RFC3339 date-time or YYYY-MM-DD. Defaults to now.
+        started_at:
+          type: string
+          description: RFC3339 date-time or YYYY-MM-DD.
+        completed_at:
+          type: string
+          description: RFC3339 date-time or YYYY-MM-DD.
+        status:
+          $ref: "#/components/schemas/ProgramAssignmentStatus"
+    UpdateProgramAssignmentRequest:
+      type: object
+      properties:
+        started_at:
+          type: string
+          description: RFC3339 date-time or YYYY-MM-DD. Empty clears the value.
+        completed_at:
+          type: string
+          description: RFC3339 date-time or YYYY-MM-DD. Empty clears the value.
+        status:
+          $ref: "#/components/schemas/ProgramAssignmentStatus"
+    UpdateOwnProgramAssignmentStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/ProgramAssignmentStatus"
+    ApplyProgramSessionRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Optional. Defaults to the authenticated user.
+        date:
+          type: string
+          format: date
+          description: Optional. Defaults to the current UTC day.
     PersonalRecord:
       type: object
       required: [type, exercise_id, exercise_name, value, date, workout_id]

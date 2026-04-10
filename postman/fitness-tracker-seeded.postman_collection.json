@@ -875,6 +875,115 @@
             "description": "POST /v1/account/delete-request\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate auth/account state unexpectedly."
           },
           "disabled": true
+        },
+        {
+          "name": "DELETE /v1/program-sessions/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-sessions/{{programSessionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-sessions",
+                "{{programSessionId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/program-sessions/{id}\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not delete program data unexpectedly."
+          },
+          "disabled": true
+        },
+        {
+          "name": "DELETE /v1/program-weeks/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-weeks/{{programWeekId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-weeks",
+                "{{programWeekId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/program-weeks/{id}\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not delete program data unexpectedly."
+          },
+          "disabled": true
+        },
+        {
+          "name": "DELETE /v1/admin/program-assignments/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/program-assignments/{{programAssignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "program-assignments",
+                "{{programAssignmentId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/admin/program-assignments/{id}\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not delete program data unexpectedly."
+          },
+          "disabled": true
+        },
+        {
+          "name": "DELETE /v1/programs/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/programs/{{createdProgramId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "programs",
+                "{{createdProgramId}}"
+              ],
+              "query": []
+            },
+            "description": "DELETE /v1/programs/{id}\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not delete program data unexpectedly."
+          },
+          "disabled": true
         }
       ]
     },
@@ -3143,6 +3252,681 @@
       ]
     },
     {
+      "name": "Workout Programs",
+      "item": [
+        {
+          "name": "POST /v1/programs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/programs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "programs"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/programs",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Strength Program {{$timestamp}}\",\n  \"description\": \"Generated in Postman\",\n  \"is_active\": true,\n  \"weeks\": [\n    {\n      \"week_number\": 1,\n      \"name\": \"Week 1\",\n      \"sessions\": [\n        {\n          \"day_number\": 1,\n          \"workout_template_id\": \"{{createdTemplateId}}\",\n          \"notes\": \"Program session from Postman\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  pm.environment.set(\"createdProgramId\", data.id);",
+                  "  pm.environment.set(\"programId\", data.id);",
+                  "  if (data.weeks && data.weeks[0]) pm.environment.set(\"programWeekId\", data.weeks[0].id);",
+                  "  if (data.weeks && data.weeks[0] && data.weeks[0].sessions && data.weeks[0].sessions[0]) pm.environment.set(\"programSessionId\", data.weeks[0].sessions[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/programs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/programs?active=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "programs?active=true"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/programs"
+          }
+        },
+        {
+          "name": "GET /v1/programs/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/programs/{{programId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "programs",
+                "{{programId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/programs/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/programs/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/programs/{{createdProgramId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "programs",
+                "{{createdProgramId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/programs/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated from Postman\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/programs/{id}/weeks",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/programs/{{createdProgramId}}/weeks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "programs",
+                "{{createdProgramId}}",
+                "weeks"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/programs/{id}/weeks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"week_number\": 2,\n  \"name\": \"Week 2\",\n  \"sessions\": [\n    {\n      \"day_number\": 1,\n      \"workout_template_id\": \"{{createdTemplateId}}\",\n      \"notes\": \"Second week session\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  pm.environment.set(\"programWeekId\", data.id);",
+                  "  if (data.sessions && data.sessions[0]) pm.environment.set(\"programSessionId\", data.sessions[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/program-weeks/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-weeks/{{programWeekId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-weeks",
+                "{{programWeekId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/program-weeks/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/program-weeks/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-weeks/{{programWeekId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-weeks",
+                "{{programWeekId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/program-weeks/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Week\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/program-weeks/{id}/sessions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-weeks/{{programWeekId}}/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-weeks",
+                "{{programWeekId}}",
+                "sessions"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/program-weeks/{id}/sessions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"day_number\": 2,\n  \"workout_template_id\": \"{{createdTemplateId}}\",\n  \"notes\": \"Added session\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) pm.environment.set(\"programSessionId\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/program-sessions/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-sessions/{{programSessionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-sessions",
+                "{{programSessionId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/program-sessions/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/program-sessions/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-sessions/{{programSessionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-sessions",
+                "{{programSessionId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/program-sessions/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Updated session notes\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/programs/{id}/assignments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/programs/{{createdProgramId}}/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "programs",
+                "{{createdProgramId}}",
+                "assignments"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/programs/{id}/assignments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"status\": \"assigned\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.environment.set(\"createdProgramAssignmentId\", pm.response.json().id);",
+                  "  pm.environment.set(\"programAssignmentId\", pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /v1/programs/{id}/assignments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/programs/{{createdProgramId}}/assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "programs",
+                "{{createdProgramId}}",
+                "assignments"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/programs/{id}/assignments"
+          }
+        },
+        {
+          "name": "GET /v1/program-assignments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-assignments"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/program-assignments"
+          }
+        },
+        {
+          "name": "GET /v1/users/{user_id}/program-assignments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}/program-assignments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "users",
+                "{{userId}}",
+                "program-assignments"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/users/{user_id}/program-assignments"
+          }
+        },
+        {
+          "name": "GET /v1/program-assignments/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-assignments/{{programAssignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-assignments",
+                "{{programAssignmentId}}"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/program-assignments/{id}"
+          }
+        },
+        {
+          "name": "PATCH /v1/program-assignments/{id}/status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-assignments/{{programAssignmentId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-assignments",
+                "{{programAssignmentId}}",
+                "status"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/program-assignments/{id}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /v1/program-sessions/{id}/apply",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/program-sessions/{{programSessionId}}/apply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "program-sessions",
+                "{{programSessionId}}",
+                "apply"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/program-sessions/{id}/apply",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"date\": \"2026-04-10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH /v1/admin/program-assignments/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/program-assignments/{{programAssignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "admin",
+                "program-assignments",
+                "{{programAssignmentId}}"
+              ],
+              "query": []
+            },
+            "description": "PATCH /v1/admin/program-assignments/{id}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Nutrition",
       "item": [
         {
@@ -5178,6 +5962,36 @@
     },
     {
       "key": "recoveryCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "programId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdProgramId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "programWeekId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "programSessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "programAssignmentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdProgramAssignmentId",
       "value": "",
       "type": "string"
     }

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"fitness-tracker/models"
 	"fitness-tracker/services"
 )
 
@@ -38,6 +39,18 @@ func TestExportJobFlow(t *testing.T) {
 
 		if fetched.Status != services.ExportCompleted {
 			t.Fatalf("expected export to be completed, got %s", fetched.Status)
+		}
+
+		notifications := requestJSONAuth[[]map[string]any](t, server, userAuth.AccessToken, http.MethodGet, "/v1/notifications", nil, http.StatusOK)
+		foundExportReady := false
+		for _, notification := range notifications {
+			if notification["type"] == string(models.NotificationExportReady) {
+				foundExportReady = true
+				break
+			}
+		}
+		if !foundExportReady {
+			t.Fatalf("expected export_ready notification after completed export, got %#v", notifications)
 		}
 
 		// Download data
