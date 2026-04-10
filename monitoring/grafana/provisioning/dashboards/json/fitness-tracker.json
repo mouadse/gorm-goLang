@@ -1334,7 +1334,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "increase(fitness_export_jobs_created_total{job=\"fitness-tracker\"}[1h])",
+          "expr": "sum(increase(fitness_export_jobs_created_total{job=~\"fitness-tracker|fitness-worker\"}[1h]))",
           "legendFormat": "Created",
           "refId": "A"
         },
@@ -1343,7 +1343,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "increase(fitness_export_jobs_completed_total{job=\"fitness-tracker\"}[1h])",
+          "expr": "sum(increase(fitness_export_jobs_completed_total{job=~\"fitness-tracker|fitness-worker\"}[1h]))",
           "legendFormat": "Completed",
           "refId": "B"
         },
@@ -1352,7 +1352,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "increase(fitness_export_jobs_failed_total{job=\"fitness-tracker\"}[1h])",
+          "expr": "sum(increase(fitness_export_jobs_failed_total{job=~\"fitness-tracker|fitness-worker\"}[1h]))",
           "legendFormat": "Failed",
           "refId": "C"
         }
@@ -1412,7 +1412,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "increase(fitness_notifications_created_total{job=\"fitness-tracker\"}[1h])",
+          "expr": "sum(increase(fitness_notifications_created_total{job=~\"fitness-tracker|fitness-worker\"}[1h]))",
           "legendFormat": "",
           "refId": "A"
         }
@@ -1637,6 +1637,6 @@
   "timezone": "",
   "title": "Fitness Tracker - Application Metrics",
   "uid": "fitness-tracker-app",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

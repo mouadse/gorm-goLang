@@ -34,21 +34,21 @@ type Metrics struct {
 	UsersRegistered     prometheus.Counter
 
 	// Auth metrics
-	AuthAttemptsTotal   *prometheus.CounterVec
-	AuthTokenRefreshes  prometheus.Counter
-	TwoFactorActions    *prometheus.CounterVec
-	ActiveSessions      prometheus.Gauge
+	AuthAttemptsTotal  *prometheus.CounterVec
+	AuthTokenRefreshes prometheus.Counter
+	TwoFactorActions   *prometheus.CounterVec
+	ActiveSessions     prometheus.Gauge
 
 	// Chat / AI Coach metrics
-	ChatMessagesTotal     prometheus.Counter
-	CoachRequestsTotal    *prometheus.CounterVec
-	CoachRequestDuration  *prometheus.HistogramVec
-	CoachTokensUsed       *prometheus.CounterVec
+	ChatMessagesTotal    prometheus.Counter
+	CoachRequestsTotal   *prometheus.CounterVec
+	CoachRequestDuration *prometheus.HistogramVec
+	CoachTokensUsed      *prometheus.CounterVec
 
 	// Export metrics
 	ExportJobsCreated   *prometheus.CounterVec
 	ExportJobsCompleted *prometheus.CounterVec
-	ExportJobsFailed     *prometheus.CounterVec
+	ExportJobsFailed    *prometheus.CounterVec
 	ExportDuration      *prometheus.HistogramVec
 
 	// Worker metrics
@@ -60,9 +60,9 @@ type Metrics struct {
 	NotificationsSent    prometheus.Counter
 
 	// External service metrics
-	ExtServiceRequests  *prometheus.CounterVec
-	ExtServiceDuration  *prometheus.HistogramVec
-	ExtServiceErrors    *prometheus.CounterVec
+	ExtServiceRequests *prometheus.CounterVec
+	ExtServiceDuration *prometheus.HistogramVec
+	ExtServiceErrors   *prometheus.CounterVec
 }
 
 // New creates a new Metrics instance with all metrics registered.
@@ -328,7 +328,48 @@ func New() *Metrics {
 		m.ExtServiceErrors,
 	)
 
+	m.initializeDashboardSeries()
+
 	return m
+}
+
+func (m *Metrics) initializeDashboardSeries() {
+	for _, operation := range []string{"create", "query", "update", "delete", "row"} {
+		m.DBQueriesTotal.WithLabelValues(operation, "none")
+		m.DBQueryDuration.WithLabelValues(operation, "none")
+	}
+
+	for _, result := range []string{"success", "failure"} {
+		m.AuthAttemptsTotal.WithLabelValues("login", result)
+		m.AuthAttemptsTotal.WithLabelValues("register", result)
+	}
+
+	for _, result := range []string{"success", "error"} {
+		m.CoachRequestsTotal.WithLabelValues(result)
+	}
+
+	for _, format := range []string{"json", "csv"} {
+		m.ExportJobsCreated.WithLabelValues(format)
+		m.ExportJobsCompleted.WithLabelValues(format)
+		m.ExportJobsFailed.WithLabelValues(format)
+	}
+
+	for _, taskType := range []string{"export", "admin_refresh", "notification"} {
+		m.WorkerPollCycles.WithLabelValues(taskType)
+		m.WorkerPollErrors.WithLabelValues(taskType)
+	}
+
+	for _, notificationType := range []string{
+		"low_protein_warning",
+		"missed_meal_logging",
+		"workout_reminder",
+		"rest_day_warning",
+		"export_ready",
+		"recovery_warning",
+		"goal_alignment_warning",
+	} {
+		m.NotificationsCreated.WithLabelValues(notificationType)
+	}
 }
 
 // Registry returns the Prometheus registry for use with promhttp.
