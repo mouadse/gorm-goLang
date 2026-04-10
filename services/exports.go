@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"fitness-tracker/metrics"
 	"fitness-tracker/models"
 
 	"github.com/google/uuid"
@@ -261,12 +262,17 @@ func (d *DeletionRequest) BeforeCreate(tx *gorm.DB) error {
 
 // ExportService provides business logic for data exports and GDPR workflows.
 type ExportService struct {
-	db *gorm.DB
+	db      *gorm.DB
+	metrics *metrics.Metrics
 }
 
 // NewExportService creates a new export service.
-func NewExportService(db *gorm.DB) *ExportService {
-	return &ExportService{db: db}
+func NewExportService(db *gorm.DB, m ...*metrics.Metrics) *ExportService {
+	svc := &ExportService{db: db}
+	if len(m) > 0 {
+		svc.metrics = m[0]
+	}
+	return svc
 }
 
 // CreateExportJob creates a new export job for a user.
@@ -336,6 +342,9 @@ func (s *ExportService) ProcessExportJob(jobID uuid.UUID) error {
 		job.Status = ExportFailed
 		job.Error = err.Error()
 		s.db.Save(&job)
+		if s.metrics != nil {
+			s.metrics.ExportJobsFailed.WithLabelValues(string(job.Format)).Inc()
+		}
 		return err
 	}
 
@@ -349,7 +358,7 @@ func (s *ExportService) ProcessExportJob(jobID uuid.UUID) error {
 		return err
 	}
 
-	_, err = NewNotificationService(s.db).CreateIfNotDuplicate(
+	_, err = NewNotificationService(s.db, s.metrics).CreateIfNotDuplicate(
 		job.UserID,
 		models.NotificationExportReady,
 		"Export ready",

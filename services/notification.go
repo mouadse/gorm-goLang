@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"fitness-tracker/metrics"
 	"fitness-tracker/models"
 
 	"github.com/google/uuid"
@@ -15,12 +16,17 @@ import (
 
 // NotificationService provides business logic for user notifications.
 type NotificationService struct {
-	db *gorm.DB
+	db      *gorm.DB
+	metrics *metrics.Metrics
 }
 
 // NewNotificationService creates a new notification service.
-func NewNotificationService(db *gorm.DB) *NotificationService {
-	return &NotificationService{db: db}
+func NewNotificationService(db *gorm.DB, m ...*metrics.Metrics) *NotificationService {
+	svc := &NotificationService{db: db}
+	if len(m) > 0 {
+		svc.metrics = m[0]
+	}
+	return svc
 }
 
 // CreateNotification creates a new notification for a user.
@@ -49,6 +55,10 @@ func (s *NotificationService) CreateNotification(
 
 	if err := s.db.Create(&notification).Error; err != nil {
 		return nil, err
+	}
+
+	if s.metrics != nil {
+		s.metrics.NotificationsCreated.WithLabelValues(string(notifType)).Inc()
 	}
 
 	return &notification, nil

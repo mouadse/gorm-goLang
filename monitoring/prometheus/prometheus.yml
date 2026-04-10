@@ -4,6 +4,9 @@ global:
   external_labels:
     monitor: 'fitness-tracker'
 
+rule_files:
+  - 'alerts.yml'
+
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
@@ -12,4 +15,14 @@ scrape_configs:
   - job_name: 'fitness-tracker'
     static_configs:
       - targets: ['app:8080']
+    metrics_path: '/metrics'
+
+  - job_name: 'fitness-worker'
+    static_configs:
+      - targets: ['worker:9091']
+    metrics_path: '/metrics'
+
+  - job_name: 'exercise-lib'
+    static_configs:
+      - targets: ['exercise-lib:8000']
     metrics_path: '/metrics'

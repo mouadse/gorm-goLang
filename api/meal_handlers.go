@@ -75,6 +75,8 @@ func (s *Server) handleCreateMeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.metrics.MealsLogged.Inc()
+
 	writeJSON(w, http.StatusCreated, meal)
 }
 

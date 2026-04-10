@@ -154,6 +154,8 @@ func (s *Server) handleCreateWorkout(w http.ResponseWriter, r *http.Request) {
 		_ = s.leaderboardSvc.AwardPoints(userID, 10, "Workout logged (>=15 min)", "T1", models.PillarTraining, &workout.ID, time.Now())
 	}
 
+	s.metrics.WorkoutsCreated.Inc()
+
 	writeJSON(w, http.StatusCreated, loadedWorkout)
 }
 

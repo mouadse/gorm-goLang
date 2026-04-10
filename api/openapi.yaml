@@ -4595,6 +4595,102 @@ components:
           format: uuid
         name:
           type: string
+    SearchExercisesRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+        top_k:
+          type: integer
+          default: 8
+        level:
+          type: string
+        equipment:
+          type: string
+        category:
+          type: string
+        muscle:
+          type: string
+    ExerciseSearchResult:
+      type: object
+      required:
+        - exercise_id
+        - score
+        - name
+        - force
+        - level
+        - mechanic
+        - equipment
+        - category
+        - primary_muscles
+        - secondary_muscles
+        - instructions
+      properties:
+        exercise_id:
+          type: string
+        score:
+          type: number
+          format: double
+        name:
+          type: string
+        force:
+          type: string
+        level:
+          type: string
+        mechanic:
+          type: string
+        equipment:
+          type: string
+        category:
+          type: string
+        primary_muscles:
+          type: array
+          items:
+            type: string
+        secondary_muscles:
+          type: array
+          items:
+            type: string
+        instructions:
+          type: array
+          items:
+            type: string
+        image_url:
+          type: string
+          nullable: true
+        alt_image_url:
+          type: string
+          nullable: true
+        match_reasons:
+          type: array
+          items:
+            type: string
+    GenerateProgramRequest:
+      type: object
+      required:
+        - goal
+        - days_per_week
+        - session_minutes
+        - level
+      properties:
+        goal:
+          type: string
+        days_per_week:
+          type: integer
+        session_minutes:
+          type: integer
+        level:
+          type: string
+        equipment_profile:
+          type: string
+        focus:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
     WorkoutSet:
       type: object
       required:

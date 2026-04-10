@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"fitness-tracker/metrics"
 	"fitness-tracker/models"
 
 	"github.com/google/uuid"
@@ -23,6 +24,14 @@ func NewNotificationAutomationService(db *gorm.DB) *NotificationAutomationServic
 	return &NotificationAutomationService{
 		db:              db,
 		notificationSvc: NewNotificationService(db),
+	}
+}
+
+// NewNotificationAutomationServiceWithMetrics creates a notification automation service with metrics.
+func NewNotificationAutomationServiceWithMetrics(db *gorm.DB, m *metrics.Metrics) *NotificationAutomationService {
+	return &NotificationAutomationService{
+		db:              db,
+		notificationSvc: NewNotificationService(db, m),
 	}
 }
 

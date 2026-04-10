@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"fitness-tracker/database"
+	"fitness-tracker/metrics"
 	"fitness-tracker/services"
 
 	"gorm.io/gorm"
@@ -15,6 +16,7 @@ import (
 
 type Runner struct {
 	db                       *gorm.DB
+	m                        *metrics.Metrics
 	exportPollInterval       time.Duration
 	adminRefreshInterval     time.Duration
 	notificationPollInterval time.Duration
@@ -23,17 +25,36 @@ type Runner struct {
 }
 
 func New(db *gorm.DB) *Runner {
+	m := metrics.New()
 	return &Runner{
 		db:                       db,
+		m:                        m,
 		exportPollInterval:       getDurationEnv("WORKER_EXPORT_POLL_INTERVAL", 15*time.Second),
 		adminRefreshInterval:     getDurationEnv("WORKER_ADMIN_REFRESH_INTERVAL", time.Hour),
 		notificationPollInterval: getDurationEnv("WORKER_NOTIFICATION_POLL_INTERVAL", time.Hour),
-		exportSvc:                services.NewExportService(db),
-		notificationSvc:          services.NewNotificationAutomationService(db),
+		exportSvc:                services.NewExportService(db, m),
+		notificationSvc:          services.NewNotificationAutomationServiceWithMetrics(db, m),
 	}
 }
 
 func (r *Runner) Run(ctx context.Context) error {
+	// Start metrics server for worker
+	metricsPort := strings.TrimSpace(os.Getenv("WORKER_METRICS_PORT"))
+	if metricsPort == "" {
+		metricsPort = "9091"
+	}
+	metrics.StartMetricsServer(":"+metricsPort, r.m)
+
+	// Setup GORM metrics for worker DB queries
+	if err := metrics.NewGORMCallbackPlugin(r.m).Initialize(r.db); err != nil {
+		log.Printf("warning: failed to register GORM metrics plugin for worker: %v", err)
+	}
+	if sqlDB, err := r.db.DB(); err == nil {
+		connTicker := time.NewTicker(10 * time.Second)
+		defer connTicker.Stop()
+		go r.m.TrackDBConnStats(sqlDB, connTicker.C)
+	}
+
 	if err := r.refreshAdminViews(); err != nil {
 		log.Printf("initial admin view refresh failed: %v", err)
 	}
@@ -58,15 +79,21 @@ func (r *Runner) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-exportTicker.C:
+			r.m.WorkerPollCycles.WithLabelValues("export").Inc()
 			if err := r.processPendingExports(ctx); err != nil {
+				r.m.WorkerPollErrors.WithLabelValues("export").Inc()
 				log.Printf("pending export processing failed: %v", err)
 			}
 		case <-adminTicker.C:
+			r.m.WorkerPollCycles.WithLabelValues("admin_refresh").Inc()
 			if err := r.refreshAdminViews(); err != nil {
+				r.m.WorkerPollErrors.WithLabelValues("admin_refresh").Inc()
 				log.Printf("admin view refresh failed: %v", err)
 			}
 		case <-notificationTicker.C:
+			r.m.WorkerPollCycles.WithLabelValues("notification").Inc()
 			if err := r.processDueNotifications(ctx); err != nil {
+				r.m.WorkerPollErrors.WithLabelValues("notification").Inc()
 				log.Printf("notification processing failed: %v", err)
 			}
 		}

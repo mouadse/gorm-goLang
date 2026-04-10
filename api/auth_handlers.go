@@ -155,6 +155,7 @@ func (s *Server) handleLoginRequest(w http.ResponseWriter, r *http.Request, requ
 			if challengeToken != "" {
 				s.twoFactorTokens.Delete(challengeToken)
 			}
+			s.metrics.AuthAttemptsTotal.WithLabelValues("login", "success").Inc()
 			writeJSON(w, http.StatusOK, authSessionResponse{
 				Token:        tokens.AccessToken,
 				AccessToken:  tokens.AccessToken,
@@ -216,6 +217,7 @@ func (s *Server) handleLoginRequest(w http.ResponseWriter, r *http.Request, requ
 		s.twoFactorTokens.Delete(challengeToken)
 	}
 
+	s.metrics.AuthAttemptsTotal.WithLabelValues("login", "success").Inc()
 	writeJSON(w, http.StatusOK, authSessionResponse{
 		Token:        tokens.AccessToken,
 		AccessToken:  tokens.AccessToken,
@@ -223,6 +225,22 @@ func (s *Server) handleLoginRequest(w http.ResponseWriter, r *http.Request, requ
 		ExpiresIn:    tokens.ExpiresIn,
 		User:         user,
 	})
+}
+
+func (s *Server) recordLoginResult(err error) {
+	if err != nil {
+		s.metrics.AuthAttemptsTotal.WithLabelValues("login", "failure").Inc()
+	} else {
+		s.metrics.AuthAttemptsTotal.WithLabelValues("login", "success").Inc()
+	}
+}
+
+func (s *Server) record2FA(action string, err error) {
+	if err != nil {
+		s.metrics.TwoFactorActions.WithLabelValues(action + "_failure").Inc()
+	} else {
+		s.metrics.TwoFactorActions.WithLabelValues(action + "_success").Inc()
+	}
 }
 
 func (s *Server) resolveLoginUser(req services.LoginRequest) (models.User, string, error) {
@@ -318,12 +336,16 @@ func (s *Server) handleSetupTwoFactor(w http.ResponseWriter, r *http.Request) {
 	secret, otpURL, err := s.twoFactorSvc.BeginSetup(userID, user.Email)
 	if err != nil {
 		if errors.Is(err, models.Err2FAAlreadyEnabled) {
+			s.metrics.TwoFactorActions.WithLabelValues("setup_failure").Inc()
 			writeError(w, http.StatusConflict, err)
 			return
 		}
+		s.metrics.TwoFactorActions.WithLabelValues("setup_failure").Inc()
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	s.metrics.TwoFactorActions.WithLabelValues("setup_success").Inc()
 
 	writeJSON(w, http.StatusCreated, twoFactorSetupResponse{
 		Secret:   secret.Secret,
@@ -377,6 +399,7 @@ func (s *Server) handleVerifyTwoFactor(w http.ResponseWriter, r *http.Request) {
 	}
 	s.twoFactorLimit.Reset(limitKey)
 
+	s.metrics.TwoFactorActions.WithLabelValues("verify_success").Inc()
 	writeJSON(w, http.StatusOK, twoFactorVerifyResponse{
 		RecoveryCodes: recoveryCodes,
 		Verified:      true,
@@ -411,22 +434,27 @@ func (s *Server) handleDisableTwoFactor(w http.ResponseWriter, r *http.Request) 
 			s.twoFactorLimit.RegisterFailure(limitKey)
 		}
 		if errors.Is(err, models.ErrInvalidTOTP) {
+			s.metrics.TwoFactorActions.WithLabelValues("disable_failure").Inc()
 			writeError(w, http.StatusUnauthorized, err)
 			return
 		}
 		if errors.Is(err, models.ErrInvalidTOTPFormat) {
+			s.metrics.TwoFactorActions.WithLabelValues("disable_failure").Inc()
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 		if errors.Is(err, models.Err2FANotEnabled) {
+			s.metrics.TwoFactorActions.WithLabelValues("disable_failure").Inc()
 			writeError(w, http.StatusNotFound, err)
 			return
 		}
+		s.metrics.TwoFactorActions.WithLabelValues("disable_failure").Inc()
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 	s.twoFactorLimit.Reset(limitKey)
 
+	s.metrics.TwoFactorActions.WithLabelValues("disable_success").Inc()
 	writeJSON(w, http.StatusNoContent, nil)
 }
 
@@ -452,6 +480,7 @@ func (s *Server) handleRegisterWithSessions(w http.ResponseWriter, r *http.Reque
 
 	user, err := s.authSvc.CreateLocalUser(req)
 	if err != nil {
+		s.metrics.AuthAttemptsTotal.WithLabelValues("register", "failure").Inc()
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -462,6 +491,9 @@ func (s *Server) handleRegisterWithSessions(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	s.metrics.UsersRegistered.Inc()
+	s.metrics.AuthAttemptsTotal.WithLabelValues("register", "success").Inc()
 
 	writeJSON(w, http.StatusCreated, authSessionResponse{
 		Token:        tokens.AccessToken,
@@ -498,6 +530,8 @@ func (s *Server) handleRefreshToken(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	s.metrics.AuthTokenRefreshes.Inc()
 
 	writeJSON(w, http.StatusOK, refreshTokenResponse{
 		AccessToken:  tokens.AccessToken,

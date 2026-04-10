@@ -1,0 +1,109 @@
+groups:
+  - name: fitness-tracker-http
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(fitness_http_requests_total{status=~"5.."}[5m])) / sum(rate(fitness_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP error rate (>5%)"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      - alert: HighLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(fitness_http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency above 2 seconds"
+          description: "95th percentile request latency is {{ $value }}s"
+
+      - alert: HighInFlightRequests
+        expr: fitness_http_in_flight_requests > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of in-flight requests"
+          description: "{{ $value }} requests currently being served"
+
+  - name: fitness-tracker-database
+    rules:
+      - alert: DBConnectionPoolExhaustion
+        expr: fitness_db_connections_in_use > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "DB connection pool nearing exhaustion"
+          description: "{{ $value }} connections in use out of pool"
+
+      - alert: SlowDBQueries
+        expr: histogram_quantile(0.95, sum(rate(fitness_db_query_duration_seconds_bucket[5m])) by (le, operation)) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries ({{ $labels.operation }})"
+          description: "P95 DB query latency for {{ $labels.operation }} is {{ $value }}s"
+
+  - name: fitness-tracker-business
+    rules:
+      - alert: NoNewRegistrations
+        expr: increase(fitness_users_registered_total[2h]) == 0
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: "No new user registrations in 2 hours"
+          description: "No users have registered in the past 2 hours"
+
+      - alert: HighLoginFailureRate
+        expr: sum(rate(fitness_auth_attempts_total{result="failure"}[5m])) / sum(rate(fitness_auth_attempts_total[5m])) > 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High login failure rate"
+          description: "Login failure rate is {{ $value | humanizePercentage }}"
+
+  - name: fitness-tracker-worker
+    rules:
+      - alert: WorkerExportErrors
+        expr: rate(fitness_worker_poll_errors_total{task_type="export"}[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker export processing failing"
+          description: "Export worker is experiencing errors"
+
+      - alert: StuckExportJobs
+        expr: (fitness_export_jobs_created_total - fitness_export_jobs_completed_total - fitness_export_jobs_failed_total) > 10
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 10 export jobs stuck pending"
+          description: "{{ $value }} export jobs appear to be stuck"
+
+  - name: fitness-tracker-external
+    rules:
+      - alert: ExerciseLibHighErrorRate
+        expr: rate(fitness_ext_service_errors_total{service="exercise_lib"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Exercise library service errors"
+          description: "Exercise library service error rate is {{ $value }}/s"
+
+      - alert: CoachHighErrorRate
+        expr: sum(rate(fitness_coach_requests_total{result="error"}[5m])) / sum(rate(fitness_coach_requests_total[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Coach error rate above 20%"
+          description: "Coach request failure rate is {{ $value | humanizePercentage }}"

@@ -50,17 +50,27 @@ func NewServer(db *gorm.DB) *Server {
 		analyticsSvc:    services.NewWorkoutAnalyticsService(db),
 		adherenceSvc:    services.NewAdherenceService(db),
 		importSvc:       services.NewUSDAImportService(db),
-		exportSvc:       services.NewExportService(db),
-		notificationSvc: services.NewNotificationService(db),
+		exportSvc:       services.NewExportService(db, m),
+		notificationSvc: services.NewNotificationService(db, m),
 		twoFactorSvc:    services.NewTwoFactorService(db),
 		twoFactorLimit:  newTwoFactorAttemptLimiter(),
 		twoFactorTokens: newTwoFactorChallengeStore(),
 		adminSvc:        adminSvc,
 		llmClient:       services.NewOpenRouterClient("", ""),
-		exerciseLibSvc:  services.NewExerciseLibClient(),
+		exerciseLibSvc:  services.NewExerciseLibClient(m),
 		leaderboardSvc:  services.NewLeaderboardService(db),
 	}
 	server.coachSvc = services.NewCoachService(db, server.analyticsSvc, server.adherenceSvc, services.NewNutritionTargetService(db), services.NewIntegrationRulesService(db), server.notificationSvc, server.exerciseLibSvc)
+
+	// Setup DB metrics: GORM callback plugin + periodic connection pool stats
+	if err := metrics.NewGORMCallbackPlugin(m).Initialize(db); err != nil {
+		panic(fmt.Sprintf("failed to register GORM metrics plugin: %v", err))
+	}
+	if sqlDB, err := db.DB(); err == nil {
+		ticker := time.NewTicker(10 * time.Second)
+		go m.TrackDBConnStats(sqlDB, ticker.C)
+	}
+
 	server.registerRoutes()
 	return server
 }

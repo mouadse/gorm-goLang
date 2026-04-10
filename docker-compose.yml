@@ -86,6 +86,8 @@ services:
       dockerfile: Dockerfile
     container_name: fitness-worker
     command: ["worker"]
+    ports:
+      - "9091:9091"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
       - APP_ENV=${APP_ENV:-development}
@@ -97,6 +99,7 @@ services:
       - WORKER_EXPORT_POLL_INTERVAL=${WORKER_EXPORT_POLL_INTERVAL:-15s}
       - WORKER_ADMIN_REFRESH_INTERVAL=${WORKER_ADMIN_REFRESH_INTERVAL:-1h}
       - WORKER_NOTIFICATION_POLL_INTERVAL=${WORKER_NOTIFICATION_POLL_INTERVAL:-1h}
+      - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9091}
     depends_on:
       postgres:
         condition: service_healthy
@@ -182,6 +185,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

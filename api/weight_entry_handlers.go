@@ -75,6 +75,8 @@ func (s *Server) handleCreateWeightEntry(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	s.metrics.WeightEntriesLogged.Inc()
+
 	writeJSON(w, http.StatusCreated, entry)
 }
 

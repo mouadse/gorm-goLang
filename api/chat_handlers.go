@@ -120,11 +120,17 @@ When searching exercises, use natural language queries like "chest compound exer
 	tools := s.coachSvc.GetTools()
 
 	// Call LLM
+	start := time.Now()
 	llmResp, err := s.llmClient.Chat(llmMessages, tools)
 	if err != nil {
+		s.metrics.CoachRequestsTotal.WithLabelValues("error").Inc()
+		s.metrics.CoachRequestDuration.WithLabelValues("").Observe(time.Since(start).Seconds())
 		writeError(w, http.StatusInternalServerError, errors.New("Failed to communicate with AI"))
 		return
 	}
+	s.metrics.CoachRequestsTotal.WithLabelValues("success").Inc()
+	s.metrics.CoachRequestDuration.WithLabelValues("").Observe(time.Since(start).Seconds())
+	s.metrics.ChatMessagesTotal.Inc()
 
 	// Handle tool calls
 	if len(llmResp.ToolCalls) > 0 {
@@ -171,11 +177,16 @@ When searching exercises, use natural language queries like "chest compound exer
 		}
 
 		// Second call
+		start2 := time.Now()
 		llmResp, err = s.llmClient.Chat(llmMessages, nil)
 		if err != nil {
+			s.metrics.CoachRequestsTotal.WithLabelValues("error").Inc()
+			s.metrics.CoachRequestDuration.WithLabelValues("").Observe(time.Since(start2).Seconds())
 			writeError(w, http.StatusInternalServerError, errors.New("Failed to communicate with AI after tool call"))
 			return
 		}
+		s.metrics.CoachRequestsTotal.WithLabelValues("success").Inc()
+		s.metrics.CoachRequestDuration.WithLabelValues("").Observe(time.Since(start2).Seconds())
 	}
 
 	// Save final assistant message

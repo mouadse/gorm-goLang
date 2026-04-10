@@ -9,11 +9,14 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"fitness-tracker/metrics"
 )
 
 type ExerciseLibClient struct {
 	baseURL    string
 	httpClient *http.Client
+	metrics    *metrics.Metrics
 }
 
 type ExerciseLibAPIError struct {
@@ -31,11 +34,15 @@ func (e *ExerciseLibAPIError) Error() string {
 	return fmt.Sprintf("exercise lib returned %d: %s", e.StatusCode, e.Body)
 }
 
-func NewExerciseLibClient() *ExerciseLibClient {
-	return &ExerciseLibClient{
+func NewExerciseLibClient(m ...*metrics.Metrics) *ExerciseLibClient {
+	c := &ExerciseLibClient{
 		baseURL:    getEnvOrDefault("EXERCISE_LIB_URL", "http://localhost:8000"),
 		httpClient: &http.Client{Timeout: 60 * time.Second},
 	}
+	if len(m) > 0 {
+		c.metrics = m[0]
+	}
+	return c
 }
 
 // --- Request / Response types ---
@@ -196,6 +203,7 @@ func (c *ExerciseLibClient) GetProgram(req LibProgramRequest) (*LibProgramRespon
 // --- Internal ---
 
 func (c *ExerciseLibClient) do(method, path string, body any, target any) error {
+	start := time.Now()
 	var reqBody io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
@@ -215,11 +223,23 @@ func (c *ExerciseLibClient) do(method, path string, body any, target any) error 
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		if c.metrics != nil {
+			c.metrics.ExtServiceErrors.WithLabelValues("exercise_lib", "connection").Inc()
+		}
 		return fmt.Errorf("http request: %w", err)
 	}
 	defer resp.Body.Close()
 
+	status := fmt.Sprintf("%d", resp.StatusCode)
+	if c.metrics != nil {
+		c.metrics.ExtServiceRequests.WithLabelValues("exercise_lib", method, status).Inc()
+		c.metrics.ExtServiceDuration.WithLabelValues("exercise_lib").Observe(time.Since(start).Seconds())
+	}
+
 	if resp.StatusCode >= 400 {
+		if c.metrics != nil {
+			c.metrics.ExtServiceErrors.WithLabelValues("exercise_lib", status).Inc()
+		}
 		b, _ := io.ReadAll(resp.Body)
 		return &ExerciseLibAPIError{
 			StatusCode: resp.StatusCode,

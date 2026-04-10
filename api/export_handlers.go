@@ -47,6 +47,8 @@ func (s *Server) handleCreateExportJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.metrics.ExportJobsCreated.WithLabelValues(string(format)).Inc()
+
 	// Test and in-memory SQLite setups run without the external worker process.
 	if s.db.Dialector.Name() == "sqlite" {
 		if err := s.exportSvc.ProcessExportJob(job.ID); err != nil {
