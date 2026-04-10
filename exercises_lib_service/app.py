@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from collections import Counter
 from contextlib import asynccontextmanager
 from functools import lru_cache
@@ -12,7 +13,7 @@ from typing import Any, Literal, Optional
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastembed import TextEmbedding
 from pydantic import BaseModel, Field
@@ -387,6 +388,10 @@ EquipmentProfileType = Literal[
     "mobility-reset",
 ]
 
+_app_start_time = time.time()
+_embedding_model_init_time: float | None = None
+_catalog_init_time: float | None = None
+
 embedding_model: TextEmbedding | None = None
 catalog: list[dict[str, Any]] = []
 catalog_by_exercise_id: dict[str, dict[str, Any]] = {}
@@ -729,11 +734,12 @@ def save_cached_catalog_embeddings(
 
 
 def ensure_embedding_model() -> TextEmbedding:
-    global embedding_model
+    global embedding_model, _embedding_model_init_time
 
     if embedding_model is None:
         with _embedding_model_lock:
             if embedding_model is None:
+                start = time.time()
                 embedding_kwargs: dict[str, Any] = {
                     "model_name": EMBEDDING_MODEL_NAME,
                     "threads": EMBEDDING_THREADS,
@@ -741,6 +747,7 @@ def ensure_embedding_model() -> TextEmbedding:
                 if EMBEDDING_CACHE_DIR:
                     embedding_kwargs["cache_dir"] = EMBEDDING_CACHE_DIR
                 embedding_model = TextEmbedding(**embedding_kwargs)
+                _embedding_model_init_time = time.time() - start
     return embedding_model
 
 
@@ -1084,8 +1091,9 @@ def trigger_catalog_initialization(force_rebuild: bool = False) -> None:
 
 
 def initialize_catalog(force_rebuild: bool = False) -> int:
-    global catalog, catalog_by_exercise_id, catalog_embeddings, catalog_meta
+    global catalog, catalog_by_exercise_id, catalog_embeddings, catalog_meta, _catalog_init_time
 
+    start = time.time()
     items = load_exercise_catalog()
     embeddings = None if force_rebuild else load_cached_catalog_embeddings(items)
     if embeddings is None:
@@ -1111,6 +1119,7 @@ def initialize_catalog(force_rebuild: bool = False) -> int:
         catalog_meta = build_catalog_meta(items)
         rebuild_catalog_runtime_state()
     set_catalog_state("ready")
+    _catalog_init_time = time.time() - start
     return len(items)
 
 
@@ -2288,6 +2297,46 @@ async def health():
         "embedding_model": EMBEDDING_MODEL_NAME,
         "error": error,
     }
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics():
+    """Expose basic Prometheus-format metrics for scrape by Prometheus."""
+    state, error = get_catalog_state()
+    now = time.time()
+    lines = [
+        "# HELP exercise_lib_up Whether the exercise-lib service is ready (1=ready, 0=not ready).",
+        "# TYPE exercise_lib_up gauge",
+        f"exercise_lib_up {1 if state == 'ready' else 0}",
+        "",
+        "# HELP exercise_lib_exercises_loaded Number of exercises loaded in the catalog.",
+        "# TYPE exercise_lib_exercises_loaded gauge",
+        f"exercise_lib_exercises_loaded {len(catalog)}",
+        "",
+        "# HELP exercise_lib_catalog_state Whether the catalog init encountered an error (1=error, 0=ok).",
+        "# TYPE exercise_lib_catalog_state gauge",
+        f"exercise_lib_catalog_state {1 if error else 0}",
+        "",
+        "# HELP exercise_lib_process_uptime_seconds Seconds since the service started.",
+        "# TYPE exercise_lib_process_uptime_seconds gauge",
+        f"exercise_lib_process_uptime_seconds {now - _app_start_time:.2f}",
+    ]
+    if _embedding_model_init_time is not None:
+        lines.extend([
+            "",
+            "# HELP exercise_lib_embedding_model_init_seconds Time taken to initialize the embedding model.",
+            "# TYPE exercise_lib_embedding_model_init_seconds gauge",
+            f"exercise_lib_embedding_model_init_seconds {_embedding_model_init_time:.2f}",
+        ])
+    if _catalog_init_time is not None:
+        lines.extend([
+            "",
+            "# HELP exercise_lib_catalog_init_seconds Time taken to initialize the catalog.",
+            "# TYPE exercise_lib_catalog_init_seconds gauge",
+            f"exercise_lib_catalog_init_seconds {_catalog_init_time:.2f}",
+        ])
+    lines.append("")
+    return "\n".join(lines)
 
 
 @app.get("/catalog/meta", response_model=MetaResponse)
