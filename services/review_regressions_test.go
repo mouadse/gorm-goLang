@@ -444,7 +444,253 @@ func TestAdminDashboardSQLiteUsesBaseTables(t *testing.T) {
 		if got := requireInt64(t, stats, "mau"); got != 2 {
 			t.Fatalf("expected mau to equal 2, got %d", got)
 		}
+
+		goalBreakdown, ok := stats["goal_breakdown"].([]map[string]any)
+		if !ok {
+			t.Fatalf("expected goal_breakdown to be []map[string]any, got %T", stats["goal_breakdown"])
+		}
+
+		goals := make(map[string]int64, len(goalBreakdown))
+		for _, bucket := range goalBreakdown {
+			goal, ok := bucket["goal"].(string)
+			if !ok {
+				t.Fatalf("expected goal bucket to expose a goal string, got %#v", bucket)
+			}
+			count, ok := bucket["count"].(int64)
+			if !ok {
+				t.Fatalf("expected goal bucket count to be int64, got %#v", bucket["count"])
+			}
+			if _, exists := bucket["type"]; exists {
+				t.Fatalf("expected goal bucket to omit type alias, got %#v", bucket)
+			}
+			goals[goal] = count
+		}
+
+		if goals["maintain"] != 1 {
+			t.Fatalf("expected maintain goal count to equal 1, got %d", goals["maintain"])
+		}
+		if goals["lose_fat"] != 1 {
+			t.Fatalf("expected lose_fat goal count to equal 1, got %d", goals["lose_fat"])
+		}
 	})
+}
+
+func TestProcessDeletionRequestHardDeletesSoftDeletedDependents(t *testing.T) {
+	date := time.Now().UTC().Truncate(24 * time.Hour)
+
+	db := openServicesTestDB(t,
+		&models.User{},
+		&DeletionRequest{},
+		&ExportJob{},
+		&RefreshToken{},
+		&UserSession{},
+		&models.TwoFactorSecret{},
+		&models.RecoveryCode{},
+		&models.Notification{},
+		&models.Exercise{},
+		&models.Workout{},
+		&models.WorkoutExercise{},
+		&models.WorkoutSet{},
+		&models.WorkoutCardioEntry{},
+		&models.Food{},
+		&models.Meal{},
+		&models.MealFood{},
+		&models.FavoriteFood{},
+		&models.WeightEntry{},
+		&models.Recipe{},
+		&models.RecipeItem{},
+		&models.WorkoutTemplate{},
+		&models.WorkoutTemplateExercise{},
+		&models.WorkoutTemplateSet{},
+		&models.WorkoutProgram{},
+		&models.ProgramWeek{},
+		&models.ProgramSession{},
+		&models.ProgramAssignment{},
+	)
+	user := createTestUser(t, db)
+
+	exercise := models.Exercise{Name: "Deletion Test Exercise"}
+	if err := db.Create(&exercise).Error; err != nil {
+		t.Fatalf("create exercise: %v", err)
+	}
+
+	food := models.Food{
+		Name:          "Deletion Test Food",
+		Source:        "user",
+		ServingSize:   100,
+		ServingUnit:   "g",
+		Calories:      250,
+		Protein:       20,
+		Carbohydrates: 15,
+		Fat:           10,
+	}
+	if err := db.Create(&food).Error; err != nil {
+		t.Fatalf("create food: %v", err)
+	}
+
+	workout := models.Workout{UserID: user.ID, Date: date, Type: "push", Duration: 45}
+	if err := db.Create(&workout).Error; err != nil {
+		t.Fatalf("create workout: %v", err)
+	}
+	workoutExercise := models.WorkoutExercise{
+		WorkoutID:  workout.ID,
+		ExerciseID: exercise.ID,
+		Order:      1,
+		Sets:       3,
+		Reps:       10,
+	}
+	if err := db.Create(&workoutExercise).Error; err != nil {
+		t.Fatalf("create workout exercise: %v", err)
+	}
+	workoutSet := models.WorkoutSet{
+		WorkoutExerciseID: workoutExercise.ID,
+		SetNumber:         1,
+		Reps:              10,
+		Weight:            50,
+	}
+	if err := db.Create(&workoutSet).Error; err != nil {
+		t.Fatalf("create workout set: %v", err)
+	}
+	distance := 3.0
+	distanceUnit := "km"
+	caloriesBurned := 200
+	avgHeartRate := 145
+	cardioEntry := models.WorkoutCardioEntry{
+		WorkoutID:       workout.ID,
+		Modality:        "running",
+		DurationMinutes: 20,
+		Distance:        &distance,
+		DistanceUnit:    &distanceUnit,
+		CaloriesBurned:  &caloriesBurned,
+		AvgHeartRate:    &avgHeartRate,
+	}
+	if err := db.Create(&cardioEntry).Error; err != nil {
+		t.Fatalf("create workout cardio entry: %v", err)
+	}
+
+	meal := models.Meal{UserID: user.ID, MealType: "lunch", Date: date}
+	if err := db.Create(&meal).Error; err != nil {
+		t.Fatalf("create meal: %v", err)
+	}
+	mealFood := models.MealFood{MealID: meal.ID, FoodID: food.ID, Quantity: 1.5}
+	if err := db.Create(&mealFood).Error; err != nil {
+		t.Fatalf("create meal food: %v", err)
+	}
+
+	weightEntry := models.WeightEntry{UserID: user.ID, Date: date, Weight: 82.3}
+	if err := db.Create(&weightEntry).Error; err != nil {
+		t.Fatalf("create weight entry: %v", err)
+	}
+
+	recipe := models.Recipe{UserID: user.ID, Name: "Deletion Test Recipe", Servings: 2}
+	if err := db.Create(&recipe).Error; err != nil {
+		t.Fatalf("create recipe: %v", err)
+	}
+	recipeItem := models.RecipeItem{RecipeID: recipe.ID, FoodID: food.ID, Quantity: 2}
+	if err := db.Create(&recipeItem).Error; err != nil {
+		t.Fatalf("create recipe item: %v", err)
+	}
+
+	template := models.WorkoutTemplate{OwnerID: user.ID, Name: "Deletion Template", Type: "push"}
+	if err := db.Create(&template).Error; err != nil {
+		t.Fatalf("create workout template: %v", err)
+	}
+	templateExercise := models.WorkoutTemplateExercise{
+		TemplateID: template.ID,
+		ExerciseID: exercise.ID,
+		Order:      1,
+		Sets:       3,
+		Reps:       8,
+	}
+	if err := db.Create(&templateExercise).Error; err != nil {
+		t.Fatalf("create workout template exercise: %v", err)
+	}
+	templateSet := models.WorkoutTemplateSet{
+		TemplateExerciseID: templateExercise.ID,
+		SetNumber:          1,
+		Reps:               8,
+		Weight:             40,
+	}
+	if err := db.Create(&templateSet).Error; err != nil {
+		t.Fatalf("create workout template set: %v", err)
+	}
+
+	program := models.WorkoutProgram{Name: "Deletion Program", CreatedBy: user.ID, IsActive: true}
+	if err := db.Create(&program).Error; err != nil {
+		t.Fatalf("create workout program: %v", err)
+	}
+	programWeek := models.ProgramWeek{ProgramID: program.ID, WeekNumber: 1, Name: "Week 1"}
+	if err := db.Create(&programWeek).Error; err != nil {
+		t.Fatalf("create program week: %v", err)
+	}
+	programSession := models.ProgramSession{WeekID: programWeek.ID, DayNumber: 1, WorkoutTemplateID: &template.ID}
+	if err := db.Create(&programSession).Error; err != nil {
+		t.Fatalf("create program session: %v", err)
+	}
+	programAssignment := models.ProgramAssignment{
+		UserID:     user.ID,
+		ProgramID:  program.ID,
+		AssignedAt: date,
+		Status:     "assigned",
+	}
+	if err := db.Create(&programAssignment).Error; err != nil {
+		t.Fatalf("create program assignment: %v", err)
+	}
+
+	request := DeletionRequest{
+		UserID:      user.ID,
+		RequestedAt: date,
+		Status:      "pending",
+	}
+	if err := db.Create(&request).Error; err != nil {
+		t.Fatalf("create deletion request: %v", err)
+	}
+
+	svc := NewExportService(db, nil)
+	if err := svc.ProcessDeletionRequest(user.ID); err != nil {
+		t.Fatalf("process deletion request: %v", err)
+	}
+
+	assertDeleted := func(name string, model any, query string, args ...any) {
+		t.Helper()
+
+		var remaining int64
+		if err := db.Unscoped().Model(model).Where(query, args...).Count(&remaining).Error; err != nil {
+			t.Fatalf("count %s: %v", name, err)
+		}
+		if remaining != 0 {
+			t.Fatalf("expected %s to be hard-deleted, found %d rows", name, remaining)
+		}
+	}
+
+	assertDeleted("user", &models.User{}, "id = ?", user.ID)
+	assertDeleted("workout", &models.Workout{}, "id = ?", workout.ID)
+	assertDeleted("workout_exercise", &models.WorkoutExercise{}, "id = ?", workoutExercise.ID)
+	assertDeleted("workout_set", &models.WorkoutSet{}, "id = ?", workoutSet.ID)
+	assertDeleted("workout_cardio_entry", &models.WorkoutCardioEntry{}, "id = ?", cardioEntry.ID)
+	assertDeleted("meal", &models.Meal{}, "id = ?", meal.ID)
+	assertDeleted("meal_food", &models.MealFood{}, "id = ?", mealFood.ID)
+	assertDeleted("weight_entry", &models.WeightEntry{}, "id = ?", weightEntry.ID)
+	assertDeleted("recipe", &models.Recipe{}, "id = ?", recipe.ID)
+	assertDeleted("recipe_item", &models.RecipeItem{}, "id = ?", recipeItem.ID)
+	assertDeleted("workout_template", &models.WorkoutTemplate{}, "id = ?", template.ID)
+	assertDeleted("workout_template_exercise", &models.WorkoutTemplateExercise{}, "id = ?", templateExercise.ID)
+	assertDeleted("workout_template_set", &models.WorkoutTemplateSet{}, "id = ?", templateSet.ID)
+	assertDeleted("workout_program", &models.WorkoutProgram{}, "id = ?", program.ID)
+	assertDeleted("program_week", &models.ProgramWeek{}, "id = ?", programWeek.ID)
+	assertDeleted("program_session", &models.ProgramSession{}, "id = ?", programSession.ID)
+	assertDeleted("program_assignment", &models.ProgramAssignment{}, "id = ?", programAssignment.ID)
+
+	var processed DeletionRequest
+	if err := db.Where("id = ?", request.ID).First(&processed).Error; err != nil {
+		t.Fatalf("load processed deletion request: %v", err)
+	}
+	if processed.ProcessedAt == nil {
+		t.Fatalf("expected deletion request to be marked processed")
+	}
+	if processed.Status != "processed" {
+		t.Fatalf("expected deletion request status to be processed, got %q", processed.Status)
+	}
 }
 
 func openServicesTestDB(t *testing.T, modelsToMigrate ...interface{}) *gorm.DB {

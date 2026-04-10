@@ -2,11 +2,13 @@ package services
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"fitness-tracker/metrics"
 	"fitness-tracker/models"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -48,92 +50,172 @@ type adminDailyStats struct {
 	TotalMeals    int64
 }
 
-func (s *AdminDashboardService) countDistinctActivityUsersOn(statDate time.Time) (int64, error) {
-	if s.db.Dialector.Name() != "sqlite" {
-		var count int64
-		err := s.db.Table("user_activity_days").Where("stat_date = ?", statDate).Count(&count).Error
-		return count, err
+type activityTrendRow struct {
+	StatDate      time.Time `json:"stat_date"`
+	TotalWorkouts int64     `json:"total_workouts"`
+	TotalMeals    int64     `json:"total_meals"`
+	TotalWeights  int64     `json:"total_weights"`
+}
+
+type namedCountRow struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+type goalCountRow struct {
+	Goal  string `json:"goal"`
+	Count int64  `json:"count"`
+}
+
+type datedCountRow struct {
+	StatDate time.Time `json:"stat_date"`
+	Count    int64     `json:"count"`
+}
+
+type exercisePopularityRow struct {
+	ExerciseName string `json:"exercise_name"`
+	UsageCount   int64  `json:"usage_count"`
+	UniqueUsers  int64  `json:"unique_users"`
+}
+
+type retentionRow struct {
+	CohortMonth time.Time `json:"cohort_month"`
+	CohortSize  int64     `json:"cohort_size"`
+	Month0      int64     `json:"month_0"`
+	Month1      int64     `json:"month_1"`
+	Month2      int64     `json:"month_2"`
+	Month3      int64     `json:"month_3"`
+	Month6      int64     `json:"month_6"`
+	Month12     int64     `json:"month_12"`
+}
+
+type userDateRow struct {
+	UserID uuid.UUID
+	Date   time.Time
+}
+
+type userCreatedRow struct {
+	ID        uuid.UUID
+	CreatedAt time.Time
+}
+
+func startOfMonthUTC(value time.Time) time.Time {
+	return time.Date(value.UTC().Year(), value.UTC().Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
+func rowsToMaps[T any](rows []T) []map[string]any {
+	result := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		switch v := any(row).(type) {
+		case activityTrendRow:
+			result = append(result, map[string]any{
+				"stat_date":      v.StatDate,
+				"total_workouts": v.TotalWorkouts,
+				"total_meals":    v.TotalMeals,
+				"total_weights":  v.TotalWeights,
+			})
+		case datedCountRow:
+			result = append(result, map[string]any{
+				"date":      v.StatDate,
+				"new_users": v.Count,
+			})
+		case namedCountRow:
+			result = append(result, map[string]any{
+				"type":  v.Name,
+				"count": v.Count,
+			})
+		case goalCountRow:
+			result = append(result, map[string]any{
+				"goal":  v.Goal,
+				"count": v.Count,
+			})
+		case exercisePopularityRow:
+			result = append(result, map[string]any{
+				"exercise_name": v.ExerciseName,
+				"usage_count":   v.UsageCount,
+				"unique_users":  v.UniqueUsers,
+			})
+		case retentionRow:
+			result = append(result, map[string]any{
+				"cohort_month": v.CohortMonth,
+				"cohort_size":  v.CohortSize,
+				"month_0":      v.Month0,
+				"month_1":      v.Month1,
+				"month_2":      v.Month2,
+				"month_3":      v.Month3,
+				"month_6":      v.Month6,
+				"month_12":     v.Month12,
+			})
+		}
+	}
+	return result
+}
+
+func mergeDistinctUserIDs(groups ...[]uuid.UUID) int64 {
+	seen := make(map[uuid.UUID]struct{})
+	for _, group := range groups {
+		for _, id := range group {
+			seen[id] = struct{}{}
+		}
+	}
+	return int64(len(seen))
+}
+
+func (s *AdminDashboardService) distinctUserIDsForDateRange(startDate *time.Time, endDate *time.Time) (int64, error) {
+	load := func(model any) ([]uuid.UUID, error) {
+		var ids []uuid.UUID
+		query := s.db.Model(model).Where("deleted_at IS NULL")
+		if startDate != nil {
+			query = query.Where("date >= ?", *startDate)
+		}
+		if endDate != nil {
+			query = query.Where("date <= ?", *endDate)
+		}
+		if err := query.Distinct("user_id").Pluck("user_id", &ids).Error; err != nil {
+			return nil, err
+		}
+		return ids, nil
 	}
 
-	var count int64
-	err := s.db.Raw(`
-		SELECT COUNT(DISTINCT user_id)
-		FROM (
-			SELECT user_id FROM workouts WHERE date = ? AND deleted_at IS NULL
-			UNION ALL
-			SELECT user_id FROM meals WHERE date = ? AND deleted_at IS NULL
-			UNION ALL
-			SELECT user_id FROM weight_entries WHERE date = ? AND deleted_at IS NULL
-		) activity_users
-	`, statDate, statDate, statDate).Scan(&count).Error
-	return count, err
+	workoutUsers, err := load(&models.Workout{})
+	if err != nil {
+		return 0, err
+	}
+	mealUsers, err := load(&models.Meal{})
+	if err != nil {
+		return 0, err
+	}
+	weightUsers, err := load(&models.WeightEntry{})
+	if err != nil {
+		return 0, err
+	}
+
+	return mergeDistinctUserIDs(workoutUsers, mealUsers, weightUsers), nil
+}
+
+func (s *AdminDashboardService) countDistinctActivityUsersOn(statDate time.Time) (int64, error) {
+	return s.distinctUserIDsForDateRange(&statDate, &statDate)
 }
 
 func (s *AdminDashboardService) countDistinctActivityUsersBetween(startDate, endDate time.Time) (int64, error) {
-	if s.db.Dialector.Name() != "sqlite" {
-		var count int64
-		err := s.db.Table("user_activity_days").
-			Distinct("user_id").
-			Where("stat_date >= ? AND stat_date <= ?", startDate, endDate).
-			Count(&count).Error
-		return count, err
-	}
-
-	var count int64
-	err := s.db.Raw(`
-		SELECT COUNT(DISTINCT user_id)
-		FROM (
-			SELECT user_id, date AS stat_date FROM workouts WHERE deleted_at IS NULL
-			UNION ALL
-			SELECT user_id, date AS stat_date FROM meals WHERE deleted_at IS NULL
-			UNION ALL
-			SELECT user_id, date AS stat_date FROM weight_entries WHERE deleted_at IS NULL
-		) activity_days
-		WHERE stat_date >= ? AND stat_date <= ?
-	`, startDate, endDate).Scan(&count).Error
-	return count, err
+	return s.distinctUserIDsForDateRange(&startDate, &endDate)
 }
 
 func (s *AdminDashboardService) countDistinctActivityUsersSince(startDate time.Time) (int64, error) {
-	if s.db.Dialector.Name() != "sqlite" {
-		var count int64
-		err := s.db.Table("user_activity_days").
-			Distinct("user_id").
-			Where("stat_date >= ?", startDate).
-			Count(&count).Error
-		return count, err
-	}
-
-	var count int64
-	err := s.db.Raw(`
-		SELECT COUNT(DISTINCT user_id)
-		FROM (
-			SELECT user_id, date AS stat_date FROM workouts WHERE deleted_at IS NULL
-			UNION ALL
-			SELECT user_id, date AS stat_date FROM meals WHERE deleted_at IS NULL
-			UNION ALL
-			SELECT user_id, date AS stat_date FROM weight_entries WHERE deleted_at IS NULL
-		) activity_days
-		WHERE stat_date >= ?
-	`, startDate).Scan(&count).Error
-	return count, err
+	return s.distinctUserIDsForDateRange(&startDate, nil)
 }
 
 func (s *AdminDashboardService) loadDailyStats(statDate time.Time) (adminDailyStats, error) {
 	var stats adminDailyStats
 
-	if s.db.Dialector.Name() != "sqlite" {
-		err := s.db.Table("daily_user_stats").
-			Select("total_workouts, total_meals").
-			Where("stat_date = ?", statDate).
-			Scan(&stats).Error
+	if err := s.db.Model(&models.Workout{}).
+		Where("date = ? AND deleted_at IS NULL", statDate).
+		Count(&stats.TotalWorkouts).Error; err != nil {
 		return stats, err
 	}
-
-	if err := s.db.Model(&models.Workout{}).Where("date = ? AND deleted_at IS NULL", statDate).Count(&stats.TotalWorkouts).Error; err != nil {
-		return stats, err
-	}
-	if err := s.db.Model(&models.Meal{}).Where("date = ? AND deleted_at IS NULL", statDate).Count(&stats.TotalMeals).Error; err != nil {
+	if err := s.db.Model(&models.Meal{}).
+		Where("date = ? AND deleted_at IS NULL", statDate).
+		Count(&stats.TotalMeals).Error; err != nil {
 		return stats, err
 	}
 
@@ -181,12 +263,10 @@ func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*E
 		UpdatedAt: now,
 	}
 
-	// 1. Total Users
 	if err := s.db.Model(&models.User{}).Where("deleted_at IS NULL").Count(&summary.TotalUsers).Error; err != nil {
 		return nil, err
 	}
 
-	// 2. DAU (Unique users with activity today)
 	today := now.Truncate(24 * time.Hour)
 	dau, err := s.countDistinctActivityUsersOn(today)
 	if err != nil {
@@ -194,7 +274,6 @@ func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*E
 	}
 	summary.DAU = dau
 
-	// 3. MAU (Last 30 days)
 	thirtyDaysAgo := now.AddDate(0, 0, -30).Truncate(24 * time.Hour)
 	mau, err := s.countDistinctActivityUsersBetween(thirtyDaysAgo, today)
 	if err != nil {
@@ -206,7 +285,6 @@ func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*E
 		summary.DAUMAU_Ratio = float64(summary.DAU) / float64(summary.MAU) * 100
 	}
 
-	// 4. New Users 7d
 	sevenDaysAgo := now.AddDate(0, 0, -7)
 	if err := s.db.Model(&models.User{}).Where("created_at >= ? AND deleted_at IS NULL", sevenDaysAgo).Count(&summary.NewUsers7d).Error; err != nil {
 		return nil, err
@@ -218,9 +296,7 @@ func (s *AdminDashboardService) computeExecutiveSummary(ctx context.Context) (*E
 	}
 	summary.WorkoutsToday = todayStats.TotalWorkouts
 	summary.MealsToday = todayStats.TotalMeals
-
-	// 7. Error Rate (mocked for now, should ideally come from prometheus metrics or logs)
-	summary.ErrorRate24h = 0.05 // 0.05%
+	summary.ErrorRate24h = 0.05
 
 	return summary, nil
 }
@@ -230,36 +306,268 @@ func (s *AdminDashboardService) loadPopularExercises(limit int) ([]map[string]an
 		limit = 20
 	}
 
-	var popular []map[string]any
-	if s.db.Dialector.Name() == "sqlite" {
-		err := s.db.Raw(`
-			SELECT 
-				e.name as exercise_name,
-				COUNT(we.id) as usage_count,
-				COUNT(DISTINCT w.user_id) as unique_users
-			FROM exercises e
-			LEFT JOIN workout_exercises we ON e.id = we.exercise_id
-			LEFT JOIN workouts w ON we.workout_id = w.id
-			WHERE w.deleted_at IS NULL
-			GROUP BY e.id, e.name, e.primary_muscles
-			ORDER BY usage_count DESC
-			LIMIT ?
-		`, limit).Scan(&popular).Error
-		return popular, err
-	}
-
-	err := s.db.Table("exercise_popularity").
-		Select("exercise_name, usage_count, unique_users").
+	var rows []exercisePopularityRow
+	if err := s.db.Model(&models.WorkoutExercise{}).
+		Select("exercises.name as exercise_name, COUNT(workout_exercises.id) as usage_count, COUNT(DISTINCT workouts.user_id) as unique_users").
+		Joins("JOIN exercises ON exercises.id = workout_exercises.exercise_id AND exercises.deleted_at IS NULL").
+		Joins("JOIN workouts ON workouts.id = workout_exercises.workout_id AND workouts.deleted_at IS NULL").
+		Where("workout_exercises.deleted_at IS NULL").
+		Group("exercises.id, exercises.name").
 		Order("usage_count DESC").
 		Limit(limit).
-		Scan(&popular).Error
-	return popular, err
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	return rowsToMaps(rows), nil
+}
+
+func (s *AdminDashboardService) loadCountsByDate(model any) ([]datedCountRow, error) {
+	var rows []datedCountRow
+	if err := s.db.Model(model).
+		Select("date as stat_date, COUNT(*) as count").
+		Where("deleted_at IS NULL").
+		Group("date").
+		Order("date DESC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func (s *AdminDashboardService) loadActivityTrends(limit int) ([]map[string]any, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+
+	workouts, err := s.loadCountsByDate(&models.Workout{})
+	if err != nil {
+		return nil, err
+	}
+	meals, err := s.loadCountsByDate(&models.Meal{})
+	if err != nil {
+		return nil, err
+	}
+	weights, err := s.loadCountsByDate(&models.WeightEntry{})
+	if err != nil {
+		return nil, err
+	}
+
+	merged := make(map[time.Time]*activityTrendRow)
+	accumulate := func(rows []datedCountRow, apply func(*activityTrendRow, int64)) {
+		for _, row := range rows {
+			day := row.StatDate.UTC().Truncate(24 * time.Hour)
+			entry := merged[day]
+			if entry == nil {
+				entry = &activityTrendRow{StatDate: day}
+				merged[day] = entry
+			}
+			apply(entry, row.Count)
+		}
+	}
+
+	accumulate(workouts, func(row *activityTrendRow, count int64) {
+		row.TotalWorkouts = count
+	})
+	accumulate(meals, func(row *activityTrendRow, count int64) {
+		row.TotalMeals = count
+	})
+	accumulate(weights, func(row *activityTrendRow, count int64) {
+		row.TotalWeights = count
+	})
+
+	ordered := make([]activityTrendRow, 0, len(merged))
+	for _, row := range merged {
+		ordered = append(ordered, *row)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].StatDate.After(ordered[j].StatDate)
+	})
+	if len(ordered) > limit {
+		ordered = ordered[:limit]
+	}
+
+	return rowsToMaps(ordered), nil
+}
+
+func (s *AdminDashboardService) loadUserGrowth(limit int) ([]map[string]any, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+
+	var users []userCreatedRow
+	if err := s.db.Model(&models.User{}).
+		Select("id, created_at").
+		Where("deleted_at IS NULL").
+		Scan(&users).Error; err != nil {
+		return nil, err
+	}
+
+	countsByDay := make(map[time.Time]int64)
+	for _, user := range users {
+		day := user.CreatedAt.UTC().Truncate(24 * time.Hour)
+		countsByDay[day]++
+	}
+
+	rows := make([]datedCountRow, 0, len(countsByDay))
+	for day, count := range countsByDay {
+		rows = append(rows, datedCountRow{
+			StatDate: day,
+			Count:    count,
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].StatDate.After(rows[j].StatDate)
+	})
+	if len(rows) > limit {
+		rows = rows[:limit]
+	}
+
+	return rowsToMaps(rows), nil
+}
+
+func (s *AdminDashboardService) loadRetention(limit int) ([]map[string]any, error) {
+	if limit <= 0 {
+		limit = 12
+	}
+
+	var users []userCreatedRow
+	if err := s.db.Model(&models.User{}).
+		Select("id, created_at").
+		Where("deleted_at IS NULL").
+		Scan(&users).Error; err != nil {
+		return nil, err
+	}
+
+	loadActivity := func(model any) ([]userDateRow, error) {
+		var rows []userDateRow
+		if err := s.db.Model(model).
+			Select("user_id, date").
+			Where("deleted_at IS NULL").
+			Scan(&rows).Error; err != nil {
+			return nil, err
+		}
+		return rows, nil
+	}
+
+	workouts, err := loadActivity(&models.Workout{})
+	if err != nil {
+		return nil, err
+	}
+	meals, err := loadActivity(&models.Meal{})
+	if err != nil {
+		return nil, err
+	}
+	weights, err := loadActivity(&models.WeightEntry{})
+	if err != nil {
+		return nil, err
+	}
+
+	activeMonths := make(map[uuid.UUID]map[time.Time]struct{})
+	addActivityMonths := func(rows []userDateRow) {
+		for _, row := range rows {
+			month := startOfMonthUTC(row.Date)
+			if activeMonths[row.UserID] == nil {
+				activeMonths[row.UserID] = make(map[time.Time]struct{})
+			}
+			activeMonths[row.UserID][month] = struct{}{}
+		}
+	}
+
+	addActivityMonths(workouts)
+	addActivityMonths(meals)
+	addActivityMonths(weights)
+
+	cohorts := make(map[time.Time]*retentionRow)
+	monthOffsets := []int{0, 1, 2, 3, 6, 12}
+	for _, user := range users {
+		cohortMonth := startOfMonthUTC(user.CreatedAt)
+		row := cohorts[cohortMonth]
+		if row == nil {
+			row = &retentionRow{CohortMonth: cohortMonth}
+			cohorts[cohortMonth] = row
+		}
+		row.CohortSize++
+
+		userMonths := activeMonths[user.ID]
+		for _, offset := range monthOffsets {
+			month := cohortMonth.AddDate(0, offset, 0)
+			if _, ok := userMonths[month]; !ok {
+				continue
+			}
+			switch offset {
+			case 0:
+				row.Month0++
+			case 1:
+				row.Month1++
+			case 2:
+				row.Month2++
+			case 3:
+				row.Month3++
+			case 6:
+				row.Month6++
+			case 12:
+				row.Month12++
+			}
+		}
+	}
+
+	ordered := make([]retentionRow, 0, len(cohorts))
+	for _, row := range cohorts {
+		ordered = append(ordered, *row)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].CohortMonth.After(ordered[j].CohortMonth)
+	})
+	if len(ordered) > limit {
+		ordered = ordered[:limit]
+	}
+
+	return rowsToMaps(ordered), nil
+}
+
+func (s *AdminDashboardService) loadWorkoutVolumeTrends(limit int) ([]map[string]any, error) {
+	if limit <= 0 {
+		limit = 30
+	}
+
+	var rows []datedCountRow
+	if err := s.db.Model(&models.Workout{}).
+		Select("date as stat_date, COUNT(*) as count").
+		Where("deleted_at IS NULL").
+		Group("date").
+		Order("date DESC").
+		Limit(limit).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	result := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, map[string]any{
+			"stat_date":      row.StatDate,
+			"total_workouts": row.Count,
+		})
+	}
+	return result, nil
+}
+
+// GetActivityTrends returns recent aggregate workout, meal, and weight activity by day.
+func (s *AdminDashboardService) GetActivityTrends(ctx context.Context, limit int) ([]map[string]any, error) {
+	_ = ctx
+	return s.loadActivityTrends(limit)
 }
 
 // GetPopularExercises returns the top exercises by usage for the admin dashboard.
 func (s *AdminDashboardService) GetPopularExercises(ctx context.Context, limit int) ([]map[string]any, error) {
 	_ = ctx
 	return s.loadPopularExercises(limit)
+}
+
+// GetUserGrowth returns recent user signups grouped by day.
+func (s *AdminDashboardService) GetUserGrowth(ctx context.Context, limit int) ([]map[string]any, error) {
+	_ = ctx
+	return s.loadUserGrowth(limit)
 }
 
 func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[string]any, error) {
@@ -291,81 +599,24 @@ func (s *AdminDashboardService) GetUserAnalytics(ctx context.Context) (map[strin
 		return nil, err
 	}
 
+	var goalBreakdown []goalCountRow
 	if err := s.db.Model(&models.User{}).
-		Select("goal, count(*) as count").
+		Select("goal, COUNT(*) as count").
 		Where("deleted_at IS NULL").
 		Group("goal").
-		Scan(&stats.GoalBreakdown).Error; err != nil {
+		Scan(&goalBreakdown).Error; err != nil {
+		return nil, err
+	}
+	stats.GoalBreakdown = rowsToMaps(goalBreakdown)
+
+	stats.Growth, err = s.loadUserGrowth(30)
+	if err != nil {
 		return nil, err
 	}
 
-	growthQuery := `
-		SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as new_users
-		FROM users
-		WHERE deleted_at IS NULL
-		GROUP BY date
-		ORDER BY date DESC
-		LIMIT 30
-	`
-	if s.db.Dialector.Name() == "sqlite" {
-		growthQuery = `
-			SELECT DATE(created_at) as date, COUNT(*) as new_users
-			FROM users
-			WHERE deleted_at IS NULL
-			GROUP BY date
-			ORDER BY date DESC
-			LIMIT 30
-		`
-	}
-	if err := s.db.Raw(growthQuery).Scan(&stats.Growth).Error; err != nil {
+	stats.Retention, err = s.loadRetention(12)
+	if err != nil {
 		return nil, err
-	}
-
-	if s.db.Dialector.Name() == "sqlite" {
-		if err := s.db.Raw(`
-			WITH cohorts AS (
-				SELECT 
-					id as user_id,
-					strftime('%Y-%m-01', created_at) as cohort_month
-				FROM users
-				WHERE deleted_at IS NULL
-			),
-			active_months AS (
-				SELECT DISTINCT
-					user_id,
-					strftime('%Y-%m-01', activity_date) as month
-				FROM (
-					SELECT user_id, date as activity_date FROM workouts WHERE deleted_at IS NULL
-					UNION ALL
-					SELECT user_id, date FROM meals WHERE deleted_at IS NULL
-					UNION ALL
-					SELECT user_id, date FROM weight_entries WHERE deleted_at IS NULL
-				) activities
-			)
-			SELECT 
-				c.cohort_month,
-				COUNT(DISTINCT c.user_id) as cohort_size,
-				SUM(CASE WHEN am.month = c.cohort_month THEN 1 ELSE 0 END) as month_0,
-				SUM(CASE WHEN am.month = date(c.cohort_month, '+1 month') THEN 1 ELSE 0 END) as month_1,
-				SUM(CASE WHEN am.month = date(c.cohort_month, '+2 months') THEN 1 ELSE 0 END) as month_2,
-				SUM(CASE WHEN am.month = date(c.cohort_month, '+3 months') THEN 1 ELSE 0 END) as month_3,
-				SUM(CASE WHEN am.month = date(c.cohort_month, '+6 months') THEN 1 ELSE 0 END) as month_6,
-				SUM(CASE WHEN am.month = date(c.cohort_month, '+12 months') THEN 1 ELSE 0 END) as month_12
-			FROM cohorts c
-			LEFT JOIN active_months am ON c.user_id = am.user_id
-			GROUP BY c.cohort_month
-			ORDER BY c.cohort_month DESC
-			LIMIT 12
-		`).Scan(&stats.Retention).Error; err != nil {
-			return nil, err
-		}
-	} else {
-		if err := s.db.Table("user_retention_cohorts").
-			Order("cohort_month DESC").
-			Limit(12).
-			Scan(&stats.Retention).Error; err != nil {
-			return nil, err
-		}
 	}
 
 	return map[string]any{
@@ -388,15 +639,23 @@ func (s *AdminDashboardService) GetWorkoutAnalytics(ctx context.Context) (map[st
 		VolumeTrends     []map[string]any `json:"volume_trends"`
 	}
 
-	s.db.Model(&models.Workout{}).Where("deleted_at IS NULL").Count(&stats.TotalWorkouts)
+	if err := s.db.Model(&models.Workout{}).Where("deleted_at IS NULL").Count(&stats.TotalWorkouts).Error; err != nil {
+		return nil, err
+	}
 	today := time.Now().UTC().Truncate(24 * time.Hour)
-	s.db.Model(&models.Workout{}).Where("date = ? AND deleted_at IS NULL", today).Count(&stats.WorkoutsToday)
+	if err := s.db.Model(&models.Workout{}).Where("date = ? AND deleted_at IS NULL", today).Count(&stats.WorkoutsToday).Error; err != nil {
+		return nil, err
+	}
 
-	s.db.Model(&models.Workout{}).
-		Select("type, count(*) as count").
+	var breakdown []namedCountRow
+	if err := s.db.Model(&models.Workout{}).
+		Select("type as name, COUNT(*) as count").
 		Where("deleted_at IS NULL").
 		Group("type").
-		Scan(&stats.TypeBreakdown)
+		Scan(&breakdown).Error; err != nil {
+		return nil, err
+	}
+	stats.TypeBreakdown = rowsToMaps(breakdown)
 
 	popularExercises, err := s.loadPopularExercises(20)
 	if err != nil {
@@ -404,21 +663,9 @@ func (s *AdminDashboardService) GetWorkoutAnalytics(ctx context.Context) (map[st
 	}
 	stats.PopularExercises = popularExercises
 
-	if s.db.Dialector.Name() == "sqlite" {
-		s.db.Raw(`
-			SELECT date as stat_date, COUNT(*) as total_workouts 
-			FROM workouts 
-			WHERE deleted_at IS NULL 
-			GROUP BY date 
-			ORDER BY stat_date DESC 
-			LIMIT 30
-		`).Scan(&stats.VolumeTrends)
-	} else {
-		s.db.Table("daily_user_stats").
-			Select("stat_date, total_workouts").
-			Order("stat_date DESC").
-			Limit(30).
-			Scan(&stats.VolumeTrends)
+	stats.VolumeTrends, err = s.loadWorkoutVolumeTrends(30)
+	if err != nil {
+		return nil, err
 	}
 
 	return map[string]any{
@@ -440,23 +687,40 @@ func (s *AdminDashboardService) GetNutritionAnalytics(ctx context.Context) (map[
 		Adherence        []map[string]any `json:"adherence"`
 	}
 
-	s.db.Model(&models.Meal{}).Where("deleted_at IS NULL").Count(&stats.TotalMealsLogged)
+	if err := s.db.Model(&models.Meal{}).Where("deleted_at IS NULL").Count(&stats.TotalMealsLogged).Error; err != nil {
+		return nil, err
+	}
 	today := time.Now().UTC().Truncate(24 * time.Hour)
-	s.db.Model(&models.Meal{}).Where("date = ? AND deleted_at IS NULL", today).Count(&stats.MealsToday)
+	if err := s.db.Model(&models.Meal{}).Where("date = ? AND deleted_at IS NULL", today).Count(&stats.MealsToday).Error; err != nil {
+		return nil, err
+	}
 
-	s.db.Model(&models.Meal{}).
-		Select("meal_type as type, count(*) as count").
+	var typeBreakdown []namedCountRow
+	if err := s.db.Model(&models.Meal{}).
+		Select("meal_type as name, COUNT(*) as count").
 		Where("deleted_at IS NULL").
 		Group("meal_type").
-		Scan(&stats.TypeBreakdown)
+		Scan(&typeBreakdown).Error; err != nil {
+		return nil, err
+	}
+	stats.TypeBreakdown = rowsToMaps(typeBreakdown)
 
-	s.db.Table("meal_foods").
-		Select("foods.name, count(*) as usage_count").
-		Joins("JOIN foods ON foods.id = meal_foods.food_id").
+	if err := s.db.Table("meal_foods").
+		Select("foods.name as name, COUNT(*) as count").
+		Joins("JOIN foods ON foods.id = meal_foods.food_id AND foods.deleted_at IS NULL").
 		Group("foods.id, foods.name").
-		Order("usage_count DESC").
+		Order("count DESC").
 		Limit(20).
-		Scan(&stats.PopularFoods)
+		Scan(&typeBreakdown).Error; err != nil {
+		return nil, err
+	}
+	stats.PopularFoods = make([]map[string]any, 0, len(typeBreakdown))
+	for _, row := range typeBreakdown {
+		stats.PopularFoods = append(stats.PopularFoods, map[string]any{
+			"name":        row.Name,
+			"usage_count": row.Count,
+		})
+	}
 
 	return map[string]any{
 		"total_meals":    stats.TotalMealsLogged,
@@ -493,13 +757,12 @@ func (s *AdminDashboardService) GetSystemHealth(ctx context.Context) (map[string
 		"timestamp": time.Now().UTC(),
 	}
 
-	// Check DB
 	sqlDB, err := s.db.DB()
 	if err != nil {
 		health["database"] = "disconnected"
 		health["status"] = "unhealthy"
 	} else {
-		if err := sqlDB.Ping(); err != nil {
+		if err := sqlDB.PingContext(ctx); err != nil {
 			health["database"] = "unhealthy"
 			health["status"] = "unhealthy"
 		} else {

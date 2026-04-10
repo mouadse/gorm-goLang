@@ -3493,6 +3493,105 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - total_users
+                  - active_users_7d
+                  - mau
+                  - goal_breakdown
+                  - growth
+                  - retention
+                properties:
+                  total_users:
+                    type: integer
+                    format: int64
+                  active_users_7d:
+                    type: integer
+                    format: int64
+                  mau:
+                    type: integer
+                    format: int64
+                  goal_breakdown:
+                    type: array
+                    items:
+                      type: object
+                      required: [goal, count]
+                      properties:
+                        goal:
+                          type: string
+                        count:
+                          type: integer
+                          format: int64
+                  growth:
+                    type: array
+                    items:
+                      type: object
+                      required: [date, new_users]
+                      properties:
+                        date:
+                          type: string
+                          format: date-time
+                        new_users:
+                          type: integer
+                          format: int64
+                  retention:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - cohort_month
+                        - cohort_size
+                        - month_0
+                        - month_1
+                        - month_2
+                        - month_3
+                        - month_6
+                        - month_12
+                      properties:
+                        cohort_month:
+                          type: string
+                          format: date-time
+                        cohort_size:
+                          type: integer
+                          format: int64
+                        month_0:
+                          type: integer
+                          format: int64
+                        month_1:
+                          type: integer
+                          format: int64
+                        month_2:
+                          type: integer
+                          format: int64
+                        month_3:
+                          type: integer
+                          format: int64
+                        month_6:
+                          type: integer
+                          format: int64
+                        month_12:
+                          type: integer
+                          format: int64
+              example:
+                total_users: 124
+                active_users_7d: 81
+                mau: 110
+                goal_breakdown:
+                  - goal: maintain
+                    count: 54
+                  - goal: lose_fat
+                    count: 42
+                growth:
+                  - date: "2026-04-01T00:00:00Z"
+                    new_users: 6
+                retention:
+                  - cohort_month: "2026-01-01T00:00:00Z"
+                    cohort_size: 20
+                    month_0: 20
+                    month_1: 12
+                    month_2: 9
+                    month_3: 7
+                    month_6: 4
+                    month_12: 0
         "401":
           $ref: "#/components/responses/Error"
         "403":

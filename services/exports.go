@@ -968,33 +968,39 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 
 		if len(workoutIDs) > 0 {
 			// Delete workout cardio entries
-			if err := tx.Where("workout_id IN ?", workoutIDs).Delete(&models.WorkoutCardioEntry{}).Error; err != nil {
+			if err := tx.Unscoped().Where("workout_id IN ?", workoutIDs).Delete(&models.WorkoutCardioEntry{}).Error; err != nil {
 				return err
 			}
 			// Delete workout sets through workout exercises
-			if err := tx.Exec("DELETE FROM workout_sets WHERE workout_exercise_id IN (SELECT id FROM workout_exercises WHERE workout_id IN ?)", workoutIDs).Error; err != nil {
+			workoutExerciseIDs := tx.Model(&models.WorkoutExercise{}).
+				Select("id").
+				Where("workout_id IN ?", workoutIDs)
+			if err := tx.Unscoped().Where("workout_exercise_id IN (?)", workoutExerciseIDs).Delete(&models.WorkoutSet{}).Error; err != nil {
 				return err
 			}
-			if err := tx.Where("workout_id IN ?", workoutIDs).Delete(&models.WorkoutExercise{}).Error; err != nil {
+			if err := tx.Unscoped().Where("workout_id IN ?", workoutIDs).Delete(&models.WorkoutExercise{}).Error; err != nil {
 				return err
 			}
-			if err := tx.Where("id IN ?", workoutIDs).Delete(&models.Workout{}).Error; err != nil {
+			if err := tx.Unscoped().Where("id IN ?", workoutIDs).Delete(&models.Workout{}).Error; err != nil {
 				return err
 			}
 		}
 
 		// Delete meal foods
-		if err := tx.Exec("DELETE FROM meal_foods WHERE meal_id IN (SELECT id FROM meals WHERE user_id = ?)", userID).Error; err != nil {
+		mealIDs := tx.Model(&models.Meal{}).
+			Select("id").
+			Where("user_id = ?", userID)
+		if err := tx.Unscoped().Where("meal_id IN (?)", mealIDs).Delete(&models.MealFood{}).Error; err != nil {
 			return err
 		}
 
 		// Delete meals
-		if err := tx.Where("user_id = ?", userID).Delete(&models.Meal{}).Error; err != nil {
+		if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&models.Meal{}).Error; err != nil {
 			return err
 		}
 
 		// Delete weight entries
-		if err := tx.Where("user_id = ?", userID).Delete(&models.WeightEntry{}).Error; err != nil {
+		if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&models.WeightEntry{}).Error; err != nil {
 			return err
 		}
 
@@ -1012,10 +1018,13 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 		}
 
 		// Delete recipe items and recipes
-		if err := tx.Exec("DELETE FROM recipe_items WHERE recipe_id IN (SELECT id FROM recipes WHERE user_id = ?)", userID).Error; err != nil {
+		recipeIDs := tx.Model(&models.Recipe{}).
+			Select("id").
+			Where("user_id = ?", userID)
+		if err := tx.Where("recipe_id IN (?)", recipeIDs).Delete(&models.RecipeItem{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("user_id = ?", userID).Delete(&models.Recipe{}).Error; err != nil {
+		if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&models.Recipe{}).Error; err != nil {
 			return err
 		}
 
@@ -1026,19 +1035,22 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 		}
 		if len(templateIDs) > 0 {
 			// Delete template sets through template exercises
-			if err := tx.Exec("DELETE FROM workout_template_sets WHERE template_exercise_id IN (SELECT id FROM workout_template_exercises WHERE template_id IN ?)", templateIDs).Error; err != nil {
+			templateExerciseIDs := tx.Model(&models.WorkoutTemplateExercise{}).
+				Select("id").
+				Where("template_id IN ?", templateIDs)
+			if err := tx.Unscoped().Where("template_exercise_id IN (?)", templateExerciseIDs).Delete(&models.WorkoutTemplateSet{}).Error; err != nil {
 				return err
 			}
-			if err := tx.Where("template_id IN ?", templateIDs).Delete(&models.WorkoutTemplateExercise{}).Error; err != nil {
+			if err := tx.Unscoped().Where("template_id IN ?", templateIDs).Delete(&models.WorkoutTemplateExercise{}).Error; err != nil {
 				return err
 			}
-			if err := tx.Where("id IN ?", templateIDs).Delete(&models.WorkoutTemplate{}).Error; err != nil {
+			if err := tx.Unscoped().Where("id IN ?", templateIDs).Delete(&models.WorkoutTemplate{}).Error; err != nil {
 				return err
 			}
 		}
 
 		// Delete program assignments (user_id)
-		if err := tx.Where("user_id = ?", userID).Delete(&models.ProgramAssignment{}).Error; err != nil {
+		if err := tx.Unscoped().Where("user_id = ?", userID).Delete(&models.ProgramAssignment{}).Error; err != nil {
 			return err
 		}
 
@@ -1049,13 +1061,16 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 		}
 		if len(programIDs) > 0 {
 			// Delete program sessions through weeks
-			if err := tx.Exec("DELETE FROM program_sessions WHERE week_id IN (SELECT id FROM program_weeks WHERE program_id IN ?)", programIDs).Error; err != nil {
+			weekIDs := tx.Model(&models.ProgramWeek{}).
+				Select("id").
+				Where("program_id IN ?", programIDs)
+			if err := tx.Unscoped().Where("week_id IN (?)", weekIDs).Delete(&models.ProgramSession{}).Error; err != nil {
 				return err
 			}
-			if err := tx.Where("program_id IN ?", programIDs).Delete(&models.ProgramWeek{}).Error; err != nil {
+			if err := tx.Unscoped().Where("program_id IN ?", programIDs).Delete(&models.ProgramWeek{}).Error; err != nil {
 				return err
 			}
-			if err := tx.Where("id IN ?", programIDs).Delete(&models.WorkoutProgram{}).Error; err != nil {
+			if err := tx.Unscoped().Where("id IN ?", programIDs).Delete(&models.WorkoutProgram{}).Error; err != nil {
 				return err
 			}
 		}
@@ -1081,7 +1096,7 @@ func (s *ExportService) ProcessDeletionRequest(userID uuid.UUID) error {
 		}
 
 		// Finally, delete the user
-		if err := tx.Delete(&models.User{}, "id = ?", userID).Error; err != nil {
+		if err := tx.Unscoped().Delete(&models.User{}, "id = ?", userID).Error; err != nil {
 			return err
 		}
 

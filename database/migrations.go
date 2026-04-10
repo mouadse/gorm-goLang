@@ -130,22 +130,23 @@ func migrateLegacyExercises(db *gorm.DB) error {
 
 	if db.Migrator().HasColumn(&models.Exercise{}, "muscle_group") {
 		log.Println("backfilling legacy muscle_group to primary_muscles")
-		if err := db.Exec("UPDATE exercises SET primary_muscles = muscle_group WHERE primary_muscles IS NULL OR primary_muscles = ''").Error; err != nil {
+		if err := backfillLegacyExerciseColumn(db, "muscle_group", "primary_muscles"); err != nil {
 			return err
 		}
 	}
 
 	if db.Migrator().HasColumn(&models.Exercise{}, "difficulty") {
 		log.Println("backfilling legacy difficulty to level")
-		if err := db.Exec("UPDATE exercises SET level = difficulty WHERE level IS NULL OR level = ''").Error; err != nil {
+		if err := backfillLegacyExerciseColumn(db, "difficulty", "level"); err != nil {
 			return err
 		}
 	}
 
 	if db.Dialector.Name() == "postgres" {
-		log.Println("dropping materialized view exercise_popularity to allow column schema changes")
-		if err := db.Exec("DROP MATERIALIZED VIEW IF EXISTS exercise_popularity CASCADE").Error; err != nil {
-			return fmt.Errorf("drop materialized view exercise_popularity: %w", err)
+		log.Println("dropping legacy exercise_popularity view if present")
+		// exercise_popularity was previously created as a materialized view in Postgres.
+		if err := db.Exec("DROP MATERIALIZED VIEW IF EXISTS exercise_popularity").Error; err != nil {
+			return fmt.Errorf("drop exercise_popularity view: %w", err)
 		}
 	}
 
@@ -158,6 +159,45 @@ func migrateLegacyExercises(db *gorm.DB) error {
 			}
 		}
 	}
+	return nil
+}
+
+func backfillLegacyExerciseColumn(db *gorm.DB, sourceColumn, targetColumn string) error {
+	rows, err := db.Table("exercises").
+		Select("CAST(id AS TEXT) AS id", sourceColumn).
+		Where(targetColumn + " IS NULL OR TRIM(" + targetColumn + ") = ''").
+		Where(sourceColumn + " IS NOT NULL AND TRIM(" + sourceColumn + ") <> ''").
+		Rows()
+	if err != nil {
+		return fmt.Errorf("list legacy exercise %s values: %w", sourceColumn, err)
+	}
+	defer rows.Close()
+
+	type legacyValueRow struct {
+		ID    string
+		Value string
+	}
+	var updates []legacyValueRow
+	for rows.Next() {
+		var exerciseID string
+		var value string
+		if err := rows.Scan(&exerciseID, &value); err != nil {
+			return fmt.Errorf("scan legacy exercise %s: %w", sourceColumn, err)
+		}
+		updates = append(updates, legacyValueRow{
+			ID:    strings.TrimSpace(exerciseID),
+			Value: strings.TrimSpace(value),
+		})
+	}
+
+	for _, update := range updates {
+		if err := db.Table("exercises").
+			Where("CAST(id AS TEXT) = ?", update.ID).
+			UpdateColumn(targetColumn, update.Value).Error; err != nil {
+			return fmt.Errorf("backfill %s from %s for exercise %q: %w", targetColumn, sourceColumn, update.ID, err)
+		}
+	}
+
 	return nil
 }
 

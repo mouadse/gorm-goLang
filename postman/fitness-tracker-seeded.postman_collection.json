@@ -4834,7 +4834,7 @@
               ],
               "query": []
             },
-            "description": "GET /v1/admin/users/stats"
+            "description": "GET /v1/admin/users/stats\n\nResponse includes goal_breakdown buckets as objects with goal and count keys."
           }
         },
         {

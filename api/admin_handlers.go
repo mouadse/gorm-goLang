@@ -32,36 +32,7 @@ func (s *Server) handleAdminDashboardSummary(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) handleAdminDashboardTrends(w http.ResponseWriter, r *http.Request) {
-	var trends []map[string]any
-	var err error
-
-	if s.db.Dialector.Name() == "sqlite" {
-		err = s.db.Raw(`
-			WITH all_activities AS (
-				SELECT user_id, date, 'workout' as type, id FROM workouts WHERE deleted_at IS NULL
-				UNION ALL
-				SELECT user_id, date, 'meal' as type, id FROM meals WHERE deleted_at IS NULL
-				UNION ALL
-				SELECT user_id, date, 'weight' as type, id FROM weight_entries WHERE deleted_at IS NULL
-			)
-			SELECT 
-				date as stat_date,
-				SUM(CASE WHEN type = 'workout' THEN 1 ELSE 0 END) as total_workouts,
-				SUM(CASE WHEN type = 'meal' THEN 1 ELSE 0 END) as total_meals,
-				SUM(CASE WHEN type = 'weight' THEN 1 ELSE 0 END) as total_weights
-			FROM all_activities
-			GROUP BY date
-			ORDER BY stat_date DESC
-			LIMIT 30
-		`).Scan(&trends).Error
-	} else {
-		err = s.db.Table("daily_user_stats").
-			Select("stat_date, total_workouts, total_meals, total_weights").
-			Order("stat_date DESC").
-			Limit(30).
-			Scan(&trends).Error
-	}
-
+	trends, err := s.adminSvc.GetActivityTrends(r.Context(), 30)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -79,27 +50,11 @@ func (s *Server) handleAdminUserStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminUserGrowth(w http.ResponseWriter, r *http.Request) {
-	var growth []map[string]any
-
-	query := `
-		SELECT DATE_TRUNC('day', created_at) as date, COUNT(*) as new_users
-		FROM users
-		WHERE deleted_at IS NULL
-		GROUP BY date
-		ORDER BY date DESC
-		LIMIT 30
-	`
-	if s.db.Dialector.Name() == "sqlite" {
-		query = `
-			SELECT DATE(created_at) as date, COUNT(*) as new_users
-			FROM users
-			WHERE deleted_at IS NULL
-			GROUP BY date
-			ORDER BY date DESC
-			LIMIT 30
-		`
+	growth, err := s.adminSvc.GetUserGrowth(r.Context(), 30)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
 	}
-	s.db.Raw(query).Scan(&growth)
 
 	writeJSON(w, http.StatusOK, growth)
 }
