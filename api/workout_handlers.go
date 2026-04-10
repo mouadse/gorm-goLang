@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"fitness-tracker/models"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -181,13 +182,17 @@ func (s *Server) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("type = ?", workoutType)
 	}
 
+	page, limit := parsePagination(r)
+	query = query.Order("date desc, created_at desc")
+
 	var workouts []models.Workout
-	if err := query.Order("date desc, created_at desc").Find(&workouts).Error; err != nil {
+	paginated, err := paginate(query, page, limit, &workouts)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(workouts))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetWorkout(w http.ResponseWriter, r *http.Request) {
@@ -485,13 +490,15 @@ func (s *Server) handleListWorkoutExercises(w http.ResponseWriter, r *http.Reque
 		query = query.Where("exercise_id = ?", exerciseID)
 	}
 
+	page, limit := parsePagination(r)
 	var workoutExercises []models.WorkoutExercise
-	if err := query.Order("workout_exercises.\"order\" asc, workout_exercises.created_at asc").Find(&workoutExercises).Error; err != nil {
+	paginated, err := paginate(query.Order("workout_exercises.\"order\" asc, workout_exercises.created_at asc"), page, limit, &workoutExercises)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(workoutExercises))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetWorkoutExercise(w http.ResponseWriter, r *http.Request) {
@@ -742,13 +749,15 @@ func (s *Server) handleListWorkoutSets(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("workout_exercise_id = ?", workoutExerciseID)
 	}
 
+	page, limit := parsePagination(r)
 	var sets []models.WorkoutSet
-	if err := query.Order("workout_sets.set_number asc").Find(&sets).Error; err != nil {
+	paginated, err := paginate(query.Order("workout_sets.set_number asc"), page, limit, &sets)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(sets))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleCreateWorkoutSet(w http.ResponseWriter, r *http.Request) {

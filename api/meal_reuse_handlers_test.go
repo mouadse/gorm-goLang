@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"fitness-tracker/api"
 	"net/http"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ func TestMealReuseHandlers(t *testing.T) {
 	}, http.StatusCreated)
 
 	t.Run("Get Recent Meals", func(t *testing.T) {
-		meals := requestJSONAuth[[]models.Meal](t, server, auth.AccessToken, http.MethodGet, "/v1/meals/recent?days=7", nil, http.StatusOK)
+		meals := requestJSONAuth[api.PaginatedResponse[models.Meal]](t, server, auth.AccessToken, http.MethodGet, "/v1/meals/recent?days=7", nil, http.StatusOK).Data
 		if len(meals) != 1 {
 			t.Fatalf("expected 1 recent meal, got %d", len(meals))
 		}
@@ -82,7 +83,7 @@ func TestMealReuseHandlers(t *testing.T) {
 	})
 
 	t.Run("Get Recent Foods", func(t *testing.T) {
-		recentFoods := requestJSONAuth[[]models.Food](t, server, auth.AccessToken, http.MethodGet, "/v1/foods/recent", nil, http.StatusOK)
+		recentFoods := requestJSONAuth[api.PaginatedResponse[models.Food]](t, server, auth.AccessToken, http.MethodGet, "/v1/foods/recent", nil, http.StatusOK).Data
 
 		if len(recentFoods) != 2 {
 			t.Fatalf("expected 2 recent foods, got %d", len(recentFoods))
@@ -113,7 +114,7 @@ func TestMealReuseHandlers(t *testing.T) {
 		// Conflict test
 		expectStatusAuth(t, server, auth.AccessToken, http.MethodPost, "/v1/foods/"+food1.ID.String()+"/favorite", nil, http.StatusConflict)
 
-		favs := requestJSONAuth[[]models.FavoriteFood](t, server, auth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/favorites", nil, http.StatusOK)
+		favs := requestJSONAuth[api.PaginatedResponse[models.FavoriteFood]](t, server, auth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/favorites", nil, http.StatusOK).Data
 		if len(favs) != 1 {
 			t.Fatalf("expected 1 favored food, got %d", len(favs))
 		}
@@ -123,7 +124,7 @@ func TestMealReuseHandlers(t *testing.T) {
 
 		expectStatusAuth(t, server, auth.AccessToken, http.MethodDelete, "/v1/foods/"+food1.ID.String()+"/favorite", nil, http.StatusNoContent)
 
-		favsAfterDelete := requestJSONAuth[[]models.FavoriteFood](t, server, auth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/favorites", nil, http.StatusOK)
+		favsAfterDelete := requestJSONAuth[api.PaginatedResponse[models.FavoriteFood]](t, server, auth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/favorites", nil, http.StatusOK).Data
 		if len(favsAfterDelete) != 0 {
 			t.Fatalf("expected 0 favored foods after deletion, got %d", len(favsAfterDelete))
 		}

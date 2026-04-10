@@ -327,7 +327,7 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
-	writeJSON(w, status, map[string]string{"error": err.Error()})
+	writeJSON(w, status, validationProblem(status, err))
 }
 
 func decodeJSON(r *http.Request, target any) error {

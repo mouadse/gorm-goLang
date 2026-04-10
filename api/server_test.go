@@ -12,6 +12,7 @@ import (
 	"fitness-tracker/api"
 	"fitness-tracker/database"
 	"fitness-tracker/models"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -84,7 +85,7 @@ func TestCoreCRUDFlow(t *testing.T) {
 		},
 	}, http.StatusCreated)
 
-	listedWorkoutExercises := requestJSONAuth[[]models.WorkoutExercise](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/exercises", nil, http.StatusOK)
+	listedWorkoutExercises := requestJSONAuth[api.PaginatedResponse[models.WorkoutExercise]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/exercises", nil, http.StatusOK).Data
 	if len(listedWorkoutExercises) != 2 {
 		t.Fatalf("expected 2 workout exercises, got %d", len(listedWorkoutExercises))
 	}
@@ -132,7 +133,7 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected meal type dinner, got %q", loadedMeal.MealType)
 	}
 
-	listedMeals := requestJSONAuth[[]models.Meal](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/meals", nil, http.StatusOK)
+	listedMeals := requestJSONAuth[api.PaginatedResponse[models.Meal]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/meals", nil, http.StatusOK).Data
 	if len(listedMeals) != 1 {
 		t.Fatalf("expected 1 meal, got %d", len(listedMeals))
 	}
@@ -142,7 +143,7 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected weight entry to round-trip")
 	}
 
-	listedWeightEntries := requestJSONAuth[[]models.WeightEntry](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/weight-entries", nil, http.StatusOK)
+	listedWeightEntries := requestJSONAuth[api.PaginatedResponse[models.WeightEntry]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/weight-entries", nil, http.StatusOK).Data
 	if len(listedWeightEntries) != 1 {
 		t.Fatalf("expected 1 weight entry, got %d", len(listedWeightEntries))
 	}
@@ -371,7 +372,7 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 		t.Fatalf("expected scoped weight entry to inherit user id")
 	}
 
-	workouts := requestJSONAuth[[]models.Workout](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/workouts", nil, http.StatusOK)
+	workouts := requestJSONAuth[api.PaginatedResponse[models.Workout]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/workouts", nil, http.StatusOK).Data
 	if len(workouts) != 1 {
 		t.Fatalf("expected 1 scoped workout, got %d", len(workouts))
 	}
@@ -544,7 +545,7 @@ func TestExerciseListFilters(t *testing.T) {
 		"level":           "Beginner",
 	}, http.StatusCreated)
 
-	shoulderExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?muscle=shoulder&equipment=dumbbell&level=beginner", nil, http.StatusOK)
+	shoulderExercises := requestJSON[api.PaginatedResponse[models.Exercise]](t, server, http.MethodGet, "/v1/exercises?muscle=shoulder&equipment=dumbbell&level=beginner", nil, http.StatusOK).Data
 	if len(shoulderExercises) != 1 {
 		t.Fatalf("expected 1 beginner home shoulder exercise, got %d", len(shoulderExercises))
 	}
@@ -552,7 +553,7 @@ func TestExerciseListFilters(t *testing.T) {
 		t.Fatalf("expected dumbbell shoulder press, got %q", shoulderExercises[0].Name)
 	}
 
-	backExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?muscle=back&equipment=Resistance%20Band&level=Beginner", nil, http.StatusOK)
+	backExercises := requestJSON[api.PaginatedResponse[models.Exercise]](t, server, http.MethodGet, "/v1/exercises?muscle=back&equipment=Resistance%20Band&level=Beginner", nil, http.StatusOK).Data
 	if len(backExercises) != 1 {
 		t.Fatalf("expected 1 beginner home back exercise, got %d", len(backExercises))
 	}
@@ -560,7 +561,7 @@ func TestExerciseListFilters(t *testing.T) {
 		t.Fatalf("expected band pull-apart, got %q", backExercises[0].Name)
 	}
 
-	bodyweightExercises := requestJSON[[]models.Exercise](t, server, http.MethodGet, "/v1/exercises?equipment=body%20only&level=beginner", nil, http.StatusOK)
+	bodyweightExercises := requestJSON[api.PaginatedResponse[models.Exercise]](t, server, http.MethodGet, "/v1/exercises?equipment=body%20only&level=beginner", nil, http.StatusOK).Data
 	if len(bodyweightExercises) != 1 {
 		t.Fatalf("expected 1 bodyweight beginner exercise, got %d", len(bodyweightExercises))
 	}
@@ -697,7 +698,7 @@ func expectStatus(t *testing.T, handler http.Handler, method, path string, body 
 	expectStatusAuth(t, handler, "", method, path, body, wantStatus)
 }
 
-func requestError(t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) map[string]string {
+func requestError(t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) map[string]any {
 	t.Helper()
 
 	return requestErrorAuth(t, handler, "", method, path, body, wantStatus)
@@ -748,7 +749,7 @@ func expectStatusAuth(t *testing.T, handler http.Handler, token, method, path st
 	}
 }
 
-func requestErrorAuth(t *testing.T, handler http.Handler, token, method, path string, body any, wantStatus int) map[string]string {
+func requestErrorAuth(t *testing.T, handler http.Handler, token, method, path string, body any, wantStatus int) map[string]any {
 	t.Helper()
 
 	req := httptest.NewRequest(method, path, encodeBody(t, body))
@@ -766,12 +767,37 @@ func requestErrorAuth(t *testing.T, handler http.Handler, token, method, path st
 		t.Fatalf("%s %s: expected status %d, got %d, body=%s", method, path, wantStatus, recorder.Code, recorder.Body.String())
 	}
 
-	var result map[string]string
+	var result map[string]any
 	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
 		t.Fatalf("%s %s: decode error response: %v", method, path, err)
 	}
 
 	return result
+}
+
+func errorFieldMap(t *testing.T, body map[string]any) map[string]string {
+	t.Helper()
+
+	raw, ok := body["errors"]
+	if !ok {
+		return nil
+	}
+
+	fields, ok := raw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected errors object, got %T", raw)
+	}
+
+	out := make(map[string]string, len(fields))
+	for key, value := range fields {
+		text, ok := value.(string)
+		if !ok {
+			t.Fatalf("expected errors[%q] to be a string, got %T", key, value)
+		}
+		out[key] = text
+	}
+
+	return out
 }
 
 func encodeBody(t *testing.T, body any) *bytes.Reader {
@@ -808,4 +834,45 @@ func requestJSONAuthRaw(t *testing.T, handler http.Handler, token, method, path 
 	}
 
 	return recorder.Body.Bytes()
+}
+
+func TestListWorkoutsPagination(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	userAuth := registerTestUser(t, server, "pag@example.com", "Pag", "password123")
+
+	// create 25 workouts
+	for i := 0; i < 25; i++ {
+		requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
+			"user_id":  userAuth.User.ID.String(),
+			"date":     "2026-04-10",
+			"duration": 60,
+			"type":     "strength",
+		}, http.StatusCreated)
+	}
+
+	// fetch page 1, limit 10
+	resp := requestJSONAuth[api.PaginatedResponse[models.Workout]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts?page=1&limit=10", nil, http.StatusOK)
+	if len(resp.Data) != 10 {
+		t.Fatalf("expected 10 items, got %d", len(resp.Data))
+	}
+	if resp.Metadata.TotalCount != 25 {
+		t.Fatalf("expected total count 25, got %d", resp.Metadata.TotalCount)
+	}
+	if resp.Metadata.TotalPages != 3 {
+		t.Fatalf("expected total pages 3, got %d", resp.Metadata.TotalPages)
+	}
+	if !resp.Metadata.HasNext {
+		t.Fatalf("expected has_next to be true")
+	}
+
+	// fetch page 3, limit 10
+	resp3 := requestJSONAuth[api.PaginatedResponse[models.Workout]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts?page=3&limit=10", nil, http.StatusOK)
+	if len(resp3.Data) != 5 {
+		t.Fatalf("expected 5 items, got %d", len(resp3.Data))
+	}
+	if resp3.Metadata.HasNext {
+		t.Fatalf("expected has_next to be false")
+	}
 }

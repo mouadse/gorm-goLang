@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"fitness-tracker/models"
+
 	"gorm.io/gorm"
 )
 
@@ -116,13 +117,15 @@ func (s *Server) handleListWeightEntries(w http.ResponseWriter, r *http.Request)
 		query = query.Where("date <= ?", parsedEnd)
 	}
 
+	page, limit := parsePagination(r)
 	var entries []models.WeightEntry
-	if err := query.Order("date desc, created_at desc").Find(&entries).Error; err != nil {
+	paginated, err := paginate(query.Order("date desc, created_at desc"), page, limit, &entries)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(entries))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetWeightEntry(w http.ResponseWriter, r *http.Request) {

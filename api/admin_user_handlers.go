@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -14,12 +13,12 @@ import (
 )
 
 type adminUpdateUserRequest struct {
-	Name          *string  `json:"name"`
-	Email         *string  `json:"email"`
-	Role          *string  `json:"role"`
-	Goal          *string  `json:"goal"`
-	ActivityLevel *string  `json:"activity_level"`
-	Avatar        *string  `json:"avatar"`
+	Name          *string `json:"name"`
+	Email         *string `json:"email"`
+	Role          *string `json:"role"`
+	Goal          *string `json:"goal"`
+	ActivityLevel *string `json:"activity_level"`
+	Avatar        *string `json:"avatar"`
 }
 
 type adminBanUserRequest struct {
@@ -48,37 +47,15 @@ func (s *Server) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("banned_at IS NULL")
 	}
 
-	// Pagination
-	page := 1
-	limit := 50
-	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
-		page = p
-	}
-	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 {
-		if l > 100 {
-			l = 100 // cap max limit
-		}
-		limit = l
-	}
-
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-
+	page, limit := parsePagination(r)
 	var users []models.User
-	if err := query.Order("created_at desc").Limit(limit).Offset((page - 1) * limit).Find(&users).Error; err != nil {
+	paginated, err := paginate(query.Order("created_at desc"), page, limit, &users)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	response := map[string]any{
-		"users": ensureSlice(users),
-		"total": total,
-	}
-
-	writeJSON(w, http.StatusOK, response)
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleAdminGetUser(w http.ResponseWriter, r *http.Request) {

@@ -7,6 +7,7 @@ import (
 
 	"fitness-tracker/models"
 	"fitness-tracker/services"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -135,13 +136,15 @@ func (s *Server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	page, limit := parsePagination(r)
 	var templates []models.WorkoutTemplate
-	if err := s.db.Where("owner_id = ?", userID).Order("created_at desc").Find(&templates).Error; err != nil {
+	paginated, err := paginate(s.db.Where("owner_id = ?", userID).Order("created_at desc"), page, limit, &templates)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(templates))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetTemplate(w http.ResponseWriter, r *http.Request) {

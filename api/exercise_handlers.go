@@ -9,6 +9,7 @@ import (
 
 	"fitness-tracker/models"
 	"fitness-tracker/services"
+
 	"gorm.io/gorm"
 )
 
@@ -127,17 +128,15 @@ func (s *Server) handleListExercises(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("LOWER(primary_muscles) LIKE ? OR LOWER(secondary_muscles) LIKE ?", m, m)
 	}
 
+	page, limit := parsePagination(r)
 	var exercises []models.Exercise
-	if err := query.Order("name asc").Find(&exercises).Error; err != nil {
+	paginated, err := paginate(query.Order("name asc"), page, limit, &exercises)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	if exercises == nil {
-		exercises = []models.Exercise{}
-	}
-
-	writeJSON(w, http.StatusOK, exercises)
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetExercise(w http.ResponseWriter, r *http.Request) {

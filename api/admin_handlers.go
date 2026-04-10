@@ -150,12 +150,14 @@ func (s *Server) handleAdminSystemHealth(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleAdminListAuditLogs(w http.ResponseWriter, r *http.Request) {
+	page, limit := parsePagination(r)
 	var logs []models.AuditLog
-	if err := s.db.Order("created_at DESC").Limit(100).Find(&logs).Error; err != nil {
+	paginated, err := paginate(s.db.Order("created_at DESC"), page, limit, &logs)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, logs)
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleAdminRealtimeWS(w http.ResponseWriter, r *http.Request) {

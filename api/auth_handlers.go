@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"fitness-tracker/models"
 	"fitness-tracker/services"
@@ -79,12 +80,8 @@ func (s *Server) handleLoginRequest(w http.ResponseWriter, r *http.Request, requ
 		return
 	}
 	if strings.TrimSpace(req.TwoFactorToken) == "" {
-		if strings.TrimSpace(req.Email) == "" {
-			writeError(w, http.StatusBadRequest, errors.New("email is required"))
-			return
-		}
-		if strings.TrimSpace(req.Password) == "" {
-			writeError(w, http.StatusBadRequest, errors.New("password is required"))
+		if err := validateCredentialFields(req.Email, req.Password); err != nil {
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 	}
@@ -132,7 +129,7 @@ func (s *Server) handleLoginRequest(w http.ResponseWriter, r *http.Request, requ
 		limitKey := s.twoFactorAttemptKey(r, user.ID, requireRecovery, recoveryCode != "")
 
 		if requireRecovery && recoveryCode == "" {
-			writeError(w, http.StatusBadRequest, errors.New("recovery_code is required"))
+			writeError(w, http.StatusBadRequest, singleFieldError("recovery_code", "recovery_code is required"))
 			return
 		}
 
@@ -168,7 +165,7 @@ func (s *Server) handleLoginRequest(w http.ResponseWriter, r *http.Request, requ
 			return
 		case totpCode != "":
 			if requireRecovery {
-				writeError(w, http.StatusBadRequest, errors.New("recovery_code is required"))
+				writeError(w, http.StatusBadRequest, singleFieldError("recovery_code", "recovery_code is required"))
 				return
 			}
 			if !s.twoFactorLimit.Allow(limitKey) {
@@ -349,7 +346,7 @@ func (s *Server) handleVerifyTwoFactor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.TrimSpace(req.Code) == "" {
-		writeError(w, http.StatusBadRequest, errors.New("code is required"))
+		writeError(w, http.StatusBadRequest, singleFieldError("code", "code is required"))
 		return
 	}
 	limitKey := "verify_setup:" + userID.String()
@@ -400,7 +397,7 @@ func (s *Server) handleDisableTwoFactor(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if strings.TrimSpace(req.Code) == "" {
-		writeError(w, http.StatusBadRequest, errors.New("code is required"))
+		writeError(w, http.StatusBadRequest, singleFieldError("code", "code is required"))
 		return
 	}
 	limitKey := "disable_2fa:" + userID.String()
@@ -439,6 +436,19 @@ func (s *Server) handleRegisterWithSessions(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := validateRegistrationInput(registrationValidationInput{
+		Email:       req.Email,
+		Password:    req.Password,
+		Name:        req.Name,
+		DateOfBirth: req.DateOfBirth,
+		Age:         req.Age,
+		Weight:      req.Weight,
+		Height:      req.Height,
+		TDEE:        req.TDEE,
+	}); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 
 	user, err := s.authSvc.CreateLocalUser(req)
 	if err != nil {
@@ -470,7 +480,7 @@ func (s *Server) handleRefreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.RefreshToken == "" {
-		writeError(w, http.StatusBadRequest, errors.New("refresh_token is required"))
+		writeError(w, http.StatusBadRequest, singleFieldError("refresh_token", "refresh_token is required"))
 		return
 	}
 
@@ -510,7 +520,11 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !req.AllSessions && req.RefreshToken == "" {
-		writeError(w, http.StatusBadRequest, errors.New("must provide either refresh_token or all_sessions"))
+		errs := NewValidationErrors()
+		errs.SetSummary("must provide either refresh_token or all_sessions")
+		errs.Add("refresh_token", "refresh_token is required unless all_sessions is true")
+		errs.Add("all_sessions", "all_sessions must be true when refresh_token is omitted")
+		writeError(w, http.StatusBadRequest, errs)
 		return
 	}
 
@@ -550,18 +564,46 @@ func (s *Server) handleGetSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := make([]sessionResponse, len(sessions))
-	for i, s := range sessions {
-		response[i] = sessionResponse{
+	page, limit := parsePagination(r)
+	totalCount := len(sessions)
+	totalPages := (totalCount + limit - 1) / limit
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	hasNext := page < totalPages
+
+	start := (page - 1) * limit
+	end := start + limit
+	if start > totalCount {
+		start = totalCount
+	}
+	if end > totalCount {
+		end = totalCount
+	}
+
+	response := make([]sessionResponse, 0, limit)
+	for _, s := range sessions[start:end] {
+		response = append(response, sessionResponse{
 			ID:        s.ID.String(),
 			UserAgent: s.UserAgent,
 			LastIP:    s.LastIP,
-			CreatedAt: s.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			ExpiresAt: s.ExpiresAt.Format("2006-01-02T15:04:05Z"),
-		}
+			CreatedAt: s.CreatedAt.Format(time.RFC3339),
+			ExpiresAt: s.ExpiresAt.Format(time.RFC3339),
+		})
 	}
 
-	writeJSON(w, http.StatusOK, response)
+	paginated := PaginatedResponse[sessionResponse]{
+		Data: ensureSlice(response),
+		Metadata: PaginationMetadata{
+			Page:       page,
+			Limit:      limit,
+			TotalCount: totalCount,
+			TotalPages: totalPages,
+			HasNext:    hasNext,
+		},
+	}
+
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {

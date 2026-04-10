@@ -46,6 +46,19 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := validateRegistrationInput(registrationValidationInput{
+		Email:       req.Email,
+		Password:    req.Password,
+		Name:        req.Name,
+		DateOfBirth: req.DateOfBirth,
+		Age:         req.Age,
+		Weight:      req.Weight,
+		Height:      req.Height,
+		TDEE:        req.TDEE,
+	}); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 
 	user, err := s.createLocalUser(req)
 	if err != nil {
@@ -59,6 +72,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := validateCredentialFields(req.Email, req.Password); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}

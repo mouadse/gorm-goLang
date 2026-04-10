@@ -183,13 +183,15 @@ func (s *Server) handleListPrograms(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	page, limit := parsePagination(r)
 	var programs []models.WorkoutProgram
-	if err := query.Order("created_at desc").Find(&programs).Error; err != nil {
+	paginated, err := paginate(query.Order("created_at desc"), page, limit, &programs)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(programs))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetProgram(w http.ResponseWriter, r *http.Request) {
@@ -699,12 +701,14 @@ func (s *Server) handleListProgramAssignmentsForProgram(w http.ResponseWriter, r
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	page, limit := parsePagination(r)
 	var assignments []models.ProgramAssignment
-	if err := s.programAssignmentBaseQuery().Where("program_id = ?", programID).Order("assigned_at desc").Find(&assignments).Error; err != nil {
+	paginated, err := paginate(s.programAssignmentBaseQuery().Where("program_id = ?", programID).Order("assigned_at desc"), page, limit, &assignments)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ensureSlice(assignments))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleListProgramAssignments(w http.ResponseWriter, r *http.Request) {
@@ -727,12 +731,14 @@ func (s *Server) handleListProgramAssignments(w http.ResponseWriter, r *http.Req
 		query = query.Where("status = ?", status)
 	}
 
+	page, limit := parsePagination(r)
 	var assignments []models.ProgramAssignment
-	if err := query.Order("assigned_at desc").Find(&assignments).Error; err != nil {
+	paginated, err := paginate(query.Order("assigned_at desc"), page, limit, &assignments)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, ensureSlice(assignments))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetProgramAssignment(w http.ResponseWriter, r *http.Request) {

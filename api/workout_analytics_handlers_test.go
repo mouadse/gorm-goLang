@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"bytes"
+	"fitness-tracker/api"
 	"net/http"
 	"testing"
 	"time"
@@ -18,9 +19,9 @@ func TestWorkoutAnalyticsHandlers(t *testing.T) {
 	user := userAuth.User
 
 	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
-		"name":         "Squat",
+		"name":            "Squat",
 		"primary_muscles": "Legs",
-		"equipment":    "Barbell",
+		"equipment":       "Barbell",
 	}, http.StatusCreated)
 
 	// Log a workout
@@ -48,7 +49,7 @@ func TestWorkoutAnalyticsHandlers(t *testing.T) {
 
 	// 1. Test Records
 	t.Run("GetRecords", func(t *testing.T) {
-		records := requestJSONAuth[[]any](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/records", nil, http.StatusOK)
+		records := requestJSONAuth[api.PaginatedResponse[any]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/records", nil, http.StatusOK).Data
 		if len(records) == 0 {
 			t.Errorf("expected personal records, got none")
 		}
@@ -64,7 +65,7 @@ func TestWorkoutAnalyticsHandlers(t *testing.T) {
 
 	// 3. Test History
 	t.Run("GetHistory", func(t *testing.T) {
-		history := requestJSONAuth[[]any](t, server, userAuth.AccessToken, http.MethodGet, "/v1/exercises/"+exercise.ID.String()+"/history", nil, http.StatusOK)
+		history := requestJSONAuth[api.PaginatedResponse[any]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/exercises/"+exercise.ID.String()+"/history", nil, http.StatusOK).Data
 		if len(history) != 1 {
 			t.Errorf("expected 1 history entry, got %d", len(history))
 		}
@@ -131,7 +132,7 @@ func TestExerciseHistoryLimitValidation(t *testing.T) {
 
 	// Valid limit should work
 	t.Run("valid limit", func(t *testing.T) {
-		history := requestJSONAuth[[]any](t, server, userAuth.AccessToken, http.MethodGet, "/v1/exercises/"+exercise.ID.String()+"/history?limit=2", nil, http.StatusOK)
+		history := requestJSONAuth[api.PaginatedResponse[any]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/exercises/"+exercise.ID.String()+"/history?limit=2", nil, http.StatusOK).Data
 		if len(history) > 2 {
 			t.Errorf("expected at most 2 history entries, got %d", len(history))
 		}
@@ -139,7 +140,7 @@ func TestExerciseHistoryLimitValidation(t *testing.T) {
 
 	// No limit should work (returns all)
 	t.Run("no limit returns all", func(t *testing.T) {
-		history := requestJSONAuth[[]any](t, server, userAuth.AccessToken, http.MethodGet, "/v1/exercises/"+exercise.ID.String()+"/history", nil, http.StatusOK)
+		history := requestJSONAuth[api.PaginatedResponse[any]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/exercises/"+exercise.ID.String()+"/history", nil, http.StatusOK).Data
 		if len(history) != 3 {
 			t.Errorf("expected 3 history entries, got %d", len(history))
 		}

@@ -1,12 +1,14 @@
 package api_test
 
 import (
+	"fitness-tracker/api"
 	"net/http"
 	"testing"
 	"time"
 
 	"fitness-tracker/models"
 	"fitness-tracker/services"
+
 	"github.com/pquerna/otp/totp"
 )
 
@@ -240,7 +242,7 @@ func TestLogoutAllSessions(t *testing.T) {
 		t.Fatalf("generate jwt: %v", err)
 	}
 
-	sessionsBefore := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessionsBefore := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 	if len(sessionsBefore) < 2 {
 		t.Errorf("expected at least 2 sessions before logout, got %d", len(sessionsBefore))
 	}
@@ -308,7 +310,7 @@ func TestMultipleSessionsPerUser(t *testing.T) {
 		t.Fatalf("generate jwt: %v", err)
 	}
 
-	sessions := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessions := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 
 	if len(sessions) != 3 {
 		t.Errorf("expected 3 sessions, got %d", len(sessions))
@@ -359,7 +361,7 @@ func TestDeleteSingleSession(t *testing.T) {
 		t.Fatalf("generate jwt: %v", err)
 	}
 
-	sessions := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessions := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 	if len(sessions) != 2 {
 		t.Fatalf("expected 2 sessions, got %d", len(sessions))
 	}
@@ -368,7 +370,7 @@ func TestDeleteSingleSession(t *testing.T) {
 
 	expectStatusAuth(t, handler, accessToken, http.MethodDelete, "/v1/auth/sessions/"+sessionToDelete.ID, nil, http.StatusNoContent)
 
-	sessionsAfter := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessionsAfter := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 	if len(sessionsAfter) != 1 {
 		t.Errorf("expected 1 session after delete, got %d", len(sessionsAfter))
 	}
@@ -433,6 +435,82 @@ func TestRegisterWithSessions(t *testing.T) {
 	}
 	if resp.User.Email != "new-session@example.com" {
 		t.Errorf("expected user email, got %q", resp.User.Email)
+	}
+}
+
+func TestRegisterWithSessionsReturnsFieldValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	_, handler := newTestApp(t)
+
+	errResp := requestError(t, handler, http.MethodPost, "/v1/auth/register", map[string]any{
+		"email":         "",
+		"password":      "short",
+		"name":          "",
+		"date_of_birth": "2026/04/10",
+		"age":           -1,
+		"weight":        -2,
+		"height":        -3,
+		"tdee":          -4,
+	}, http.StatusBadRequest)
+
+	if errResp["title"] != "Validation failed" {
+		t.Fatalf("expected validation title, got %#v", errResp["title"])
+	}
+	if errResp["error"] != "one or more fields are invalid" {
+		t.Fatalf("expected validation summary, got %#v", errResp["error"])
+	}
+
+	fields := errorFieldMap(t, errResp)
+	if fields["email"] != "email is required" {
+		t.Fatalf("expected email field error, got %q", fields["email"])
+	}
+	if fields["password"] != "password must be at least 8 characters" {
+		t.Fatalf("expected password field error, got %q", fields["password"])
+	}
+	if fields["name"] != "name is required" {
+		t.Fatalf("expected name field error, got %q", fields["name"])
+	}
+	if fields["date_of_birth"] != "date_of_birth must be 2006-01-02" {
+		t.Fatalf("expected date_of_birth field error, got %q", fields["date_of_birth"])
+	}
+	if fields["age"] != "age cannot be negative" {
+		t.Fatalf("expected age field error, got %q", fields["age"])
+	}
+	if fields["weight"] != "weight cannot be negative" {
+		t.Fatalf("expected weight field error, got %q", fields["weight"])
+	}
+	if fields["height"] != "height cannot be negative" {
+		t.Fatalf("expected height field error, got %q", fields["height"])
+	}
+	if fields["tdee"] != "tdee cannot be negative" {
+		t.Fatalf("expected tdee field error, got %q", fields["tdee"])
+	}
+}
+
+func TestLoginReturnsFieldValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	_, handler := newTestApp(t)
+
+	errResp := requestError(t, handler, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "",
+		"password": "short",
+	}, http.StatusBadRequest)
+
+	if errResp["title"] != "Validation failed" {
+		t.Fatalf("expected validation title, got %#v", errResp["title"])
+	}
+	if errResp["error"] != "one or more fields are invalid" {
+		t.Fatalf("expected validation summary, got %#v", errResp["error"])
+	}
+
+	fields := errorFieldMap(t, errResp)
+	if fields["email"] != "email is required" {
+		t.Fatalf("expected email field error, got %q", fields["email"])
+	}
+	if fields["password"] != "password must be at least 8 characters" {
+		t.Fatalf("expected password field error, got %q", fields["password"])
 	}
 }
 
@@ -776,7 +854,7 @@ func TestDeleteSessionRevokesRefreshToken(t *testing.T) {
 		t.Fatalf("generate jwt: %v", err)
 	}
 
-	sessions := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessions := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 	if len(sessions) != 1 {
 		t.Fatalf("expected 1 session, got %d", len(sessions))
 	}
@@ -824,7 +902,7 @@ func TestRefreshDoesNotCreateNewSession(t *testing.T) {
 		t.Fatalf("generate jwt: %v", err)
 	}
 
-	sessionsBefore := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessionsBefore := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 	if len(sessionsBefore) != 1 {
 		t.Fatalf("expected 1 session before refresh, got %d", len(sessionsBefore))
 	}
@@ -846,7 +924,7 @@ func TestRefreshDoesNotCreateNewSession(t *testing.T) {
 		tokens.RefreshToken = newRefreshToken
 	}
 
-	sessionsAfter := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessionsAfter := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 
 	// Should still have 2 sessions: the original one + the one created for testing
 	// The refreshes should not create new sessions
@@ -1031,7 +1109,7 @@ func TestLogoutRequiresSessionIdentifier(t *testing.T) {
 		t.Errorf("expected error about missing session identifier, got %q", errResp["error"])
 	}
 
-	sessionsBefore := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessionsBefore := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 	if len(sessionsBefore) != 1 {
 		t.Errorf("expected 1 session before logout attempt, got %d", len(sessionsBefore))
 	}
@@ -1112,7 +1190,7 @@ func TestLogoutRemovesSessionFromList(t *testing.T) {
 		t.Fatalf("generate jwt: %v", err)
 	}
 
-	sessionsBefore := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessionsBefore := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 	if len(sessionsBefore) != 1 {
 		t.Fatalf("expected 1 session before logout, got %d", len(sessionsBefore))
 	}
@@ -1122,7 +1200,7 @@ func TestLogoutRemovesSessionFromList(t *testing.T) {
 	}
 	expectStatusAuth(t, handler, accessToken, http.MethodPost, "/v1/auth/logout", logoutReq, http.StatusNoContent)
 
-	sessionsAfter := requestJSONAuth[[]sessionResponse](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK)
+	sessionsAfter := requestJSONAuth[api.PaginatedResponse[sessionResponse]](t, handler, accessToken, http.MethodGet, "/v1/auth/sessions", nil, http.StatusOK).Data
 	if len(sessionsAfter) != 0 {
 		t.Errorf("expected 0 sessions after logout, got %d - session should be removed from list", len(sessionsAfter))
 	}

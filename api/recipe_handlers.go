@@ -96,16 +96,17 @@ func (s *Server) handleListRecipes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	page, limit := parsePagination(r)
 	var recipes []models.Recipe
-	if err := s.db.Where("user_id = ?", currentUserID).
+	paginated, err := paginate(s.db.Where("user_id = ?", currentUserID).
 		Order("created_at desc").
-		Preload("Items.Food").
-		Find(&recipes).Error; err != nil {
+		Preload("Items.Food"), page, limit, &recipes)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(recipes))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 // handleGetRecipe godoc

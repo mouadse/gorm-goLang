@@ -181,9 +181,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SessionResponse"
+                $ref: "#/components/schemas/PaginatedSessions"
         default:
           $ref: "#/components/responses/Error"
   /v1/auth/sessions/{id}:
@@ -290,9 +288,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/User"
+                $ref: "#/components/schemas/PaginatedUsers"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -384,9 +380,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PersonalRecord"
+                $ref: "#/components/schemas/PaginatedPersonalRecords"
         "400":
           $ref: "#/components/responses/Error"
         "403":
@@ -507,6 +501,21 @@ paths:
             type: string
             format: uuid
           description: Optional. If provided, returns messages for this conversation. Otherwise returns a list of conversations.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for the conversation list when `conversation_id` is omitted.
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of conversations to return per page when `conversation_id` is omitted.
       responses:
         "200":
           description: List of conversations or conversation detail with messages.
@@ -514,9 +523,7 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - type: array
-                    items:
-                      $ref: "#/components/schemas/Conversation"
+                  - $ref: "#/components/schemas/PaginatedConversations"
                   - $ref: "#/components/schemas/Conversation"
         "401":
           $ref: "#/components/responses/Error"
@@ -603,9 +610,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Exercise"
+                $ref: "#/components/schemas/PaginatedExercises"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -703,9 +708,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ExerciseHistoryEntry"
+                $ref: "#/components/schemas/PaginatedExerciseHistory"
         "400":
           $ref: "#/components/responses/Error"
         "401":
@@ -834,9 +837,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WeightEntry"
+                $ref: "#/components/schemas/PaginatedWeightEntries"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -888,9 +889,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WeightEntry"
+                $ref: "#/components/schemas/PaginatedWeightEntries"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -998,9 +997,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Workout"
+                $ref: "#/components/schemas/PaginatedWorkouts"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -1046,9 +1043,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Workout"
+                $ref: "#/components/schemas/PaginatedWorkouts"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -1196,9 +1191,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WorkoutExercise"
+                $ref: "#/components/schemas/PaginatedWorkoutExercises"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -1554,9 +1547,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WorkoutTemplate"
+                $ref: "#/components/schemas/PaginatedWorkoutTemplates"
         "401":
           $ref: "#/components/responses/Error"
     post:
@@ -1698,9 +1689,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WorkoutProgram"
+                $ref: "#/components/schemas/PaginatedPrograms"
         "401":
           $ref: "#/components/responses/Error"
         "403":
@@ -2100,9 +2089,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ProgramAssignment"
+                $ref: "#/components/schemas/PaginatedProgramAssignments"
         "400":
           $ref: "#/components/responses/Error"
         "401":
@@ -2262,9 +2249,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Meal"
+                $ref: "#/components/schemas/PaginatedMeals"
         default:
           $ref: "#/components/responses/Error"
     post:
@@ -2414,9 +2399,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Meal"
+                $ref: "#/components/schemas/PaginatedMeals"
         "401":
           $ref: "#/components/responses/Error"
   /v1/meals/{id}/clone:
@@ -2469,9 +2452,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Food"
+                $ref: "#/components/schemas/PaginatedFoods"
     post:
       tags: [Foods]
       summary: Create food
@@ -2508,9 +2489,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Food"
+                $ref: "#/components/schemas/PaginatedFoods"
         "401":
           $ref: "#/components/responses/Error"
   /v1/foods/{id}:
@@ -2627,9 +2606,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/FavoriteFood"
+                $ref: "#/components/schemas/PaginatedFavoriteFoods"
         "401":
           $ref: "#/components/responses/Error"
         "403":
@@ -2675,9 +2652,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/MealFood"
+                $ref: "#/components/schemas/PaginatedMealFoods"
         "401":
           $ref: "#/components/responses/Error"
         "404":
@@ -2784,9 +2759,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Recipe"
+                $ref: "#/components/schemas/PaginatedRecipes"
         "401":
           $ref: "#/components/responses/Error"
     post:
@@ -3649,9 +3622,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/AuditLog"
+                $ref: "#/components/schemas/PaginatedAuditLogs"
         "401":
           $ref: "#/components/responses/Error"
         "403":
@@ -3730,10 +3701,36 @@ components:
           example: ok
     ErrorResponse:
       type: object
-      required: [error]
+      required: [title, status, error]
       properties:
+        type:
+          type: string
+          description: Problem type URI. Validation errors use a dedicated type; generic errors use `about:blank`.
+          example: about:blank
+        title:
+          type: string
+          description: Short, human-readable summary of the error category.
+          example: Bad Request
+        status:
+          type: integer
+          description: HTTP status code for the error response.
+          example: 400
+        detail:
+          type: string
+          description: Human-readable explanation of the specific error instance.
+          example: invalid email or password
         error:
           type: string
+          description: Backward-compatible alias of `detail`.
+          example: invalid email or password
+        errors:
+          type: object
+          description: Field-specific validation messages when the request fails validation.
+          additionalProperties:
+            type: string
+          example:
+            email: email is required
+            password: password must be at least 8 characters
     LoginRequest:
       type: object
       required: [email, password]
@@ -5845,6 +5842,258 @@ components:
               type: integer
             streak_days:
               type: integer
+
+    PaginationMetadata:
+      type: object
+      required: [page, limit, total_count, total_pages, has_next]
+      properties:
+        page:
+          type: integer
+          description: Current page number.
+        limit:
+          type: integer
+          description: Maximum number of records requested per page.
+        total_count:
+          type: integer
+          description: Total number of records matching the query.
+        total_pages:
+          type: integer
+          description: Total number of pages available for the current limit.
+        has_next:
+          type: boolean
+          description: Whether another page of results exists after the current page.
+
+    PaginatedUsers:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedWorkouts:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Workout"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedWorkoutExercises:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutExercise"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedWorkoutSets:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutSet"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedWorkoutCardio:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutCardioEntry"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedMeals:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Meal"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedFoods:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Food"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedFavoriteFoods:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FavoriteFood"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedMealFoods:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealFood"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedWeightEntries:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeightEntry"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedExercises:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Exercise"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedExerciseHistory:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExerciseHistoryEntry"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedPersonalRecords:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonalRecord"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedNotifications:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedSessions:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionResponse"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedAuditLogs:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLog"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedPrograms:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutProgram"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedProgramAssignments:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProgramAssignment"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedWorkoutTemplates:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkoutTemplate"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedConversations:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Conversation"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    PaginatedRecipes:
+      type: object
+      required: [data, metadata]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recipe"
+        metadata:
+          $ref: "#/components/schemas/PaginationMetadata"
+
   securitySchemes:
     BearerAuth:
       type: http

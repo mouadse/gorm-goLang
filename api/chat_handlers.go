@@ -8,6 +8,7 @@ import (
 
 	"fitness-tracker/models"
 	"fitness-tracker/services"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -228,12 +229,14 @@ func (s *Server) handleChatHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	page, limit := parsePagination(r)
 	var convs []models.Conversation
-	if err := s.db.Where("user_id = ?", userID).Order("updated_at desc").Limit(50).Find(&convs).Error; err != nil {
+	paginated, err := paginate(s.db.Where("user_id = ?", userID).Order("updated_at desc"), page, limit, &convs)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, convs)
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 type ChatFeedbackRequest struct {

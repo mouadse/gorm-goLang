@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -101,4 +102,68 @@ func resolveScopedUUID(r *http.Request, pathField, bodyField, raw string) (uuid.
 	}
 
 	return pathID, nil
+}
+
+type PaginationMetadata struct {
+	Page       int  `json:"page"`
+	Limit      int  `json:"limit"`
+	TotalCount int  `json:"total_count"`
+	TotalPages int  `json:"total_pages"`
+	HasNext    bool `json:"has_next"`
+}
+
+type PaginatedResponse[T any] struct {
+	Data     []T                `json:"data"`
+	Metadata PaginationMetadata `json:"metadata"`
+}
+
+func parsePagination(r *http.Request) (int, int) {
+	page := 1
+	limit := 20
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+			if limit > 100 {
+				limit = 100
+			}
+		}
+	}
+
+	return page, limit
+}
+
+func paginate[T any](query *gorm.DB, page, limit int, dest *[]T) (PaginatedResponse[T], error) {
+	var totalCount int64
+	var t T
+
+	// Use Scan instead of Count to avoid Gorm rewriting it to COUNT(table.*) in SQLite
+	if err := query.Model(&t).Session(&gorm.Session{}).Select("count(1)").Scan(&totalCount).Error; err != nil {
+		return PaginatedResponse[T]{}, err
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Model(&t).Limit(limit).Offset(offset).Find(dest).Error; err != nil {
+		return PaginatedResponse[T]{}, err
+	}
+
+	totalPages := int((totalCount + int64(limit) - 1) / int64(limit))
+	hasNext := page < totalPages
+
+	return PaginatedResponse[T]{
+		Data: ensureSlice(*dest),
+		Metadata: PaginationMetadata{
+			Page:       page,
+			Limit:      limit,
+			TotalCount: int(totalCount),
+			TotalPages: totalPages,
+			HasNext:    hasNext,
+		},
+	}, nil
 }

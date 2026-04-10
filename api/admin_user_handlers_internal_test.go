@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"fitness-tracker/models"
+
 	"github.com/google/uuid"
 )
 
@@ -56,7 +57,7 @@ func TestAdminUserHandlers(t *testing.T) {
 			t.Fatalf("decode response: %v", err)
 		}
 
-		users := resp["users"].([]any)
+		users := resp["data"].([]any)
 		if len(users) != 2 {
 			t.Fatalf("expected 2 users, got %d", len(users))
 		}

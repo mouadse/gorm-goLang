@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"fitness-tracker/models"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -45,6 +46,19 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if err := validateRegistrationInput(registrationValidationInput{
+		Email:       req.Email,
+		Password:    req.Password,
+		Name:        req.Name,
+		DateOfBirth: req.DateOfBirth,
+		Age:         req.Age,
+		Weight:      req.Weight,
+		Height:      req.Height,
+		TDEE:        req.TDEE,
+	}); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 
 	user, err := s.createLocalUser(req)
 	if err != nil {
@@ -72,13 +86,15 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("name LIKE ?", "%"+name+"%")
 	}
 
+	page, limit := parsePagination(r)
 	var users []models.User
-	if err := query.Order("created_at desc").Find(&users).Error; err != nil {
+	paginated, err := paginate(query.Order("created_at desc"), page, limit, &users)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(users))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {

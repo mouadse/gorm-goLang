@@ -10,6 +10,7 @@ import (
 
 	"fitness-tracker/models"
 	"fitness-tracker/services"
+
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -47,7 +48,7 @@ func TestChatHandlers(t *testing.T) {
 			Message: "Hi coach!",
 		})
 		req := httptest.NewRequest("POST", "/v1/chat", bytes.NewBuffer(reqBody))
-		
+
 		// Add user ID to context
 		ctx := context.WithValue(req.Context(), authenticatedUserIDKey, userID)
 		req = req.WithContext(ctx)

@@ -39,16 +39,17 @@ func (s *Server) handleGetRecentMeals(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	cutoff := time.Date(now.Year(), now.Month(), now.Day()-days, 0, 0, 0, 0, time.UTC)
 
+	page, limit := parsePagination(r)
 	var meals []models.Meal
-	if err := s.db.Where("user_id = ? AND date >= ?", currentUserID, cutoff).
+	paginated, err := paginate(s.db.Where("user_id = ? AND date >= ?", currentUserID, cutoff).
 		Order("date desc").
-		Preload("Items.Food").
-		Find(&meals).Error; err != nil {
+		Preload("Items.Food"), page, limit, &meals)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(meals))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 // handleCloneMeal godoc
@@ -151,28 +152,25 @@ func (s *Server) handleGetRecentFoods(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var foods []models.Food
-	err = s.db.Raw(`
-		SELECT f.* 
-		FROM foods f
-		JOIN (
-			SELECT mf.food_id, MAX(mf.created_at) as last_used
+	query := s.db.Model(&models.Food{}).
+		Joins(`JOIN (
+			SELECT mf.food_id, MAX(m.date) as last_used
 			FROM meal_foods mf
 			JOIN meals m ON mf.meal_id = m.id
 			WHERE m.user_id = ?
 			GROUP BY mf.food_id
-			ORDER BY last_used DESC
-			LIMIT 20
-		) recent ON f.id = recent.food_id
-		ORDER BY recent.last_used DESC
-	`, currentUserID).Scan(&foods).Error
+		) recent ON foods.id = recent.food_id`, currentUserID).
+		Order("recent.last_used DESC")
 
+	page, limit := parsePagination(r)
+	var foods []models.Food
+	paginated, err := paginate(query, page, limit, &foods)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(foods))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 // handleFavoriteFood godoc
@@ -289,11 +287,15 @@ func (s *Server) handleGetFavorites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	page, limit := parsePagination(r)
+	query := s.db.Where("user_id = ?", targetUserID).Preload("Food")
+
 	var favorites []models.FavoriteFood
-	if err := s.db.Where("user_id = ?", targetUserID).Preload("Food").Find(&favorites).Error; err != nil {
+	paginated, err := paginate(query, page, limit, &favorites)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(favorites))
+	writeJSON(w, http.StatusOK, paginated)
 }

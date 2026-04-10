@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fitness-tracker/services"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -24,7 +25,35 @@ func (s *Server) handleGetUserRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(records))
+	page, limit := parsePagination(r)
+	totalCount := len(records)
+	totalPages := (totalCount + limit - 1) / limit
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	hasNext := page < totalPages
+
+	start := (page - 1) * limit
+	end := start + limit
+	if start > totalCount {
+		start = totalCount
+	}
+	if end > totalCount {
+		end = totalCount
+	}
+
+	paginated := PaginatedResponse[services.PersonalRecord]{
+		Data: ensureSlice(records[start:end]),
+		Metadata: PaginationMetadata{
+			Page:       page,
+			Limit:      limit,
+			TotalCount: totalCount,
+			TotalPages: totalPages,
+			HasNext:    hasNext,
+		},
+	}
+
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetUserWorkoutStats(w http.ResponseWriter, r *http.Request) {
@@ -74,13 +103,48 @@ func (s *Server) handleGetExerciseHistory(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	history, err := s.analyticsSvc.GetExerciseHistory(userID, exerciseID, limit)
+	// We ignore the legacy limit because we are paginating
+	history, err := s.analyticsSvc.GetExerciseHistory(userID, exerciseID, 0)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(history))
+	page, limit := parsePagination(r)
+	if limitParam := r.URL.Query().Get("limit"); limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	totalCount := len(history)
+	totalPages := (totalCount + limit - 1) / limit
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	hasNext := page < totalPages
+
+	start := (page - 1) * limit
+	end := start + limit
+	if start > totalCount {
+		start = totalCount
+	}
+	if end > totalCount {
+		end = totalCount
+	}
+
+	paginated := PaginatedResponse[services.ExerciseHistoryEntry]{
+		Data: ensureSlice(history[start:end]),
+		Metadata: PaginationMetadata{
+			Page:       page,
+			Limit:      limit,
+			TotalCount: totalCount,
+			TotalPages: totalPages,
+			HasNext:    hasNext,
+		},
+	}
+
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetUserActivityCalendar(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"fitness-tracker/api"
 	"fmt"
 	"net/http"
 	"testing"
@@ -16,9 +17,9 @@ func TestCardioEntryCRUD(t *testing.T) {
 	user := userAuth.User
 
 	exercise := requestJSONAuth[models.Exercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/exercises", map[string]any{
-		"name":         "Bench Press",
+		"name":            "Bench Press",
 		"primary_muscles": "Chest",
-		"equipment":    "Barbell",
+		"equipment":       "Barbell",
 	}, http.StatusCreated)
 
 	t.Run("create cardio entry for workout", func(t *testing.T) {
@@ -175,7 +176,7 @@ func TestCardioEntryCRUD(t *testing.T) {
 			"duration_minutes": 20,
 		}, http.StatusCreated)
 
-		entries := requestJSONAuth[[]models.WorkoutCardioEntry](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/cardio", nil, http.StatusOK)
+		entries := requestJSONAuth[api.PaginatedResponse[models.WorkoutCardioEntry]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/cardio", nil, http.StatusOK).Data
 
 		if len(entries) != 2 {
 			t.Fatalf("expected 2 cardio entries, got %d", len(entries))
@@ -209,7 +210,7 @@ func TestCardioEntryCRUD(t *testing.T) {
 			t.Fatalf("expected 1 workout exercise, got %d", len(loadedWorkout.WorkoutExercises))
 		}
 
-		cardioEntries := requestJSONAuth[[]models.WorkoutCardioEntry](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/cardio", nil, http.StatusOK)
+		cardioEntries := requestJSONAuth[api.PaginatedResponse[models.WorkoutCardioEntry]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String()+"/cardio", nil, http.StatusOK).Data
 
 		if len(cardioEntries) != 1 {
 			t.Fatalf("expected 1 cardio entry, got %d", len(cardioEntries))

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"fitness-tracker/models"
+
 	"gorm.io/gorm"
 )
 
@@ -102,17 +103,19 @@ func (s *Server) handleListMeals(w http.ResponseWriter, r *http.Request) {
 		query = query.Where("meal_type = ?", mealType)
 	}
 
+	page, limit := parsePagination(r)
 	var meals []models.Meal
-	if err := query.Preload("Items.Food").Order("date desc, created_at desc").Find(&meals).Error; err != nil {
+	paginated, err := paginate(query.Preload("Items.Food").Order("date desc, created_at desc"), page, limit, &meals)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	for i := range meals {
-		meals[i].CalculateTotals()
+	for i := range paginated.Data {
+		paginated.Data[i].CalculateTotals()
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(meals))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetMeal(w http.ResponseWriter, r *http.Request) {

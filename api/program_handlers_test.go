@@ -1,10 +1,12 @@
 package api_test
 
 import (
+	"fitness-tracker/api"
 	"net/http"
 	"testing"
 
 	"fitness-tracker/models"
+
 	"gorm.io/gorm"
 )
 
@@ -103,7 +105,7 @@ func TestProgramCRUDAssignmentAndSessionApply(t *testing.T) {
 		t.Fatalf("unexpected assignment user/program: %#v", assignment)
 	}
 
-	assignments := requestJSONAuth[[]models.ProgramAssignment](t, handler, userAuth.AccessToken, http.MethodGet, "/v1/program-assignments", nil, http.StatusOK)
+	assignments := requestJSONAuth[api.PaginatedResponse[models.ProgramAssignment]](t, handler, userAuth.AccessToken, http.MethodGet, "/v1/program-assignments", nil, http.StatusOK).Data
 	if len(assignments) != 1 {
 		t.Fatalf("expected one user assignment, got %d", len(assignments))
 	}

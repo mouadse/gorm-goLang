@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"fitness-tracker/services"
+
 	"gorm.io/gorm"
 )
 

@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"fitness-tracker/api"
 	"net/http"
 	"testing"
 	"time"
@@ -54,7 +55,7 @@ func TestRecipeHandlers(t *testing.T) {
 	})
 
 	t.Run("List Recipes", func(t *testing.T) {
-		recipes := requestJSONAuth[[]models.Recipe](t, server, auth.AccessToken, http.MethodGet, "/v1/recipes", nil, http.StatusOK)
+		recipes := requestJSONAuth[api.PaginatedResponse[models.Recipe]](t, server, auth.AccessToken, http.MethodGet, "/v1/recipes", nil, http.StatusOK).Data
 		if len(recipes) != 1 {
 			t.Fatalf("expected 1 recipe")
 		}

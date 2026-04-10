@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"fitness-tracker/models"
+
 	"gorm.io/gorm"
 )
 
@@ -104,13 +105,15 @@ func (s *Server) handleListMealFoods(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	page, limit := parsePagination(r)
 	var items []models.MealFood
-	if err := s.db.Preload("Food").Where("meal_id = ?", mealID).Find(&items).Error; err != nil {
+	paginated, err := paginate(s.db.Preload("Food").Where("meal_id = ?", mealID), page, limit, &items)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(items))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleGetMealFood(w http.ResponseWriter, r *http.Request) {

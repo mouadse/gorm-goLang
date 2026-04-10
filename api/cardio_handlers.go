@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"fitness-tracker/models"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -55,13 +56,15 @@ func (s *Server) handleListWorkoutCardio(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	page, limit := parsePagination(r)
 	var entries []models.WorkoutCardioEntry
-	if err := s.db.Where("workout_id = ?", workoutID).Order("created_at asc").Find(&entries).Error; err != nil {
+	paginated, err := paginate(s.db.Where("workout_id = ?", workoutID).Order("created_at asc"), page, limit, &entries)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ensureSlice(entries))
+	writeJSON(w, http.StatusOK, paginated)
 }
 
 func (s *Server) handleCreateCardioEntry(w http.ResponseWriter, r *http.Request) {
