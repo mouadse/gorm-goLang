@@ -16,6 +16,26 @@ services:
     networks:
       - fitness-network
 
+  # Seed - populate initial data after migrations
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fitness-seed
+    entrypoint: ["/app/fitness-tracker-seed"]
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
+      - EXERCISE_LIB_URL=http://exercise-lib:8000
+      - APP_ENV=${APP_ENV:-development}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      exercise-lib:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - fitness-network
+
   # Application
   app:
     build:
@@ -48,6 +68,10 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      seed:
+        condition: service_completed_successfully
+      exercise-lib:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/readyz"]
       interval: 10s
@@ -77,6 +101,8 @@ services:
       postgres:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      seed:
         condition: service_completed_successfully
     networks:
       - fitness-network
