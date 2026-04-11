@@ -331,8 +331,9 @@ func (s *USDAImportService) persistBatch(
 				}
 
 				err := tx.Clauses(clause.OnConflict{
-					Columns:   []clause.Column{{Name: "food_id"}, {Name: "nutrient_id"}},
-					DoUpdates: clause.AssignmentColumns([]string{"amount_per_100g", "updated_at"}),
+					Columns: []clause.Column{{Name: "food_id"}, {Name: "nutrient_id"}},
+					// GORM maps AmountPer100g -> amount_per100g (not amount_per_100g) unless an explicit column tag is set.
+					DoUpdates: clause.AssignmentColumns([]string{"amount_per100g", "updated_at"}),
 				}).Create(&foodNutrient).Error
 				if err != nil {
 					// Fallback: try Where+Assign+FirstOrCreate if the constraint name doesn't match
