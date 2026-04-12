@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import os
@@ -2284,6 +2285,39 @@ async def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/livez")
+async def livez():
+    return {"status": "alive"}
+
+
+@app.get("/readyz")
+async def readyz():
+    trigger_catalog_initialization()
+    state, error = get_catalog_state()
+    if state != "ready":
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": state,
+                "catalog_status": state,
+                "ready": False,
+                "indexed": bool(catalog) and state == "ready",
+                "exercises_loaded": len(catalog),
+                "embedding_model": EMBEDDING_MODEL_NAME,
+                "error": error,
+            },
+        )
+    return {
+        "status": "healthy",
+        "catalog_status": state,
+        "ready": True,
+        "indexed": True,
+        "exercises_loaded": len(catalog),
+        "embedding_model": EMBEDDING_MODEL_NAME,
+        "error": error,
+    }
+
+
 @app.get("/health")
 async def health():
     trigger_catalog_initialization()
@@ -2375,7 +2409,9 @@ async def list_catalog_exercises(limit: int = 1000, offset: int = 0):
 async def initialize_database():
     try:
         set_catalog_state("starting")
-        total_exercises = initialize_catalog(force_rebuild=True)
+        total_exercises = await asyncio.to_thread(
+            initialize_catalog, force_rebuild=True
+        )
         return InitResponse(status="initialized", exercises_loaded=total_exercises)
     except HTTPException:
         raise
