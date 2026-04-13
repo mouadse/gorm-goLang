@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,6 +51,16 @@ func NewExerciseLibClient(m ...*metrics.Metrics) *ExerciseLibClient {
 type LibInitResponse struct {
 	Status          string `json:"status"`
 	ExercisesLoaded int    `json:"exercises_loaded"`
+}
+
+type LibReadyResponse struct {
+	Status          string `json:"status"`
+	CatalogStatus   string `json:"catalog_status"`
+	Ready           bool   `json:"ready"`
+	Indexed         bool   `json:"indexed"`
+	ExercisesLoaded int    `json:"exercises_loaded"`
+	EmbeddingModel  string `json:"embedding_model"`
+	Error           any    `json:"error"`
 }
 
 type LibMetaResponse struct {
@@ -170,6 +181,45 @@ func (c *ExerciseLibClient) GetMeta() (*LibMetaResponse, error) {
 	return &resp, err
 }
 
+func (c *ExerciseLibClient) Ready() (*LibReadyResponse, int, error) {
+	return c.readyRequest(context.Background())
+}
+
+func (c *ExerciseLibClient) WaitUntilReady(ctx context.Context) (*LibReadyResponse, error) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	var lastStatus string
+	var lastErr error
+
+	for {
+		resp, statusCode, err := c.readyRequest(ctx)
+		if err == nil {
+			lastStatus = resp.CatalogStatus
+			if strings.EqualFold(resp.CatalogStatus, "error") {
+				return nil, exerciseLibTerminalError(resp)
+			}
+			if resp.Ready {
+				return resp, nil
+			}
+		} else if statusCode != http.StatusServiceUnavailable {
+			lastErr = err
+		}
+
+		select {
+		case <-ctx.Done():
+			if lastErr != nil {
+				return nil, fmt.Errorf("%w (last error: %v)", ctx.Err(), lastErr)
+			}
+			if lastStatus != "" {
+				return nil, fmt.Errorf("%w (last catalog status: %s)", ctx.Err(), lastStatus)
+			}
+			return nil, ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
 func (c *ExerciseLibClient) GetAllExercises() ([]LibCatalogExercise, error) {
 	var all []LibCatalogExercise
 	offset := 0
@@ -178,6 +228,9 @@ func (c *ExerciseLibClient) GetAllExercises() ([]LibCatalogExercise, error) {
 		var resp LibCatalogExercisesResponse
 		if err := c.do("GET", path, nil, &resp); err != nil {
 			return nil, err
+		}
+		if len(resp.Exercises) == 0 {
+			break
 		}
 		all = append(all, resp.Exercises...)
 		if offset+len(resp.Exercises) >= resp.Total {
@@ -248,6 +301,61 @@ func (c *ExerciseLibClient) do(method, path string, body any, target any) error 
 	}
 
 	return json.NewDecoder(resp.Body).Decode(target)
+}
+
+func (c *ExerciseLibClient) readyRequest(ctx context.Context) (*LibReadyResponse, int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/readyz", nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("create readiness request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("exercise lib readiness request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, fmt.Errorf("read readiness response: %w", err)
+	}
+
+	var readyResp LibReadyResponse
+	if err := json.Unmarshal(body, &readyResp); err == nil && readyResp.CatalogStatus != "" {
+		if resp.StatusCode >= 400 && resp.StatusCode != http.StatusServiceUnavailable {
+			return &readyResp, resp.StatusCode, &ExerciseLibAPIError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(body))}
+		}
+		return &readyResp, resp.StatusCode, nil
+	}
+
+	var wrapped struct {
+		Detail LibReadyResponse `json:"detail"`
+	}
+	if err := json.Unmarshal(body, &wrapped); err == nil && wrapped.Detail.CatalogStatus != "" {
+		if resp.StatusCode >= 400 && resp.StatusCode != http.StatusServiceUnavailable {
+			return &wrapped.Detail, resp.StatusCode, &ExerciseLibAPIError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(body))}
+		}
+		return &wrapped.Detail, resp.StatusCode, nil
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, resp.StatusCode, &ExerciseLibAPIError{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(body))}
+	}
+
+	return nil, resp.StatusCode, fmt.Errorf("decode readiness response: %s", strings.TrimSpace(string(body)))
+}
+
+func exerciseLibTerminalError(resp *LibReadyResponse) error {
+	if resp == nil {
+		return fmt.Errorf("exercise library reported a terminal readiness error")
+	}
+
+	detail := strings.TrimSpace(fmt.Sprint(resp.Error))
+	if detail == "" || detail == "<nil>" {
+		return fmt.Errorf("exercise library reported catalog_status=%s", resp.CatalogStatus)
+	}
+
+	return fmt.Errorf("exercise library reported catalog_status=%s: %s", resp.CatalogStatus, detail)
 }
 
 func getEnvOrDefault(key, fallback string) string {

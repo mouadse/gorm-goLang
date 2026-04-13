@@ -136,11 +136,11 @@ services:
       - ./exercises_lib_service/.catalog_cache:/app/.catalog_cache
       - fastembed_cache:/var/cache/fastembed
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8000/health"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
-      start_period: 5s
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8000/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
     networks:
       - fitness-network
 

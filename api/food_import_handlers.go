@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"fitness-tracker/models"
+	"fitness-tracker/services"
 
 	"github.com/google/uuid"
 )
-
-const defaultUSDADatasetPath = "FoodData_Central_foundation_food_json_2025-12-18.json"
 
 type importUSDARequest struct {
 	FilePath string `json:"file_path"`
@@ -40,7 +39,7 @@ func (s *Server) handleImportUSDA(w http.ResponseWriter, r *http.Request) {
 
 	filePath := req.FilePath
 	if filePath == "" {
-		filePath = defaultUSDADatasetPath
+		filePath = services.USDAImportDatasetPath()
 	}
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {

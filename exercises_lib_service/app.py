@@ -2406,11 +2406,11 @@ async def list_catalog_exercises(limit: int = 1000, offset: int = 0):
 
 
 @app.post("/init", response_model=InitResponse)
-async def initialize_database():
+async def initialize_database(force_rebuild: bool = True):
     try:
         set_catalog_state("starting")
         total_exercises = await asyncio.to_thread(
-            initialize_catalog, force_rebuild=True
+            initialize_catalog, force_rebuild=force_rebuild
         )
         return InitResponse(status="initialized", exercises_loaded=total_exercises)
     except HTTPException:
@@ -2478,7 +2478,7 @@ async def search_exercises(request: SearchRequest):
         top_results = ranked_results[: request.top_k]
         return SearchResponse.model_construct(
             results=[
-                serialize_exercise(item, match_strength, match_reasons)
+                serialize_exercise(item, reranked_score, match_reasons)
                 for reranked_score, match_strength, item, match_reasons in top_results
             ]
         )

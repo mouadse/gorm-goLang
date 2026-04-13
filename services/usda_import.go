@@ -19,6 +19,9 @@ import (
 )
 
 const (
+	DefaultUSDADatasetPath = "FoodData_Central_foundation_food_json_2025-12-18.json"
+	usdaDatasetPathEnv     = "USDA_DATASET_PATH"
+
 	// USDA nutrient IDs
 	usdaNutrientCalories              = 1008
 	usdaNutrientEnergyAtwaterGeneral  = 2047
@@ -32,6 +35,14 @@ const (
 
 	importBatchSize = 100
 )
+
+// USDAImportDatasetPath returns the configured USDA dataset path.
+func USDAImportDatasetPath() string {
+	if path := strings.TrimSpace(os.Getenv(usdaDatasetPathEnv)); path != "" {
+		return path
+	}
+	return DefaultUSDADatasetPath
+}
 
 // ImportStats reports the outcome of a USDA import run.
 type ImportStats struct {

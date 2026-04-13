@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -62,15 +63,6 @@ func main() {
 		log.Fatalf("failed to seed foods: %v", err)
 	}
 
-	_, err = services.SeedNutrients(db)
-	if err != nil {
-		log.Fatalf("failed to seed nutrients: %v", err)
-	}
-
-	if err := seedFoodNutrients(db, foods); err != nil {
-		log.Fatalf("failed to seed food nutrients: %v", err)
-	}
-
 	workouts, err := seedWorkouts(db, source, users, exercises)
 	if err != nil {
 		log.Fatalf("failed to seed workouts: %v", err)
@@ -112,8 +104,8 @@ func main() {
 	log.Println("database seeding completed successfully")
 	log.Println("seeded data summary:")
 	log.Println("  - Users: 12")
-	log.Println("  - Exercises: 12")
-	log.Println("  - Foods: 8")
+	log.Printf("  - Exercises: %d", len(exercises))
+	log.Printf("  - Foods: %d", len(foods))
 	log.Println("  - Nutrients: 19")
 	log.Println("  - Workouts: 24")
 	log.Println("  - Cardio entries: 12")
@@ -169,24 +161,21 @@ func seedExercises(db *gorm.DB) ([]models.Exercise, error) {
 
 	client := services.NewExerciseLibClient()
 
-	initResp, err := client.Init()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	readyResp, err := client.WaitUntilReady(ctx)
 	if err != nil {
-		log.Printf("  warning: exercise lib init failed (%v), falling back to DB", err)
-		var exercises []models.Exercise
-		if err := db.Find(&exercises).Error; err != nil {
-			return nil, err
-		}
-		if len(exercises) == 0 {
-			log.Println("  warning: no exercises in DB, seeding defaults")
-			return seedLegacyExercises(db)
-		}
-		return exercises, nil
+		return nil, fmt.Errorf("wait for exercise library readiness: %w", err)
 	}
-	log.Printf("  exercise library initialized: %d exercises", initResp.ExercisesLoaded)
+	log.Printf("  exercise library ready: %d exercises indexed", readyResp.ExercisesLoaded)
 
 	catalog, err := client.GetAllExercises()
 	if err != nil {
 		return nil, fmt.Errorf("fetch exercises: %w", err)
+	}
+	if len(catalog) == 0 {
+		return nil, fmt.Errorf("exercise library returned zero exercises")
 	}
 
 	exercises := make([]models.Exercise, 0, len(catalog))
@@ -315,73 +304,35 @@ func seedUsers(db *gorm.DB) ([]models.User, error) {
 }
 
 func seedFoods(db *gorm.DB) ([]models.Food, error) {
-	log.Println("  seeding foods...")
+	log.Println("  importing foods from USDA dataset...")
 
-	seeds := []models.Food{
-		{Name: "Chicken Breast", Brand: "Generic", Category: "Poultry Products", Source: "user", ServingSize: 100, ServingUnit: "g", Calories: 165, Protein: 31, Carbohydrates: 0, Fat: 3.6, Fiber: 0, Sugar: 0, Sodium: 74},
-		{Name: "White Rice", Brand: "Generic", Category: "Cereal Grains and Pasta", Source: "user", ServingSize: 100, ServingUnit: "g", Calories: 130, Protein: 2.7, Carbohydrates: 28, Fat: 0.3, Fiber: 0.4, Sugar: 0.1, Sodium: 1},
-		{Name: "Broccoli", Brand: "Generic", Category: "Vegetables and Vegetable Products", Source: "user", ServingSize: 100, ServingUnit: "g", Calories: 34, Protein: 2.8, Carbohydrates: 7, Fat: 0.4, Fiber: 2.6, Sugar: 1.7, Sodium: 33},
-		{Name: "Greek Yogurt", Brand: "Chobani", Category: "Dairy and Egg Products", Source: "user", ServingSize: 170, ServingUnit: "g", Calories: 100, Protein: 18, Carbohydrates: 6, Fat: 0, Fiber: 0, Sugar: 3.2, Sodium: 36},
-		{Name: "Almonds", Brand: "Generic", Category: "Nut and Seed Products", Source: "user", ServingSize: 28, ServingUnit: "g", Calories: 160, Protein: 6, Carbohydrates: 6, Fat: 14, Fiber: 12.5, Sugar: 4.4, Sodium: 1},
-		{Name: "Oatmeal", Brand: "Quaker", Category: "Cereal Grains and Pasta", Source: "user", ServingSize: 40, ServingUnit: "g", Calories: 150, Protein: 5, Carbohydrates: 27, Fat: 3, Fiber: 10.6, Sugar: 0, Sodium: 2},
-		{Name: "Egg", Brand: "Generic", Category: "Dairy and Egg Products", Source: "user", ServingSize: 50, ServingUnit: "g", Calories: 70, Protein: 6, Carbohydrates: 0.4, Fat: 5, Fiber: 0, Sugar: 1.1, Sodium: 124},
-		{Name: "Peanut Butter", Brand: "Jif", Category: "Nut and Seed Products", Source: "user", ServingSize: 32, ServingUnit: "g", Calories: 190, Protein: 7, Carbohydrates: 8, Fat: 16, Fiber: 6, Sugar: 9, Sodium: 429},
-	}
-
-	foods := make([]models.Food, 0, len(seeds))
-	for _, seed := range seeds {
-		var food models.Food
-		if err := db.Where("name = ? AND brand = ?", seed.Name, seed.Brand).Assign(seed).FirstOrCreate(&food).Error; err != nil {
-			return nil, err
+	datasetPath := services.USDAImportDatasetPath()
+	if _, err := os.Stat(datasetPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("USDA dataset not found at %q; set USDA_DATASET_PATH or place the file at %q", datasetPath, services.DefaultUSDADatasetPath)
 		}
-		foods = append(foods, food)
+		return nil, fmt.Errorf("stat USDA dataset %q: %w", datasetPath, err)
 	}
 
-	return foods, nil
-}
+	importer := services.NewUSDAImportService(db)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
-func seedFoodNutrients(db *gorm.DB, foods []models.Food) error {
-	log.Println("  seeding food nutrients...")
-
-	nutrients, err := services.NutrientCodeToID(db)
+	stats, err := importer.ImportFromFile(ctx, datasetPath)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("import USDA foods from %q: %w", datasetPath, err)
 	}
 
-	for _, food := range foods {
-		var foodNutrients []models.FoodNutrient
-		switch food.Name {
-		case "Chicken Breast":
-			foodNutrients = []models.FoodNutrient{
-				{FoodID: food.ID, NutrientID: nutrients["1089"].ID, AmountPer100g: 0.89}, // Iron
-				{FoodID: food.ID, NutrientID: nutrients["1095"].ID, AmountPer100g: 0.82}, // Zinc
-				{FoodID: food.ID, NutrientID: nutrients["1175"].ID, AmountPer100g: 0.6},  // Vitamin B-6
-				{FoodID: food.ID, NutrientID: nutrients["1093"].ID, AmountPer100g: 74.0}, // Sodium
-			}
-		case "Broccoli":
-			foodNutrients = []models.FoodNutrient{
-				{FoodID: food.ID, NutrientID: nutrients["1162"].ID, AmountPer100g: 89.2},  // Vitamin C
-				{FoodID: food.ID, NutrientID: nutrients["1087"].ID, AmountPer100g: 47.0},  // Calcium
-				{FoodID: food.ID, NutrientID: nutrients["1185"].ID, AmountPer100g: 101.6}, // Vitamin K
-			}
-		case "Egg":
-			foodNutrients = []models.FoodNutrient{
-				{FoodID: food.ID, NutrientID: nutrients["1178"].ID, AmountPer100g: 1.1},   // Vitamin B-12
-				{FoodID: food.ID, NutrientID: nutrients["1114"].ID, AmountPer100g: 1.1},   // Vitamin D
-				{FoodID: food.ID, NutrientID: nutrients["1104"].ID, AmountPer100g: 140.0}, // Vitamin A
-			}
-		}
-
-		for _, fn := range foodNutrients {
-			if err := db.Where("food_id = ? AND nutrient_id = ?", fn.FoodID, fn.NutrientID).
-				Assign(fn).
-				FirstOrCreate(&models.FoodNutrient{}).Error; err != nil {
-				return err
-			}
-		}
+	var foods []models.Food
+	if err := db.Where("source = ?", "usda").Order("name ASC").Find(&foods).Error; err != nil {
+		return nil, fmt.Errorf("load imported USDA foods: %w", err)
+	}
+	if len(foods) == 0 {
+		return nil, fmt.Errorf("USDA import completed from %q but no foods were found", datasetPath)
 	}
 
-	return nil
+	log.Printf("  USDA import ready: %d foods processed (%d new)", stats.FoodCount, stats.NewFoods)
+	return foods, nil
 }
 
 func seedWorkouts(db *gorm.DB, source *rand.Rand, users []models.User, exercises []models.Exercise) ([]models.Workout, error) {
@@ -704,6 +655,13 @@ func seedWeightEntries(db *gorm.DB, users []models.User) error {
 
 func seedFavoriteFoods(db *gorm.DB, users []models.User, foods []models.Food) error {
 	log.Println("  seeding favorite foods...")
+
+	if len(foods) == 0 {
+		return fmt.Errorf("cannot seed favorite foods: foods list is empty")
+	}
+	if len(users) == 0 {
+		return fmt.Errorf("cannot seed favorite foods: users list is empty")
+	}
 
 	for _, user := range users {
 		for i := 0; i < 2; i++ {

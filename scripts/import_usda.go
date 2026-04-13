@@ -11,10 +11,8 @@ import (
 	"fitness-tracker/services"
 )
 
-const defaultDatasetPath = "FoodData_Central_foundation_food_json_2025-12-18.json"
-
 func main() {
-	datasetPath := defaultDatasetPath
+	datasetPath := services.USDAImportDatasetPath()
 	if len(os.Args) > 1 {
 		datasetPath = os.Args[1]
 	}
