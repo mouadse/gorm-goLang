@@ -115,6 +115,28 @@ class CatalogSetupTests(unittest.TestCase):
         self.assertFalse(payload["ready"])
         self.assertEqual(payload["exercises_loaded"], 0)
 
+    def test_initialize_database_forces_rebuild_by_default(self):
+        async def fake_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        with patch("app.asyncio.to_thread", side_effect=fake_to_thread):
+            with patch("app.initialize_catalog", return_value=3) as initialize_catalog:
+                payload = asyncio.run(app.initialize_database())
+
+        initialize_catalog.assert_called_once_with(force_rebuild=True)
+        self.assertEqual(payload.exercises_loaded, 3)
+
+    def test_initialize_database_allows_explicit_cache_reuse(self):
+        async def fake_to_thread(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        with patch("app.asyncio.to_thread", side_effect=fake_to_thread):
+            with patch("app.initialize_catalog", return_value=3) as initialize_catalog:
+                payload = asyncio.run(app.initialize_database(force_rebuild=False))
+
+        initialize_catalog.assert_called_once_with(force_rebuild=False)
+        self.assertEqual(payload.exercises_loaded, 3)
+
 
 if __name__ == "__main__":
     unittest.main()
