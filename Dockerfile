@@ -28,8 +28,8 @@ WORKDIR /app
 # Install runtime dependencies. Alpine already includes wget for healthchecks.
 RUN apk --no-cache add ca-certificates tzdata
 
-# Create non-root user
-RUN adduser -D -g '' appuser
+# Create non-root user and group so --chown resolves reliably.
+RUN addgroup -S appuser && adduser -S -G appuser appuser
 
 # Copy binaries and bundled USDA dataset
 COPY --link --chown=appuser:appuser --from=builder /out/fitness-tracker /app/fitness-tracker
