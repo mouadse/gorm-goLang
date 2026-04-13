@@ -25,16 +25,19 @@ FROM alpine:3.19
 
 WORKDIR /app
 
+# Create non-root user and group first, before any COPY commands that use --chown
+RUN addgroup -S appuser && adduser -S -G appuser appuser
+
 # Install runtime dependencies. Alpine already includes wget for healthchecks.
 RUN apk --no-cache add ca-certificates tzdata
 
-# Create non-root user and group so --chown resolves reliably.
-RUN addgroup -S appuser && adduser -S -G appuser appuser
-
 # Copy binaries and bundled USDA dataset
-COPY --link --chown=appuser:appuser --from=builder /out/fitness-tracker /app/fitness-tracker
-COPY --link --chown=appuser:appuser --from=builder /out/fitness-tracker-seed /app/fitness-tracker-seed
-COPY --link --chown=appuser:appuser FoodData_Central_foundation_food_json_2025-12-18.json /app/FoodData_Central_foundation_food_json_2025-12-18.json
+COPY --link --from=builder /out/fitness-tracker /app/fitness-tracker
+COPY --link --from=builder /out/fitness-tracker-seed /app/fitness-tracker-seed
+COPY --link FoodData_Central_foundation_food_json_2025-12-18.json /app/FoodData_Central_foundation_food_json_2025-12-18.json
+
+# Set ownership after copying
+RUN chown -R appuser:appuser /app
 
 USER appuser
 
