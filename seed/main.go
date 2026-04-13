@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"strings"
 	"time"
 
@@ -25,6 +26,21 @@ func main() {
 
 	if err := database.Migrate(db); err != nil {
 		log.Fatalf("migration failed: %v", err)
+	}
+
+	switch seedMode() {
+	case "never":
+		log.Println("database seeding skipped (SEED_MODE=never)")
+		return
+	case "if-empty":
+		needsSeed, err := databaseNeedsSeed(db)
+		if err != nil {
+			log.Fatalf("seed preflight failed: %v", err)
+		}
+		if !needsSeed {
+			log.Println("existing seed data detected; skipping comprehensive seeding")
+			return
+		}
 	}
 
 	source := rand.New(rand.NewSource(42))
@@ -108,6 +124,44 @@ func main() {
 	log.Println("  - Favorite foods: 24")
 	log.Println("  - Recipes: 4")
 	log.Println("  - Notifications: 12")
+}
+
+func seedMode() string {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("SEED_MODE")))
+	if mode == "" {
+		return "if-empty"
+	}
+
+	switch mode {
+	case "always", "if-empty", "never":
+		return mode
+	default:
+		log.Printf("unknown SEED_MODE %q, defaulting to if-empty", mode)
+		return "if-empty"
+	}
+}
+
+func databaseNeedsSeed(db *gorm.DB) (bool, error) {
+	checks := []struct {
+		name  string
+		model any
+	}{
+		{name: "users", model: &models.User{}},
+		{name: "foods", model: &models.Food{}},
+		{name: "exercises", model: &models.Exercise{}},
+	}
+
+	for _, check := range checks {
+		var count int64
+		if err := db.Model(check.model).Limit(1).Count(&count).Error; err != nil {
+			return false, fmt.Errorf("count %s: %w", check.name, err)
+		}
+		if count == 0 {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func seedExercises(db *gorm.DB) ([]models.Exercise, error) {

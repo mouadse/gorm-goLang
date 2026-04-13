@@ -5,11 +5,12 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
-COMPOSE ?= docker compose
+COMPOSE ?= DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose
 FULL_COMPOSE := $(COMPOSE) -f docker-compose.yml -f docker-compose.coach.yml
 
 # Core services always started by `make run`
-CORE_SERVICES := postgres pgadmin exercise-lib migrate seed app worker
+CORE_SERVICES := postgres exercise-lib migrate seed app worker
+OPTIONAL_SERVICES := $(if $(ADMIN),pgadmin,) $(if $(MONITOR),prometheus grafana,)
 
 # ─── One command to rule them all ──────────────────────────────────
 # Builds images and starts services in the correct order.
@@ -25,16 +26,19 @@ CORE_SERVICES := postgres pgadmin exercise-lib migrate seed app worker
 #              make run COACH=1
 #              make run MONITOR=1 COACH=1
 run:
-	@echo "🔧 Building images..."
-	$(COMPOSE) build
+	@echo "🔧 Building images with BuildKit..."
+	$(COMPOSE) build --parallel app exercise-lib
 ifdef MONITOR
 	@echo "📊 Including monitoring (Prometheus + Grafana)..."
+endif
+ifdef ADMIN
+	@echo "🗄️  Including pgAdmin..."
 endif
 ifdef COACH
 	@echo "🧠 Including AI Coach UI..."
 endif
 	@echo "🐳 Starting services..."
-	$(COMPOSE) up -d $(CORE_SERVICES) $(if $(MONITOR),prometheus grafana,)
+	$(COMPOSE) up -d $(CORE_SERVICES) $(OPTIONAL_SERVICES)
 ifdef COACH
 	$(FULL_COMPOSE) up -d coach-ui
 endif
@@ -46,7 +50,9 @@ endif
 	@echo "  🌐 Application URLs:"
 	@echo "     API (Swagger)      → http://localhost:8080"
 	@echo "     Exercise Library   → http://localhost:8000"
+ifdef ADMIN
 	@echo "     pgAdmin (DB UI)    → http://localhost:8081"
+endif
 ifdef MONITOR
 	@echo "     Prometheus         → http://localhost:9090"
 	@echo "     Grafana            → http://localhost:3000 (admin/admin)"
@@ -93,7 +99,8 @@ test:
 help:
 	@echo "Fitness Tracker — Available Commands"
 	@echo ""
-	@echo "  make run              Build & start all core services"
+	@echo "  make run              Build & start the fast core dev stack"
+	@echo "  make run ADMIN=1      Same, plus pgAdmin"
 	@echo "  make run MONITOR=1    Same, plus Prometheus + Grafana"
 	@echo "  make run COACH=1      Same, plus Streamlit AI Coach UI"
 	@echo "  make down             Stop and remove containers"

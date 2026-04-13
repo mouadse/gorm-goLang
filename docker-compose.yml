@@ -1,8 +1,13 @@
+x-backend-image: &backend_image
+  image: fitness-backend:dev
+
+x-backend-build: &backend_build
+  context: .
+  dockerfile: Dockerfile
+
 services:
   migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *backend_image
     container_name: fitness-migrate
     command: ["migrate"]
     environment:
@@ -18,15 +23,14 @@ services:
 
   # Seed - populate initial data after migrations
   seed:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *backend_image
     container_name: fitness-seed
     entrypoint: ["/app/fitness-tracker-seed"]
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
       - EXERCISE_LIB_URL=http://exercise-lib:8000
       - APP_ENV=${APP_ENV:-development}
+      - SEED_MODE=${SEED_MODE:-if-empty}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -38,9 +42,8 @@ services:
 
   # Application
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *backend_image
+    build: *backend_build
     container_name: fitness-app
     command: ["api"]
     ports:
@@ -74,16 +77,15 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/readyz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
     networks:
       - fitness-network
 
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *backend_image
     container_name: fitness-worker
     command: ["worker"]
     ports:
@@ -135,9 +137,10 @@ services:
       - fastembed_cache:/var/cache/fastembed
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
     networks:
       - fitness-network
 
@@ -154,10 +157,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fitness_tracker"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
     networks:
       - fitness-network
 
