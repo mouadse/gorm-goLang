@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 
 type createWorkoutRequest struct {
 	UserID    string                         `json:"user_id"`
+	Name      string                         `json:"name"`
 	Date      string                         `json:"date"`
 	Duration  int                            `json:"duration"`
 	Notes     string                         `json:"notes"`
@@ -23,6 +25,7 @@ type createWorkoutRequest struct {
 
 type updateWorkoutRequest struct {
 	UserID   *string `json:"user_id"`
+	Name     *string `json:"name"`
 	Date     *string `json:"date"`
 	Duration *int    `json:"duration"`
 	Notes    *string `json:"notes"`
@@ -77,10 +80,23 @@ func (s *Server) handleCreateWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := resolveScopedUUID(r, "user_id", "user_id", req.UserID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
+	var userID uuid.UUID
+	pathUserID := strings.TrimSpace(r.PathValue("user_id"))
+	if pathUserID == "" && strings.TrimSpace(req.UserID) == "" {
+		// No user_id in path or body: default to the authenticated user
+		var err error
+		userID, err = authenticatedUserID(r)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, err)
+			return
+		}
+	} else {
+		var err error
+		userID, err = resolveScopedUUID(r, "user_id", "user_id", req.UserID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
 	}
 	if err := authorizeUser(r, userID); err != nil {
 		writeError(w, http.StatusForbidden, err)
@@ -108,11 +124,16 @@ func (s *Server) handleCreateWorkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	notes := strings.TrimSpace(req.Notes)
+	if notes == "" {
+		notes = strings.TrimSpace(req.Name)
+	}
+
 	workout := models.Workout{
 		UserID:   userID,
 		Date:     workoutDate,
 		Duration: req.Duration,
-		Notes:    strings.TrimSpace(req.Notes),
+		Notes:    notes,
 		Type:     strings.TrimSpace(req.Type),
 	}
 
@@ -194,7 +215,13 @@ func (s *Server) handleListWorkouts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, paginated)
+	writeJSON(w, http.StatusOK, struct {
+		Workouts []models.Workout   `json:"workouts"`
+		Metadata PaginationMetadata `json:"metadata"`
+	}{
+		Workouts: paginated.Data,
+		Metadata: paginated.Metadata,
+	})
 }
 
 func (s *Server) handleGetWorkout(w http.ResponseWriter, r *http.Request) {
@@ -311,6 +338,8 @@ func (s *Server) handleUpdateWorkout(w http.ResponseWriter, r *http.Request) {
 
 	if req.Notes != nil {
 		workout.Notes = strings.TrimSpace(*req.Notes)
+	} else if req.Name != nil {
+		workout.Notes = strings.TrimSpace(*req.Name)
 	}
 
 	if req.Type != nil {
@@ -982,17 +1011,51 @@ func (s *Server) loadWorkoutExercise(workoutExerciseID uuid.UUID) (*models.Worko
 }
 
 func (s *Server) buildWorkoutExercise(tx *gorm.DB, workoutID uuid.UUID, req createWorkoutExerciseRequest, fallbackOrder int) (models.WorkoutExercise, error) {
-	exerciseID, err := parseRequiredUUID("exercise_id", req.ExerciseID)
-	if err != nil {
-		return models.WorkoutExercise{}, err
-	}
+	var exerciseID uuid.UUID
 
-	exists, err := recordExists(tx, &models.Exercise{}, exerciseID)
-	if err != nil {
-		return models.WorkoutExercise{}, err
-	}
-	if !exists {
-		return models.WorkoutExercise{}, gorm.ErrRecordNotFound
+	// Try parsing as UUID first; if it fails, look up by exercise_lib_id
+	parsed, err := uuid.Parse(strings.TrimSpace(req.ExerciseID))
+	if err == nil {
+		exerciseID = parsed
+		exists, err := recordExists(tx, &models.Exercise{}, exerciseID)
+		if err != nil {
+			return models.WorkoutExercise{}, err
+		}
+		if !exists {
+			return models.WorkoutExercise{}, gorm.ErrRecordNotFound
+		}
+	} else {
+		// Treat as exercise_lib_id lookup; auto-create if not found
+		libID := strings.TrimSpace(req.ExerciseID)
+		if libID == "" {
+			return models.WorkoutExercise{}, fmt.Errorf("exercise_id is required")
+		}
+		var exercise models.Exercise
+		if err := tx.Where("exercise_lib_id = ?", libID).First(&exercise).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				// Auto-create exercise from the lib ID
+				name := strings.ReplaceAll(libID, "-", " ")
+				// Title-case each word
+				words := strings.Fields(name)
+				for i, w := range words {
+					if len(w) > 0 {
+						words[i] = strings.ToUpper(w[:1]) + w[1:]
+					}
+				}
+				name = strings.Join(words, " ")
+
+				exercise = models.Exercise{
+					ExerciseLibID: libID,
+					Name:          name,
+				}
+				if err := tx.Create(&exercise).Error; err != nil {
+					return models.WorkoutExercise{}, err
+				}
+			} else {
+				return models.WorkoutExercise{}, err
+			}
+		}
+		exerciseID = exercise.ID
 	}
 
 	if req.Sets < 0 || req.Reps < 0 || req.Weight < 0 || req.RestTime < 0 {

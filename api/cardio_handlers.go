@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -15,7 +14,9 @@ import (
 type createCardioEntryRequest struct {
 	WorkoutID       string   `json:"workout_id"`
 	Modality        string   `json:"modality"`
+	ExerciseType    string   `json:"exercise_type"` // alias for modality
 	DurationMinutes int      `json:"duration_minutes"`
+	Duration        int      `json:"duration"` // alias for duration_minutes
 	Distance        *float64 `json:"distance,omitempty"`
 	DistanceUnit    *string  `json:"distance_unit,omitempty"`
 	Pace            *float64 `json:"pace,omitempty"`
@@ -94,6 +95,14 @@ func (s *Server) handleCreateCardioEntry(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Resolve alias fields
+	if req.Modality == "" && req.ExerciseType != "" {
+		req.Modality = req.ExerciseType
+	}
+	if req.DurationMinutes <= 0 && req.Duration > 0 {
+		req.DurationMinutes = req.Duration
+	}
+
 	if req.DurationMinutes <= 0 {
 		writeError(w, http.StatusBadRequest, errors.New("duration_minutes must be greater than zero"))
 		return
@@ -102,11 +111,6 @@ func (s *Server) handleCreateCardioEntry(w http.ResponseWriter, r *http.Request)
 	modality := strings.TrimSpace(req.Modality)
 	if modality == "" {
 		writeError(w, http.StatusBadRequest, errors.New("modality is required"))
-		return
-	}
-
-	if !models.ValidCardioModalities[modality] {
-		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid modality: %s", modality))
 		return
 	}
 
@@ -220,10 +224,6 @@ func (s *Server) handleUpdateCardioEntry(w http.ResponseWriter, r *http.Request)
 		modality := strings.TrimSpace(*req.Modality)
 		if modality == "" {
 			writeError(w, http.StatusBadRequest, errors.New("modality cannot be blank"))
-			return
-		}
-		if !models.ValidCardioModalities[modality] {
-			writeError(w, http.StatusBadRequest, fmt.Errorf("invalid modality: %s", modality))
 			return
 		}
 		entry.Modality = modality

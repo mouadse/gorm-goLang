@@ -2441,7 +2441,7 @@
             "description": "PATCH /v1/workouts/{id}",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"duration\": 50,\n  \"notes\": \"Updated from Postman\"\n}",
+              "raw": "{\n  \"duration\": 50,\n  \"name\": \"Updated from Postman\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2600,7 +2600,7 @@
             "description": "POST /v1/workouts/{id}/exercises",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"exercise_id\": \"{{exerciseId}}\",\n  \"order\": 3,\n  \"sets\": 2,\n  \"reps\": 12,\n  \"weight\": 30,\n  \"rest_time\": 75,\n  \"notes\": \"Nested add from Postman\"\n}",
+              "raw": "{\n  \"exercise_id\": \"bench-press-001\",\n  \"order\": 3,\n  \"sets\": 2,\n  \"reps\": 12,\n  \"weight\": 30,\n  \"rest_time\": 75,\n  \"notes\": \"Nested add from Postman\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2970,7 +2970,7 @@
             "description": "POST /v1/workouts/{id}/cardio",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"modality\": \"running\",\n  \"duration_minutes\": 25,\n  \"distance\": 4.2,\n  \"distance_unit\": \"km\",\n  \"calories_burned\": 260,\n  \"avg_heart_rate\": 142,\n  \"notes\": \"Postman cardio\"\n}",
+              "raw": "{\n  \"exercise_type\": \"trail-run-intervals\",\n  \"duration\": 25,\n  \"distance\": 4.2,\n  \"distance_unit\": \"km\",\n  \"calories_burned\": 260,\n  \"avg_heart_rate\": 142,\n  \"notes\": \"Postman cardio\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3047,7 +3047,7 @@
             "description": "PATCH /v1/workout-cardio/{id}",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"duration_minutes\": 30,\n  \"notes\": \"Updated from Postman\"\n}",
+              "raw": "{\n  \"modality\": \"hill-sprints\",\n  \"duration_minutes\": 30,\n  \"notes\": \"Updated from Postman\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

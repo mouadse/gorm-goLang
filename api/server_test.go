@@ -69,10 +69,16 @@ func TestCoreCRUDFlow(t *testing.T) {
 		t.Fatalf("expected 2 workout sets, got %d", len(loadedWorkout.WorkoutExercises[0].WorkoutSets))
 	}
 
-	requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPatch, "/v1/workouts/"+workout.ID.String(), map[string]any{
+	updatedWorkout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPatch, "/v1/workouts/"+workout.ID.String(), map[string]any{
 		"duration": 60,
-		"notes":    "Updated heavy day",
+		"name":     "Updated heavy day",
 	}, http.StatusOK)
+	if updatedWorkout.Duration != 60 {
+		t.Fatalf("expected workout duration to be updated")
+	}
+	if updatedWorkout.Notes != "Updated heavy day" {
+		t.Fatalf("expected workout notes to follow name alias, got %q", updatedWorkout.Notes)
+	}
 
 	addedWorkoutExercise := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/exercises", map[string]any{
 		"exercise_id": exercise.ID,
@@ -372,7 +378,10 @@ func TestUserScopedCreateRoutes(t *testing.T) {
 		t.Fatalf("expected scoped weight entry to inherit user id")
 	}
 
-	workouts := requestJSONAuth[api.PaginatedResponse[models.Workout]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/workouts", nil, http.StatusOK).Data
+	workouts := requestJSONAuth[struct {
+		Workouts []models.Workout       `json:"workouts"`
+		Metadata api.PaginationMetadata `json:"metadata"`
+	}](t, server, userAuth.AccessToken, http.MethodGet, "/v1/users/"+user.ID.String()+"/workouts", nil, http.StatusOK).Workouts
 	if len(workouts) != 1 {
 		t.Fatalf("expected 1 scoped workout, got %d", len(workouts))
 	}
@@ -545,7 +554,10 @@ func TestExerciseListFilters(t *testing.T) {
 		"level":           "Beginner",
 	}, http.StatusCreated)
 
-	shoulderExercises := requestJSON[api.PaginatedResponse[models.Exercise]](t, server, http.MethodGet, "/v1/exercises?muscle=shoulder&equipment=dumbbell&level=beginner", nil, http.StatusOK).Data
+	shoulderExercises := requestJSON[struct {
+		Exercises []models.Exercise      `json:"exercises"`
+		Metadata  api.PaginationMetadata `json:"metadata"`
+	}](t, server, http.MethodGet, "/v1/exercises?muscle=shoulder&equipment=dumbbell&level=beginner", nil, http.StatusOK).Exercises
 	if len(shoulderExercises) != 1 {
 		t.Fatalf("expected 1 beginner home shoulder exercise, got %d", len(shoulderExercises))
 	}
@@ -553,7 +565,10 @@ func TestExerciseListFilters(t *testing.T) {
 		t.Fatalf("expected dumbbell shoulder press, got %q", shoulderExercises[0].Name)
 	}
 
-	backExercises := requestJSON[api.PaginatedResponse[models.Exercise]](t, server, http.MethodGet, "/v1/exercises?muscle=back&equipment=Resistance%20Band&level=Beginner", nil, http.StatusOK).Data
+	backExercises := requestJSON[struct {
+		Exercises []models.Exercise      `json:"exercises"`
+		Metadata  api.PaginationMetadata `json:"metadata"`
+	}](t, server, http.MethodGet, "/v1/exercises?muscle=back&equipment=Resistance%20Band&level=Beginner", nil, http.StatusOK).Exercises
 	if len(backExercises) != 1 {
 		t.Fatalf("expected 1 beginner home back exercise, got %d", len(backExercises))
 	}
@@ -561,7 +576,10 @@ func TestExerciseListFilters(t *testing.T) {
 		t.Fatalf("expected band pull-apart, got %q", backExercises[0].Name)
 	}
 
-	bodyweightExercises := requestJSON[api.PaginatedResponse[models.Exercise]](t, server, http.MethodGet, "/v1/exercises?equipment=body%20only&level=beginner", nil, http.StatusOK).Data
+	bodyweightExercises := requestJSON[struct {
+		Exercises []models.Exercise      `json:"exercises"`
+		Metadata  api.PaginationMetadata `json:"metadata"`
+	}](t, server, http.MethodGet, "/v1/exercises?equipment=body%20only&level=beginner", nil, http.StatusOK).Exercises
 	if len(bodyweightExercises) != 1 {
 		t.Fatalf("expected 1 bodyweight beginner exercise, got %d", len(bodyweightExercises))
 	}
@@ -853,9 +871,12 @@ func TestListWorkoutsPagination(t *testing.T) {
 	}
 
 	// fetch page 1, limit 10
-	resp := requestJSONAuth[api.PaginatedResponse[models.Workout]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts?page=1&limit=10", nil, http.StatusOK)
-	if len(resp.Data) != 10 {
-		t.Fatalf("expected 10 items, got %d", len(resp.Data))
+	resp := requestJSONAuth[struct {
+		Workouts []models.Workout       `json:"workouts"`
+		Metadata api.PaginationMetadata `json:"metadata"`
+	}](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts?page=1&limit=10", nil, http.StatusOK)
+	if len(resp.Workouts) != 10 {
+		t.Fatalf("expected 10 items, got %d", len(resp.Workouts))
 	}
 	if resp.Metadata.TotalCount != 25 {
 		t.Fatalf("expected total count 25, got %d", resp.Metadata.TotalCount)
@@ -868,11 +889,59 @@ func TestListWorkoutsPagination(t *testing.T) {
 	}
 
 	// fetch page 3, limit 10
-	resp3 := requestJSONAuth[api.PaginatedResponse[models.Workout]](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts?page=3&limit=10", nil, http.StatusOK)
-	if len(resp3.Data) != 5 {
-		t.Fatalf("expected 5 items, got %d", len(resp3.Data))
+	resp3 := requestJSONAuth[struct {
+		Workouts []models.Workout       `json:"workouts"`
+		Metadata api.PaginationMetadata `json:"metadata"`
+	}](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts?page=3&limit=10", nil, http.StatusOK)
+	if len(resp3.Workouts) != 5 {
+		t.Fatalf("expected 5 items, got %d", len(resp3.Workouts))
 	}
 	if resp3.Metadata.HasNext {
 		t.Fatalf("expected has_next to be false")
+	}
+}
+
+func TestWorkoutExerciseLibIDAutoCreateKeepsDistinctSynthesizedNames(t *testing.T) {
+	t.Parallel()
+
+	server := newTestServer(t)
+	userAuth := registerTestUser(t, server, "libid@example.com", "Lib ID", "password123")
+
+	workout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
+		"user_id": userAuth.User.ID.String(),
+		"date":    "2026-04-10",
+		"type":    "strength",
+	}, http.StatusCreated)
+
+	first := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/exercises", map[string]any{
+		"exercise_id": "bench-press-001",
+		"order":       1,
+	}, http.StatusCreated)
+	second := requestJSONAuth[models.WorkoutExercise](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/exercises", map[string]any{
+		"exercise_id": "bench-press-002",
+		"order":       2,
+	}, http.StatusCreated)
+
+	if first.ExerciseID == second.ExerciseID {
+		t.Fatalf("expected different library IDs to create different exercises")
+	}
+
+	loadedWorkout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodGet, "/v1/workouts/"+workout.ID.String(), nil, http.StatusOK)
+	if len(loadedWorkout.WorkoutExercises) != 2 {
+		t.Fatalf("expected 2 workout exercises, got %d", len(loadedWorkout.WorkoutExercises))
+	}
+
+	names := map[string]bool{}
+	libIDs := map[string]bool{}
+	for _, workoutExercise := range loadedWorkout.WorkoutExercises {
+		names[workoutExercise.Exercise.Name] = true
+		libIDs[workoutExercise.Exercise.ExerciseLibID] = true
+	}
+
+	if !names["Bench Press 001"] || !names["Bench Press 002"] {
+		t.Fatalf("expected distinct synthesized exercise names, got %#v", names)
+	}
+	if !libIDs["bench-press-001"] || !libIDs["bench-press-002"] {
+		t.Fatalf("expected distinct exercise lib IDs, got %#v", libIDs)
 	}
 }

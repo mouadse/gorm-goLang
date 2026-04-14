@@ -143,6 +143,31 @@ func TestCardioEntryCRUD(t *testing.T) {
 		}
 	})
 
+	t.Run("accept custom cardio modality", func(t *testing.T) {
+		workout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
+			"user_id": user.ID,
+			"date":    "2026-03-12",
+			"type":    "cardio",
+		}, http.StatusCreated)
+
+		cardio := requestJSONAuth[models.WorkoutCardioEntry](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/cardio", map[string]any{
+			"exercise_type": "trail-run-intervals",
+			"duration":      35,
+		}, http.StatusCreated)
+
+		if cardio.Modality != "trail-run-intervals" {
+			t.Fatalf("expected custom modality to round-trip, got %s", cardio.Modality)
+		}
+
+		updated := requestJSONAuth[models.WorkoutCardioEntry](t, server, userAuth.AccessToken, http.MethodPatch, "/v1/workout-cardio/"+cardio.ID.String(), map[string]any{
+			"modality": "hill-sprints",
+		}, http.StatusOK)
+
+		if updated.Modality != "hill-sprints" {
+			t.Fatalf("expected updated custom modality, got %s", updated.Modality)
+		}
+	})
+
 	t.Run("delete cardio entry", func(t *testing.T) {
 		workout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
 			"user_id": user.ID,
@@ -250,17 +275,21 @@ func TestCardioEntryCRUD(t *testing.T) {
 		}, http.StatusBadRequest)
 	})
 
-	t.Run("reject invalid modality", func(t *testing.T) {
+	t.Run("accept custom modality instead of rejecting it", func(t *testing.T) {
 		workout := requestJSONAuth[models.Workout](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts", map[string]any{
 			"user_id": user.ID,
 			"date":    "2026-03-24",
 			"type":    "cardio",
 		}, http.StatusCreated)
 
-		expectStatusAuth(t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/cardio", map[string]any{
+		cardio := requestJSONAuth[models.WorkoutCardioEntry](t, server, userAuth.AccessToken, http.MethodPost, "/v1/workouts/"+workout.ID.String()+"/cardio", map[string]any{
 			"modality":         "invalid_exercise",
 			"duration_minutes": 30,
-		}, http.StatusBadRequest)
+		}, http.StatusCreated)
+
+		if cardio.Modality != "invalid_exercise" {
+			t.Fatalf("expected custom modality invalid_exercise, got %s", cardio.Modality)
+		}
 	})
 
 	t.Run("accept valid modalities", func(t *testing.T) {

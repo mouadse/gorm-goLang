@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -56,10 +55,6 @@ func (e *WorkoutCardioEntry) BeforeCreate(tx *gorm.DB) error {
 
 	if strings.TrimSpace(e.Modality) == "" {
 		return errors.New("modality is required")
-	}
-
-	if !ValidCardioModalities[e.Modality] {
-		return fmt.Errorf("invalid modality: %s", e.Modality)
 	}
 
 	if e.Distance != nil && *e.Distance < 0 {

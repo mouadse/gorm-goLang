@@ -4054,6 +4054,7 @@ components:
           format: uuid
         modality:
           type: string
+          description: Any non-blank cardio modality, including custom values such as `trail-run-intervals`.
         duration_minutes:
           type: integer
         distance:
@@ -4078,15 +4079,24 @@ components:
           format: date-time
     CreateCardioEntryRequest:
       type: object
-      required: [modality, duration_minutes]
+      description: Provide either `modality` or `exercise_type`, and either `duration_minutes` or `duration`.
       properties:
         workout_id:
           type: string
           format: uuid
+          description: Optional when creating via `/v1/workouts/{id}/cardio`.
         modality:
           type: string
+          description: Canonical cardio modality field. Any non-blank value is accepted.
+        exercise_type:
+          type: string
+          description: Alias for `modality`.
         duration_minutes:
           type: integer
+          description: Canonical duration field in minutes.
+        duration:
+          type: integer
+          description: Alias for `duration_minutes`.
         distance:
           type: number
         distance_unit:
@@ -4104,6 +4114,7 @@ components:
       properties:
         modality:
           type: string
+          description: Any non-blank cardio modality, including custom values.
         duration_minutes:
           type: integer
         distance:
@@ -5470,7 +5481,7 @@ components:
           description: Optional when creating via `/v1/workouts/{id}/exercises`.
         exercise_id:
           type: string
-          format: uuid
+          description: UUID of an existing exercise or an external exercise library ID. Non-UUID library IDs are auto-created on first use.
         order:
           type: integer
           minimum: 1
@@ -5520,11 +5531,14 @@ components:
           type: string
     CreateWorkoutRequest:
       type: object
-      required: [user_id]
       properties:
         user_id:
           type: string
           format: uuid
+          description: Optional when provided in the path or when the authenticated user is the owner.
+        name:
+          type: string
+          description: Alias for the workout title/notes field. Used when `notes` is omitted.
         date:
           type: string
           format: date
@@ -5546,6 +5560,9 @@ components:
         user_id:
           type: string
           format: uuid
+        name:
+          type: string
+          description: Alias for `notes`. Applied when `notes` is omitted in the patch payload.
         date:
           type: string
           format: date

@@ -136,7 +136,13 @@ func (s *Server) handleListExercises(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, paginated)
+	writeJSON(w, http.StatusOK, struct {
+		Exercises []models.Exercise  `json:"exercises"`
+		Metadata  PaginationMetadata `json:"metadata"`
+	}{
+		Exercises: paginated.Data,
+		Metadata:  paginated.Metadata,
+	})
 }
 
 func (s *Server) handleGetExercise(w http.ResponseWriter, r *http.Request) {

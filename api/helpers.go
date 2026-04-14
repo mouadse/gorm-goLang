@@ -143,8 +143,11 @@ func paginate[T any](query *gorm.DB, page, limit int, dest *[]T) (PaginatedRespo
 	var totalCount int64
 	var t T
 
-	// Use Scan instead of Count to avoid Gorm rewriting it to COUNT(table.*) in SQLite
-	if err := query.Model(&t).Session(&gorm.Session{}).Select("count(1)").Scan(&totalCount).Error; err != nil {
+	// Count using a subquery to avoid ORDER BY leaking into the count statement,
+	// which causes PostgreSQL "column must appear in GROUP BY" errors.
+	// The Session with NewDB=false clones the query (preserving WHERE/JOIN clauses)
+	// while Count() itself resets SELECT and ORDER BY via GORM internals.
+	if err := query.Session(&gorm.Session{NewDB: false}).Model(&t).Count(&totalCount).Error; err != nil {
 		return PaginatedResponse[T]{}, err
 	}
 

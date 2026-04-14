@@ -1,7 +1,6 @@
 package models_test
 
 import (
-	"strings"
 	"testing"
 
 	"fitness-tracker/models"
@@ -205,31 +204,25 @@ func TestWorkoutCardioEntryBeforeCreate(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects invalid modality", func(t *testing.T) {
+	t.Run("accepts custom modality", func(t *testing.T) {
 		entry := models.WorkoutCardioEntry{
 			WorkoutID:       uuid.New(),
 			Modality:        "swimming",
 			DurationMinutes: 30,
 		}
 
-		// swimming is valid, so this should pass
 		if err := entry.BeforeCreate(nil); err != nil {
 			t.Fatalf("expected no error for valid modality 'swimming', got %v", err)
 		}
 
-		// test with invalid modality
 		entry2 := models.WorkoutCardioEntry{
 			WorkoutID:       uuid.New(),
-			Modality:        "invalid_modality",
+			Modality:        "trail-run-intervals",
 			DurationMinutes: 30,
 		}
 
-		err := entry2.BeforeCreate(nil)
-		if err == nil {
-			t.Fatalf("expected error for invalid modality, got nil")
-		}
-		if !strings.Contains(err.Error(), "invalid modality") {
-			t.Fatalf("expected 'invalid modality' error, got %v", err)
+		if err := entry2.BeforeCreate(nil); err != nil {
+			t.Fatalf("expected custom modality to be accepted, got %v", err)
 		}
 	})
 
