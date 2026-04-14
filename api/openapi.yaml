@@ -5153,6 +5153,9 @@ components:
         date:
           type: string
           format: date
+        meal_id:
+          type: string
+          format: uuid
         meal_type:
           type: string
         servings:

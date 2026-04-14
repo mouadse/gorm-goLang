@@ -305,6 +305,7 @@ func (s *Server) handleGetRecipeNutrition(w http.ResponseWriter, r *http.Request
 
 type logRecipeToMealRequest struct {
 	Date     string  `json:"date"`
+	MealID   string  `json:"meal_id"`
 	MealType string  `json:"meal_type"`
 	Servings float64 `json:"servings"`
 }
@@ -331,6 +332,12 @@ func (s *Server) handleLogRecipeToMeal(w http.ResponseWriter, r *http.Request) {
 
 	if req.Servings <= 0 {
 		req.Servings = 1
+	}
+
+	mealID, err := parseOptionalUUID("meal_id", req.MealID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
 	}
 
 	date, err := parseDate(req.Date)
@@ -362,14 +369,31 @@ func (s *Server) handleLogRecipeToMeal(w http.ResponseWriter, r *http.Request) {
 
 	var meal models.Meal
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		meal = models.Meal{
-			UserID:   currentUserID,
-			MealType: mealType,
-			Date:     date,
-			Notes:    "From recipe: " + recipe.Name,
-		}
-		if err := tx.Create(&meal).Error; err != nil {
-			return err
+		if mealID != nil {
+			if err := tx.First(&meal, "id = ? AND user_id = ?", *mealID, currentUserID).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return errors.New("meal not found")
+				}
+				return err
+			}
+
+			if meal.MealType != mealType {
+				return errors.New("meal_type does not match existing meal")
+			}
+
+			if meal.Date.UTC().Format(dateLayout) != date.UTC().Format(dateLayout) {
+				return errors.New("date does not match existing meal")
+			}
+		} else {
+			meal = models.Meal{
+				UserID:   currentUserID,
+				MealType: mealType,
+				Date:     date,
+				Notes:    "From recipe: " + recipe.Name,
+			}
+			if err := tx.Create(&meal).Error; err != nil {
+				return err
+			}
 		}
 
 		// Calculate ratio depending on how many servings they want
@@ -392,7 +416,14 @@ func (s *Server) handleLogRecipeToMeal(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		switch err.Error() {
+		case "meal not found":
+			writeError(w, http.StatusNotFound, err)
+		case "meal_type does not match existing meal", "date does not match existing meal":
+			writeError(w, http.StatusBadRequest, err)
+		default:
+			writeError(w, http.StatusInternalServerError, err)
+		}
 		return
 	}
 

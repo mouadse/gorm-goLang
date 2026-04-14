@@ -112,6 +112,34 @@ func TestRecipeHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("Log Recipe to Existing Meal", func(t *testing.T) {
+		todayStr := time.Now().UTC().Format("2006-01-02")
+		existingMeal := requestJSONAuth[models.Meal](t, server, auth.AccessToken, http.MethodPost, "/v1/meals", map[string]any{
+			"user_id":   auth.User.ID,
+			"date":      todayStr,
+			"meal_type": "lunch",
+		}, http.StatusCreated)
+
+		meal := requestJSONAuth[models.Meal](t, server, auth.AccessToken, http.MethodPost, "/v1/recipes/"+recipe.ID.String()+"/log-to-meal", map[string]any{
+			"date":      todayStr,
+			"meal_id":   existingMeal.ID,
+			"meal_type": "lunch",
+			"servings":  1,
+		}, http.StatusCreated)
+
+		if meal.ID != existingMeal.ID {
+			t.Fatalf("expected recipe to be logged into meal %s, got %s", existingMeal.ID, meal.ID)
+		}
+		if len(meal.Items) != 2 {
+			t.Fatalf("expected 2 items logged into existing meal")
+		}
+
+		meals := requestJSONAuth[api.PaginatedResponse[models.Meal]](t, server, auth.AccessToken, http.MethodGet, "/v1/meals?date="+todayStr+"&meal_type=lunch", nil, http.StatusOK).Data
+		if len(meals) != 1 {
+			t.Fatalf("expected 1 lunch meal for %s, got %d", todayStr, len(meals))
+		}
+	})
+
 	t.Run("Delete Recipe", func(t *testing.T) {
 		expectStatusAuth(t, server, auth.AccessToken, http.MethodDelete, "/v1/recipes/"+recipe.ID.String(), nil, http.StatusNoContent)
 		expectStatusAuth(t, server, auth.AccessToken, http.MethodGet, "/v1/recipes/"+recipe.ID.String(), nil, http.StatusNotFound)
