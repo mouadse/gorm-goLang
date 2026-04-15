@@ -79,6 +79,10 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	if err := backfillConversationMessageSequences(db); err != nil {
+		return err
+	}
+
 	if err := backfillLegacyExerciseLibIDs(db); err != nil {
 		return err
 	}
@@ -196,6 +200,52 @@ func backfillLegacyExerciseColumn(db *gorm.DB, sourceColumn, targetColumn string
 			UpdateColumn(targetColumn, update.Value).Error; err != nil {
 			return fmt.Errorf("backfill %s from %s for exercise %q: %w", targetColumn, sourceColumn, update.ID, err)
 		}
+	}
+
+	return nil
+}
+
+func backfillConversationMessageSequences(db *gorm.DB) error {
+	if !db.Migrator().HasTable(&models.ConversationMessage{}) || !db.Migrator().HasColumn(&models.ConversationMessage{}, "sequence") {
+		return nil
+	}
+
+	type conversationMessageRow struct {
+		ID             uuid.UUID
+		ConversationID uuid.UUID
+	}
+
+	rows, err := db.Model(&models.ConversationMessage{}).
+		Select("id, conversation_id").
+		Order("conversation_id asc, created_at asc, id asc").
+		Rows()
+	if err != nil {
+		return fmt.Errorf("list conversation messages for sequence backfill: %w", err)
+	}
+	defer rows.Close()
+
+	var updates []conversationMessageRow
+	for rows.Next() {
+		var row conversationMessageRow
+		if err := rows.Scan(&row.ID, &row.ConversationID); err != nil {
+			return fmt.Errorf("scan conversation message for sequence backfill: %w", err)
+		}
+		updates = append(updates, row)
+	}
+
+	lastConversationID := uuid.Nil
+	var nextSequence int64 = 1
+	for _, update := range updates {
+		if update.ConversationID != lastConversationID {
+			lastConversationID = update.ConversationID
+			nextSequence = 1
+		}
+		if err := db.Model(&models.ConversationMessage{}).
+			Where("id = ?", update.ID).
+			Update("sequence", nextSequence).Error; err != nil {
+			return fmt.Errorf("backfill conversation message sequence for %s: %w", update.ID, err)
+		}
+		nextSequence++
 	}
 
 	return nil

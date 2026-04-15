@@ -3,11 +3,16 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+
+	"fitness-tracker/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+const coachToolDateLayout = "2006-01-02"
 
 type CoachService struct {
 	db              *gorm.DB
@@ -36,6 +41,25 @@ type CoachContext struct {
 	Streaks         interface{} `json:"streaks"`
 	Records         interface{} `json:"records"`
 	Recommendations interface{} `json:"recommendations"`
+}
+
+type CoachWeeklySummary struct {
+	StartDate      time.Time `json:"start_date"`
+	EndDate        time.Time `json:"end_date"`
+	TotalCalories  float64   `json:"total_calories"`
+	TotalProtein   float64   `json:"total_protein"`
+	TotalCarbs     float64   `json:"total_carbs"`
+	TotalFat       float64   `json:"total_fat"`
+	TargetCalories int       `json:"target_calories"`
+	TargetProtein  int       `json:"target_protein"`
+	TargetCarbs    int       `json:"target_carbs"`
+	TargetFat      int       `json:"target_fat"`
+	CalorieDelta   int       `json:"calorie_delta"`
+	ProteinDelta   int       `json:"protein_delta"`
+	CarbsDelta     int       `json:"carbs_delta"`
+	FatDelta       int       `json:"fat_delta"`
+	MealCount      int       `json:"meal_count"`
+	WorkoutCount   int       `json:"workout_count"`
 }
 
 func (s *CoachService) GetCoachSummary(userID uuid.UUID, date time.Time) (*CoachContext, error) {
@@ -72,9 +96,42 @@ func (s *CoachService) DispatchFunction(name string, args string, userID uuid.UU
 	}
 
 	switch name {
+	case "get_user":
+		return s.getUserProfile(userID)
+
+	case "get_user_workouts":
+		dateStr, _ := params["date"].(string)
+		workoutType, _ := params["workout_type"].(string)
+		limit := intFromParams(params, "limit", 10)
+		return s.getUserWorkouts(userID, dateStr, workoutType, limit)
+
+	case "get_workout":
+		workoutIDStr, _ := params["workout_id"].(string)
+		workoutID, err := uuid.Parse(workoutIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("workout_id must be a valid UUID")
+		}
+		return s.getWorkout(userID, workoutID)
+
+	case "get_user_meals":
+		dateStr, _ := params["date"].(string)
+		mealType, _ := params["meal_type"].(string)
+		limit := intFromParams(params, "limit", 10)
+		return s.getUserMeals(userID, dateStr, mealType, limit)
+
+	case "get_user_weight_entries":
+		dateStr, _ := params["date"].(string)
+		startDateStr, _ := params["start_date"].(string)
+		endDateStr, _ := params["end_date"].(string)
+		limit := intFromParams(params, "limit", 10)
+		return s.getUserWeightEntries(userID, dateStr, startDateStr, endDateStr, limit)
+
 	case "get_user_streaks":
 		dateStr, _ := params["date"].(string)
-		refDate := parseDateOrDefault(dateStr)
+		refDate, err := parseDateOrDefault(dateStr)
+		if err != nil {
+			return nil, err
+		}
 		return s.adherenceSvc.GetUserStreaks(userID, refDate)
 
 	case "get_user_records":
@@ -85,12 +142,26 @@ func (s *CoachService) DispatchFunction(name string, args string, userID uuid.UU
 
 	case "get_daily_summary":
 		dateStr, _ := params["date"].(string)
-		refDate := parseDateOrDefault(dateStr)
+		refDate, err := parseDateOrDefault(dateStr)
+		if err != nil {
+			return nil, err
+		}
 		return s.targetSvc.GetDailyNutritionSummary(userID, refDate)
+
+	case "get_weekly_summary":
+		dateStr, _ := params["date"].(string)
+		refDate, err := parseDateOrDefault(dateStr)
+		if err != nil {
+			return nil, err
+		}
+		return s.getWeeklySummary(userID, refDate)
 
 	case "get_recommendations":
 		dateStr, _ := params["date"].(string)
-		refDate := parseDateOrDefault(dateStr)
+		refDate, err := parseDateOrDefault(dateStr)
+		if err != nil {
+			return nil, err
+		}
 		return s.integrationSvc.GetRecommendations(userID, refDate)
 
 	case "get_notifications":
@@ -193,17 +264,274 @@ func (s *CoachService) DispatchFunction(name string, args string, userID uuid.UU
 	}
 }
 
-func parseDateOrDefault(dateStr string) time.Time {
-	if dateStr != "" {
-		if d, err := time.Parse("2006-01-02", dateStr); err == nil {
-			return d
-		}
+func intFromParams(params map[string]interface{}, key string, fallback int) int {
+	if raw, ok := params[key].(float64); ok {
+		return int(raw)
 	}
-	return time.Now()
+	return fallback
+}
+
+func parseDateOrDefault(dateStr string) (time.Time, error) {
+	dateStr = strings.TrimSpace(dateStr)
+	if dateStr == "" {
+		return time.Now().UTC().Truncate(24 * time.Hour), nil
+	}
+
+	parsed, err := time.Parse(coachToolDateLayout, dateStr)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("date must be %s", coachToolDateLayout)
+	}
+
+	return parsed.UTC(), nil
+}
+
+func (s *CoachService) getUserProfile(userID uuid.UUID) (*models.User, error) {
+	var user models.User
+	if err := s.db.First(&user, "id = ?", userID).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (s *CoachService) getUserWorkouts(userID uuid.UUID, dateStr string, workoutType string, limit int) ([]models.Workout, error) {
+	query := s.db.Model(&models.Workout{}).Where("user_id = ?", userID)
+
+	if dateStr != "" {
+		date, err := parseDateOrDefault(dateStr)
+		if err != nil {
+			return nil, err
+		}
+		query = query.Where("date = ?", date)
+	}
+	if workoutType != "" {
+		query = query.Where("type = ?", workoutType)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	var workouts []models.Workout
+	if err := query.Order("date desc, created_at desc, id asc").Find(&workouts).Error; err != nil {
+		return nil, err
+	}
+	return workouts, nil
+}
+
+func (s *CoachService) getWorkout(userID uuid.UUID, workoutID uuid.UUID) (*models.Workout, error) {
+	var workout models.Workout
+	if err := s.db.
+		Preload("WorkoutExercises", func(db *gorm.DB) *gorm.DB {
+			return db.Order("\"order\" asc, created_at asc, id asc")
+		}).
+		Preload("WorkoutExercises.Exercise").
+		Preload("WorkoutExercises.WorkoutSets", func(db *gorm.DB) *gorm.DB {
+			return db.Order("set_number asc, created_at asc, id asc")
+		}).
+		Where("id = ? AND user_id = ?", workoutID, userID).
+		First(&workout).Error; err != nil {
+		return nil, err
+	}
+	return &workout, nil
+}
+
+func (s *CoachService) getUserMeals(userID uuid.UUID, dateStr string, mealType string, limit int) ([]models.Meal, error) {
+	query := s.db.Model(&models.Meal{}).
+		Preload("Items.Food").
+		Where("user_id = ?", userID)
+
+	if dateStr != "" {
+		date, err := parseDateOrDefault(dateStr)
+		if err != nil {
+			return nil, err
+		}
+		query = query.Where("date = ?", date)
+	}
+	if mealType != "" {
+		query = query.Where("meal_type = ?", mealType)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	var meals []models.Meal
+	if err := query.Order("date desc, created_at desc, id asc").Find(&meals).Error; err != nil {
+		return nil, err
+	}
+	for i := range meals {
+		meals[i].CalculateTotals()
+	}
+	return meals, nil
+}
+
+func (s *CoachService) getUserWeightEntries(userID uuid.UUID, dateStr string, startDateStr string, endDateStr string, limit int) ([]models.WeightEntry, error) {
+	query := s.db.Model(&models.WeightEntry{}).Where("user_id = ?", userID)
+
+	if dateStr != "" {
+		date, err := parseDateOrDefault(dateStr)
+		if err != nil {
+			return nil, err
+		}
+		query = query.Where("date = ?", date)
+	}
+	if startDateStr != "" {
+		startDate, err := parseDateOrDefault(startDateStr)
+		if err != nil {
+			return nil, err
+		}
+		query = query.Where("date >= ?", startDate)
+	}
+	if endDateStr != "" {
+		endDate, err := parseDateOrDefault(endDateStr)
+		if err != nil {
+			return nil, err
+		}
+		query = query.Where("date <= ?", endDate)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	var entries []models.WeightEntry
+	if err := query.Order("date desc, created_at desc, id asc").Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func (s *CoachService) getWeeklySummary(userID uuid.UUID, date time.Time) (*CoachWeeklySummary, error) {
+	startDate := startOfWeekUTC(date)
+	endDate := startDate.AddDate(0, 0, 7)
+
+	targets, err := s.targetSvc.GetUserNutritionTargets(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var meals []models.Meal
+	if err := s.db.
+		Preload("Items.Food").
+		Where("user_id = ? AND date >= ? AND date < ?", userID, startDate, endDate).
+		Find(&meals).Error; err != nil {
+		return nil, err
+	}
+
+	var workouts []models.Workout
+	if err := s.db.
+		Where("user_id = ? AND date >= ? AND date < ?", userID, startDate, endDate).
+		Find(&workouts).Error; err != nil {
+		return nil, err
+	}
+
+	var totalCalories float64
+	var totalProtein float64
+	var totalCarbs float64
+	var totalFat float64
+	for i := range meals {
+		meals[i].CalculateTotals()
+		totalCalories += meals[i].TotalCalories
+		totalProtein += meals[i].TotalProtein
+		totalCarbs += meals[i].TotalCarbs
+		totalFat += meals[i].TotalFat
+	}
+
+	weeklyTargetCalories := targets.Calories * 7
+	weeklyTargetProtein := targets.Protein * 7
+	weeklyTargetCarbs := targets.Carbs * 7
+	weeklyTargetFat := targets.Fat * 7
+
+	return &CoachWeeklySummary{
+		StartDate:      startDate,
+		EndDate:        endDate.AddDate(0, 0, -1),
+		TotalCalories:  totalCalories,
+		TotalProtein:   totalProtein,
+		TotalCarbs:     totalCarbs,
+		TotalFat:       totalFat,
+		TargetCalories: weeklyTargetCalories,
+		TargetProtein:  weeklyTargetProtein,
+		TargetCarbs:    weeklyTargetCarbs,
+		TargetFat:      weeklyTargetFat,
+		CalorieDelta:   int(totalCalories) - weeklyTargetCalories,
+		ProteinDelta:   int(totalProtein) - weeklyTargetProtein,
+		CarbsDelta:     int(totalCarbs) - weeklyTargetCarbs,
+		FatDelta:       int(totalFat) - weeklyTargetFat,
+		MealCount:      len(meals),
+		WorkoutCount:   len(workouts),
+	}, nil
 }
 
 func (s *CoachService) GetTools() []ToolDef {
 	return []ToolDef{
+		{
+			Type: "function",
+			Function: FunctionDef{
+				Name:        "get_user",
+				Description: "Get the authenticated user's profile information, including name, email, goal, activity level, weight, height, and TDEE. Use this for questions like 'what is my name?' or 'what is my TDEE?'",
+				Parameters: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: FunctionDef{
+				Name:        "get_user_workouts",
+				Description: "List the authenticated user's logged workouts in reverse chronological order. Use this before answering questions about the last workout they logged.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"date":         map[string]interface{}{"type": "string", "description": "Filter by workout date (YYYY-MM-DD)"},
+						"workout_type": map[string]interface{}{"type": "string", "description": "Filter by workout type such as push, pull, legs, cardio"},
+						"limit":        map[string]interface{}{"type": "integer", "description": "Maximum number of workouts to return (default 10)"},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: FunctionDef{
+				Name:        "get_workout",
+				Description: "Get one logged workout with its exercises and sets. Use this after get_user_workouts when the user asks for details about a specific workout.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"workout_id": map[string]interface{}{"type": "string", "description": "Workout UUID"},
+					},
+					"required": []string{"workout_id"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: FunctionDef{
+				Name:        "get_user_meals",
+				Description: "List the authenticated user's meals with nutrition totals. Use this for meal history and recent nutrition logging questions.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"date":      map[string]interface{}{"type": "string", "description": "Filter by meal date (YYYY-MM-DD)"},
+						"meal_type": map[string]interface{}{"type": "string", "description": "Filter by meal type such as breakfast, lunch, dinner, snack"},
+						"limit":     map[string]interface{}{"type": "integer", "description": "Maximum number of meals to return (default 10)"},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: FunctionDef{
+				Name:        "get_user_weight_entries",
+				Description: "List the authenticated user's weight entries in reverse chronological order. Use this for weight progress questions.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"date":       map[string]interface{}{"type": "string", "description": "Filter by exact weigh-in date (YYYY-MM-DD)"},
+						"start_date": map[string]interface{}{"type": "string", "description": "Filter to entries on or after this date (YYYY-MM-DD)"},
+						"end_date":   map[string]interface{}{"type": "string", "description": "Filter to entries on or before this date (YYYY-MM-DD)"},
+						"limit":      map[string]interface{}{"type": "integer", "description": "Maximum number of entries to return (default 10)"},
+					},
+				},
+			},
+		},
 		{
 			Type: "function",
 			Function: FunctionDef{
@@ -246,13 +574,29 @@ func (s *CoachService) GetTools() []ToolDef {
 			Type: "function",
 			Function: FunctionDef{
 				Name:        "get_daily_summary",
-				Description: "Get daily nutrition and workout summary.",
+				Description: "Get the authenticated user's daily nutrition and workout summary.",
 				Parameters: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
 						"date": map[string]interface{}{
 							"type":        "string",
 							"description": "Date for summary (YYYY-MM-DD)",
+						},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: FunctionDef{
+				Name:        "get_weekly_summary",
+				Description: "Get the authenticated user's weekly nutrition and workout summary.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"date": map[string]interface{}{
+							"type":        "string",
+							"description": "Any date inside the week to summarize (YYYY-MM-DD)",
 						},
 					},
 				},

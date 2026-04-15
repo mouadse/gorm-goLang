@@ -26,7 +26,7 @@ func (c *Conversation) BeforeCreate(tx *gorm.DB) error {
 
 type ConversationMessage struct {
 	ID             uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	ConversationID uuid.UUID `gorm:"type:uuid;not null;index" json:"conversation_id"`
+	ConversationID uuid.UUID `gorm:"type:uuid;not null;index;index:idx_conversation_messages_conversation_sequence,priority:1" json:"conversation_id"`
 	Role           string    `gorm:"type:varchar(50);not null" json:"role"` // "user", "assistant", "system", "tool"
 	Content        string    `gorm:"type:text" json:"content"`
 	ToolCalls      *string   `gorm:"type:text" json:"tool_calls,omitempty"`           // JSON serialized array of services.ToolCall
@@ -34,6 +34,7 @@ type ConversationMessage struct {
 	ToolName       *string   `gorm:"type:varchar(255)" json:"tool_name,omitempty"`    // For "tool" role
 	ToolArgs       *string   `gorm:"type:text" json:"tool_args,omitempty"`            // Raw JSON args if assistant called a tool
 	Feedback       *int      `gorm:"type:smallint" json:"feedback,omitempty"`         // 1 for thumbs up, -1 for down
+	Sequence       int64     `gorm:"not null;default:0;index:idx_conversation_messages_conversation_sequence,priority:2" json:"-"`
 	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
