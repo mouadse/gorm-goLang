@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.coach
     container_name: fitness-coach-ui
     ports:
-      - "8501:8501"
+      - "${COACH_UI_HOST_PORT:-8503}:8501"
     environment:
       - BASE_URL=http://app:8080/v1
       - EXERCISE_LIB_URL=http://exercise-lib:8000
@@ -14,6 +14,14 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501', timeout=2)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    init: true
     networks:
       - fitness-network
 

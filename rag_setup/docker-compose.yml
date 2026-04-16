@@ -1,0 +1,197 @@
+x-rag-build: &rag_build
+  context: ./app
+  dockerfile: Dockerfile
+
+x-rag-env: &rag_env
+  QDRANT_URL: http://qdrant:6333
+  QDRANT_COLLECTION: ${QDRANT_COLLECTION:-books}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3-flash-preview}
+  OPENROUTER_MAX_TOKENS: ${OPENROUTER_MAX_TOKENS:-512}
+  RAG_QUERY_MODE: ${RAG_QUERY_MODE:-hybrid}
+  RAG_SIMILARITY_TOP_K: ${RAG_SIMILARITY_TOP_K:-8}
+  RAG_SPARSE_TOP_K: ${RAG_SPARSE_TOP_K:-8}
+  RAG_SIMILARITY_CUTOFF: ${RAG_SIMILARITY_CUTOFF:-0.0}
+  RAG_SEARCH_HNSW_EF: ${RAG_SEARCH_HNSW_EF:-128}
+  RAG_EXACT_SEARCH: ${RAG_EXACT_SEARCH:-0}
+  RAG_INDEXED_ONLY: ${RAG_INDEXED_ONLY:-0}
+  RAG_HYBRID_FUSION: ${RAG_HYBRID_FUSION:-rrf}
+  RAG_HYBRID_ALPHA: ${RAG_HYBRID_ALPHA:-0.5}
+  RAG_HYBRID_RRF_K: ${RAG_HYBRID_RRF_K:-60}
+  RAG_QUANTIZATION_RESCORE: ${RAG_QUANTIZATION_RESCORE:-1}
+  RAG_QUANTIZATION_IGNORE: ${RAG_QUANTIZATION_IGNORE:-0}
+  RAG_QUANTIZATION_OVERSAMPLING: ${RAG_QUANTIZATION_OVERSAMPLING:-3.0}
+  RAG_CHUNK_SIZE: ${RAG_CHUNK_SIZE:-512}
+  RAG_CHUNK_OVERLAP: ${RAG_CHUNK_OVERLAP:-64}
+  RAG_EMBED_DIMENSION: ${RAG_EMBED_DIMENSION:-768}
+  HF_TOKEN: ${HF_TOKEN:-}
+  HF_HOME: /home/appuser/.cache/huggingface
+  FASTEMBED_CACHE_PATH: /home/appuser/.cache/huggingface/fastembed
+  HF_HUB_DISABLE_XET: ${HF_HUB_DISABLE_XET:-1}
+  RAG_EMBED_LOCAL_ONLY: ${RAG_EMBED_LOCAL_ONLY:-0}
+  RAG_STATE_DIR: /app/state
+  QDRANT_TIMEOUT_SECONDS: ${QDRANT_TIMEOUT_SECONDS:-10}
+  QDRANT_SHARD_NUMBER: ${QDRANT_SHARD_NUMBER:-1}
+  QDRANT_REPLICATION_FACTOR: ${QDRANT_REPLICATION_FACTOR:-1}
+  QDRANT_WRITE_CONSISTENCY_FACTOR: ${QDRANT_WRITE_CONSISTENCY_FACTOR:-1}
+  QDRANT_ON_DISK_PAYLOAD: ${QDRANT_ON_DISK_PAYLOAD:-1}
+  QDRANT_DENSE_ON_DISK: ${QDRANT_DENSE_ON_DISK:-0}
+  QDRANT_SPARSE_ON_DISK: ${QDRANT_SPARSE_ON_DISK:-0}
+  QDRANT_HNSW_M: ${QDRANT_HNSW_M:-32}
+  QDRANT_HNSW_EF_CONSTRUCT: ${QDRANT_HNSW_EF_CONSTRUCT:-200}
+  QDRANT_FULL_SCAN_THRESHOLD: ${QDRANT_FULL_SCAN_THRESHOLD:-10000}
+  QDRANT_MAX_INDEXING_THREADS: ${QDRANT_MAX_INDEXING_THREADS:-0}
+  QDRANT_DEFAULT_SEGMENT_NUMBER: ${QDRANT_DEFAULT_SEGMENT_NUMBER:-2}
+  QDRANT_INDEXING_THRESHOLD: ${QDRANT_INDEXING_THRESHOLD:-10000}
+  QDRANT_FLUSH_INTERVAL_SEC: ${QDRANT_FLUSH_INTERVAL_SEC:-5}
+  QDRANT_PREVENT_UNOPTIMIZED: ${QDRANT_PREVENT_UNOPTIMIZED:-0}
+  QDRANT_ENABLE_QUANTIZATION: ${QDRANT_ENABLE_QUANTIZATION:-1}
+  QDRANT_QUANTIZATION_ALWAYS_RAM: ${QDRANT_QUANTIZATION_ALWAYS_RAM:-1}
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.17.0
+    container_name: rag_qdrant_db
+    env_file:
+      - .env
+    environment:
+      QDRANT__STORAGE__OPTIMIZERS__DEFAULT_SEGMENT_NUMBER: ${QDRANT_DEFAULT_SEGMENT_NUMBER:-2}
+      QDRANT__STORAGE__HNSW_INDEX__M: ${QDRANT_HNSW_M:-32}
+      QDRANT__STORAGE__HNSW_INDEX__EF_CONSTRUCT: ${QDRANT_HNSW_EF_CONSTRUCT:-200}
+      QDRANT__STORAGE__PERFORMANCE__ASYNC_SCORER: ${QDRANT_ASYNC_SCORER:-true}
+      QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS: 2
+      QDRANT__STORAGE__OPTIMIZERS__MAX_OPTIMIZATION_THREADS: 2
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "127.0.0.1:6333:6333"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "exec 3<>/dev/tcp/127.0.0.1/6333"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build: *rag_build
+    container_name: rag_api
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+    ports:
+      - "8080:8000"
+    environment: *rag_env
+    volumes:
+      - ./books:/books
+      - ./runtime_overrides/shared.py:/app/shared.py:ro
+      - hf_cache_v2:/home/appuser/.cache/huggingface
+      - rag_state:/app/state
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  bootstrap:
+    build: *rag_build
+    container_name: rag_bootstrap
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    environment:
+      <<: *rag_env
+      RAG_EMBED_BATCH_SIZE: ${RAG_EMBED_BATCH_SIZE:-64}
+      RAG_EMBED_PARALLEL: ${RAG_EMBED_PARALLEL:-0}
+    volumes:
+      - ./books:/books
+      - ./runtime_overrides/shared.py:/app/shared.py:ro
+      - hf_cache_v2:/home/appuser/.cache/huggingface
+      - rag_state:/app/state
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: "no"
+    init: true
+    command: ["python", "ingest.py"]
+
+  ingest:
+    build: *rag_build
+    container_name: rag_ingest
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+    environment:
+      <<: *rag_env
+      RAG_EMBED_BATCH_SIZE: ${RAG_EMBED_BATCH_SIZE:-64}
+      RAG_EMBED_PARALLEL: ${RAG_EMBED_PARALLEL:-0}
+    volumes:
+      - ./books:/books
+      - ./runtime_overrides/shared.py:/app/shared.py:ro
+      - hf_cache_v2:/home/appuser/.cache/huggingface
+      - rag_state:/app/state
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: rag_ui
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+    environment:
+      API_URL: http://api:8000/query
+    volumes:
+      - ./ui/ui.py:/ui/ui.py
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: ["streamlit", "run", "ui.py", "--server.address=0.0.0.0", "--server.port=8501"]
+
+volumes:
+  qdrant_data:
+  hf_cache_v2:
+  rag_state:

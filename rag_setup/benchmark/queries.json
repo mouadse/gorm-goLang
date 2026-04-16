@@ -1,0 +1,27 @@
+[
+  {
+    "id": "q1",
+    "query": "What is Kamal and what does it do?",
+    "expected_topics": ["deployment", "container", "docker", "web"]
+  },
+  {
+    "id": "q2", 
+    "query": "How do I install Kamal?",
+    "expected_topics": ["install", "gem", "docker"]
+  },
+  {
+    "id": "q3",
+    "query": "What are the basic Kamal commands?",
+    "expected_topics": ["deploy", "setup", "kamal"]
+  },
+  {
+    "id": "q4",
+    "query": "How does Kamal handle environment variables?",
+    "expected_topics": ["env", "secrets", "environment"]
+  },
+  {
+    "id": "q5",
+    "query": "What is the difference between kamal deploy and kamal setup?",
+    "expected_topics": ["deploy", "setup", "difference"]
+  }
+]

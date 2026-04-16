@@ -34,6 +34,7 @@ type Server struct {
 	llmClient       services.LLMClient
 	coachSvc        *services.CoachService
 	exerciseLibSvc  *services.ExerciseLibClient
+	ragSvc          *services.RAGClient
 	leaderboardSvc  *services.LeaderboardService
 }
 
@@ -58,6 +59,7 @@ func NewServer(db *gorm.DB) *Server {
 		adminSvc:        adminSvc,
 		llmClient:       services.NewOpenRouterClient("", ""),
 		exerciseLibSvc:  services.NewExerciseLibClient(m),
+		ragSvc:          services.NewRAGClient(m),
 		leaderboardSvc:  services.NewLeaderboardService(db),
 	}
 	server.coachSvc = services.NewCoachService(db, server.analyticsSvc, server.adherenceSvc, services.NewNutritionTargetService(db), services.NewIntegrationRulesService(db), server.notificationSvc, server.exerciseLibSvc)
@@ -150,6 +152,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /v1/exercises/program", s.handleGenerateProgram)
 	s.mux.HandleFunc("GET /v1/exercises/library-meta", s.handleExerciseLibraryMeta)
 	s.mux.HandleFunc("GET /v1/exercise-images/{path...}", s.handleExerciseImageProxy)
+
+	// RAG proxy endpoints
+	s.mux.HandleFunc("GET /v1/rag/health", s.handleRAGHealth)
+	s.mux.HandleFunc("POST /v1/rag/query", s.handleRAGQuery)
+	s.mux.HandleFunc("GET /v1/rag/cache/stats", s.handleRAGCacheStats)
 
 	// Weight entries
 	protected("POST /v1/weight-entries", s.handleCreateWeightEntry)
@@ -258,6 +265,7 @@ func (s *Server) registerRoutes() {
 	admin("GET /v1/admin/users/stats", s.handleAdminUserStats)
 	admin("GET /v1/admin/users/growth", s.handleAdminUserGrowth)
 	admin("GET /v1/admin/workouts/stats", s.handleAdminWorkoutStats)
+	admin("POST /v1/rag/cache/clear", s.handleRAGCacheClear)
 	admin("GET /v1/admin/workouts/exercises/popular", s.handleAdminPopularExercises)
 	admin("GET /v1/admin/nutrition/stats", s.handleAdminNutritionStats)
 	admin("GET /v1/admin/moderation/stats", s.handleAdminModerationStats)

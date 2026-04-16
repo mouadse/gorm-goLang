@@ -47,7 +47,7 @@ services:
     container_name: fitness-app
     command: ["api"]
     ports:
-      - "8080:8080"
+      - "${API_HOST_PORT:-8082}:8080"
     environment:
       - PORT=8080
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
@@ -62,6 +62,7 @@ services:
       - CORS_ALLOW_CREDENTIALS=${CORS_ALLOW_CREDENTIALS:-}
       - CORS_MAX_AGE_SECONDS=${CORS_MAX_AGE_SECONDS:-}
       - EXERCISE_LIB_URL=http://exercise-lib:8000
+      - RAG_API_URL=http://rag-api:8000
       - DB_MAX_OPEN_CONNS=${DB_MAX_OPEN_CONNS:-25}
       - DB_MAX_IDLE_CONNS=${DB_MAX_IDLE_CONNS:-5}
       - DB_CONN_MAX_LIFETIME=${DB_CONN_MAX_LIFETIME:-30m}
@@ -81,6 +82,7 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
     networks:
       - fitness-network
 
@@ -89,7 +91,7 @@ services:
     container_name: fitness-worker
     command: ["worker"]
     ports:
-      - "9091:9091"
+      - "${WORKER_METRICS_HOST_PORT:-9091}:9091"
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/fitness_tracker?sslmode=disable
       - APP_ENV=${APP_ENV:-development}
@@ -109,6 +111,7 @@ services:
         condition: service_completed_successfully
       seed:
         condition: service_completed_successfully
+    restart: unless-stopped
     networks:
       - fitness-network
 
@@ -121,7 +124,7 @@ services:
     env_file:
       - ./exercises_lib_service/.env
     ports:
-      - "8000:8000"
+      - "${EXERCISE_LIB_HOST_PORT:-8000}:8000"
     cpus: "${APP_CPUS:-2.0}"
     environment:
       - PORT=8000
@@ -141,6 +144,7 @@ services:
       timeout: 5s
       retries: 60
       start_period: 10s
+    restart: unless-stopped
     networks:
       - fitness-network
 
@@ -153,7 +157,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fitness_tracker
     ports:
-      - "5433:5432"
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -170,7 +174,7 @@ services:
     image: dpage/pgadmin4:latest
     container_name: fitness-pgadmin
     ports:
-      - "8081:80"
+      - "${PGADMIN_HOST_PORT:-8081}:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@fitness-tracker.com
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-change-me}
@@ -178,6 +182,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
     networks:
       - fitness-network
 
@@ -186,7 +191,7 @@ services:
     image: prom/prometheus:v2.54.1
     container_name: fitness-prometheus
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_HOST_PORT:-9090}:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -205,6 +210,7 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    restart: unless-stopped
     networks:
       - fitness-network
 
@@ -213,7 +219,7 @@ services:
     image: grafana/grafana:11.3.0
     container_name: fitness-grafana
     ports:
-      - "3000:3000"
+      - "${GRAFANA_HOST_PORT:-3000}:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -231,6 +237,7 @@ services:
     depends_on:
       prometheus:
         condition: service_healthy
+    restart: unless-stopped
     networks:
       - fitness-network
 

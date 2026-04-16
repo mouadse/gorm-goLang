@@ -1,0 +1,16 @@
+curl https://openrouter.ai/api/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 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" \
+  -d '{
+  "model": "google/gemini-3-flash-preview",
+  "messages": [
+    {
+      "role": "user",
+      "content": "How many r`s are in the word `strawberry?`"
+    }
+  ],
+  "reasoning": {
+    "enabled": true
+  }
+}'
+

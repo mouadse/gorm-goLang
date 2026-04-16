@@ -10,6 +10,7 @@ The backend provides a robust API for full-spectrum fitness tracking:
 
 - **User Management**: Profiles, goals, TDEE calculation, and two-factor authentication (2FA).
 - **Exercise Library**: Extensive muscle-group focused exercise database with instructions and video URLs.
+- **RAG Knowledge API**: Book-ingestion and retrieval endpoints exposed through the Go API for documentation-style Q&A.
 - **Workout Tracking**: Set-by-set logging, cardio entries, and workout notes.
 - **Workout Intelligence**: Reusable workout templates and long-term training programs.
 - **Nutrition Ecosystem**: 
@@ -39,43 +40,80 @@ The backend provides a robust API for full-spectrum fitness tracking:
 ├── services/           # Business logic (Auth, Analytics, Notifications)
 ├── metrics/            # Prometheus metrics middleware
 ├── monitoring/         # Grafana/Prometheus configurations
+├── rag_setup/          # Qdrant-backed RAG API, ingest job, and UI
 ├── scripts/            # Utility scripts (USDA data import)
 └── seed/               # Idempotent development data seeder
 ```
 
 ## Quick Start
 
-### 1. Start Infrastructure
+### 1. Prepare Environment
 ```bash
 cp .env.example .env
-docker compose up -d postgres pgadmin exercise-lib
 ```
 
-### 2. Run Migrations
+Set at least:
+- `JWT_SECRET`
+- `OPENROUTER_API_KEY`
+- `HF_TOKEN` if your RAG setup needs authenticated Hugging Face downloads
+
+### 2. Start the Full Dev Stack
 ```bash
-go run . migrate
+make run
 ```
 
-### 3. Seed Database
+This now starts, in one command:
+- PostgreSQL
+- exercise library service
+- migrations and seed job
+- API and worker
+- Prometheus and Grafana
+- AI coach UI
+- RAG Qdrant, an automatic RAG bootstrap ingest job, the RAG API, and the RAG UI
+
+### 3. Ingest RAG Documents When Needed
 ```bash
-go run seed/main.go
+make rag-ingest
 ```
 
-### 4. Run Application and Worker
+`make run` now bootstraps the initial RAG collection automatically from `rag_setup/books/`.
+Add or update PDFs after the stack is already running, then rerun `make rag-ingest`.
+
+Query the RAG system through the Go API once the stack is up:
 ```bash
-export JWT_SECRET=your-secure-random-secret
-go run . api
-go run . worker
+curl -X POST http://localhost:8082/v1/rag/query \
+  -H "Content-Type: application/json" \
+  -d '{"query":"What is Kamal and what does it do?","include_sources":true}'
 ```
 
-API default address: `http://localhost:8080`
+If a host port is already occupied on your machine, override it in `.env` instead of editing compose files. The stack now supports `API_HOST_PORT`, `EXERCISE_LIB_HOST_PORT`, `COACH_UI_HOST_PORT`, `GRAFANA_HOST_PORT`, `PROMETHEUS_HOST_PORT`, `PGADMIN_HOST_PORT`, `POSTGRES_HOST_PORT`, `WORKER_METRICS_HOST_PORT`, `RAG_API_PORT`, `RAG_UI_PORT`, and `RAG_QDRANT_PORT`.
+
+If RAG is saturating your machine, cap it with `.env` knobs: `RAG_API_CPUS`, `RAG_INGEST_CPUS`, `RAG_QDRANT_CPUS`, `RAG_UI_CPUS`, `RAG_CPU_THREADS`, `RAG_EMBED_THREADS`, `RAG_EMBED_BATCH_SIZE`, `RAG_EMBED_PARALLEL`, `QDRANT_MAX_INDEXING_THREADS`, `QDRANT_MAX_SEARCH_THREADS`, `QDRANT_MAX_OPTIMIZATION_THREADS`, and `QDRANT_OPTIMIZER_CPU_BUDGET`.
 
 ## Monitoring & Management
 
-- **Swagger UI**: `http://localhost:8080/docs`
+- **Swagger UI**: `http://localhost:8082/docs`
+- **Exercise Library**: `http://localhost:8000`
+- **Coach UI**: `http://localhost:8503`
 - **Grafana**: `http://localhost:3000` (User: `admin`, Pass: `admin`)
 - **Prometheus**: `http://localhost:9090`
-- **pgAdmin**: `http://localhost:8081` (User: `admin@fitness-tracker.com`, Pass: `admin`)
+- **RAG API**: `http://localhost:8088`
+- **RAG UI**: `http://localhost:8502`
+- **Qdrant**: `http://localhost:6334`
+- **pgAdmin**: `http://localhost:8081` via `make admin`
+
+## Common Commands
+
+```bash
+make run          # build changed images and start the whole stack
+make down         # stop the whole stack
+make logs         # follow logs across the stack
+make ps           # show container status
+make rag-ingest   # incremental RAG ingest
+make rag-reingest # full RAG rebuild
+make db-shell     # open psql inside postgres
+make test         # go test + race detector
+```
 
 ## Configuration
 
@@ -130,9 +168,11 @@ The API surface is organized into the following v1 namespaces:
 - `/v1/foods`: Nutritional database lookup
 - `/v1/notifications`: User alerts and reminders
 - `/v1/export`: Data portability (JSON/CSV)
+- `/v1/rag`: Book-query endpoints backed by the RAG service
 
 ## Testing
 
 ```bash
 go test ./...
+python3 test_rag_api.py --base-url http://localhost:8082
 ```

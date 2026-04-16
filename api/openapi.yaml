@@ -15,6 +15,7 @@ tags:
   - name: Adherence
   - name: Chat
   - name: AI Coach
+  - name: RAG
   - name: Exercises
   - name: Workouts
   - name: Workout Exercises
@@ -88,6 +89,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /v1/rag/health:
+    get:
+      tags: [RAG]
+      summary: Get RAG service health
+      operationId: getRAGHealth
+      responses:
+        "200":
+          description: RAG service is reachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RAGHealthResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/rag/query:
+    post:
+      tags: [RAG]
+      summary: Query the book RAG system
+      operationId: queryRAG
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RAGQueryRequest"
+      responses:
+        "200":
+          description: Answer generated from the RAG knowledge base.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RAGQueryResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/rag/cache/stats:
+    get:
+      tags: [RAG]
+      summary: Get RAG cache statistics
+      operationId: getRAGCacheStats
+      responses:
+        "200":
+          description: Current RAG query cache metrics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RAGCacheStatsResponse"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/rag/cache/clear:
+    post:
+      tags: [RAG]
+      summary: Clear the RAG query cache
+      description: Admin-only endpoint that clears cached RAG query results and query-engine instances.
+      operationId: clearRAGCache
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Cache clear completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RAGCacheClearResponse"
+        default:
+          $ref: "#/components/responses/Error"
   /v1/auth/register:
     post:
       tags: [Auth]
@@ -3798,6 +3864,98 @@ components:
         status:
           type: string
           example: ok
+    RAGHealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+    RAGQueryRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          example: What is Kamal and what does it do?
+        mode:
+          type: string
+          enum: [default, dense, sparse, hybrid]
+          example: hybrid
+        exact_search:
+          type: boolean
+          example: false
+        similarity_top_k:
+          type: integer
+          minimum: 1
+          example: 8
+        sparse_top_k:
+          type: integer
+          minimum: 1
+          example: 8
+        include_sources:
+          type: boolean
+          example: true
+    RAGQuerySource:
+      type: object
+      properties:
+        score:
+          type: number
+          format: float
+        file_name:
+          type: string
+          example: Kamal Handbook The missing manual (Josef Strzibny) (Z-Library).pdf
+        source_stem:
+          type: string
+          example: Kamal Handbook The missing manual (Josef Strzibny) (Z-Library)
+        page_label:
+          type: string
+          example: "7"
+        page_number:
+          type: integer
+          example: 7
+        excerpt:
+          type: string
+    RAGQueryResponse:
+      type: object
+      required: [answer, mode_used]
+      properties:
+        answer:
+          type: string
+          example: Kamal is a deployment tool that helps you build, ship, and run apps on your own servers.
+        mode_used:
+          type: string
+          example: hybrid
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/RAGQuerySource"
+    RAGCacheStatsResponse:
+      type: object
+      required: [size, max_size, ttl_seconds, hits, misses]
+      properties:
+        size:
+          type: integer
+          example: 2
+        max_size:
+          type: integer
+          example: 100
+        ttl_seconds:
+          type: integer
+          example: 3600
+        hits:
+          type: integer
+          example: 4
+        misses:
+          type: integer
+          example: 7
+    RAGCacheClearResponse:
+      type: object
+      required: [cleared]
+      properties:
+        cleared:
+          type: integer
+          example: 3
     ErrorResponse:
       type: object
       required: [title, status, error]

@@ -1,0 +1,18 @@
+[project]
+name = "rag-mvp"
+version = "0.1.0"
+description = "A simple RAG MVP using FastAPI, Qdrant, and LlamaIndex"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "llama-index-core",
+    "llama-index-readers-file",
+    "llama-index-embeddings-fastembed",
+    "fastembed",
+    "llama-index-llms-openrouter",
+    "llama-index-vector-stores-qdrant",
+    "pypdf",
+    "qdrant-client",
+    "uvicorn",
+]

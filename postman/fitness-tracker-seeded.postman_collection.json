@@ -1793,6 +1793,129 @@
       ]
     },
     {
+      "name": "RAG",
+      "item": [
+        {
+          "name": "GET /v1/rag/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rag/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "rag",
+                "health"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/rag/health"
+          }
+        },
+        {
+          "name": "POST /v1/rag/query",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rag/query",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "rag",
+                "query"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/rag/query",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"What is Kamal and what does it do?\",\n  \"include_sources\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /v1/rag/cache/stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rag/cache/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "rag",
+                "cache",
+                "stats"
+              ],
+              "query": []
+            },
+            "description": "GET /v1/rag/cache/stats"
+          }
+        },
+        {
+          "name": "POST /v1/rag/cache/clear",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rag/cache/clear",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "rag",
+                "cache",
+                "clear"
+              ],
+              "query": []
+            },
+            "description": "POST /v1/rag/cache/clear\n\nManual or destructive: included for endpoint coverage, but disabled by default so collection runs do not mutate cache state unexpectedly.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "disabled": true
+        }
+      ]
+    },
+    {
       "name": "Exercises and Leaderboard",
       "item": [
         {

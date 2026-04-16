@@ -201,6 +201,9 @@ func TestDocsEndpoints(t *testing.T) {
 	if !bytes.Contains(specRecorder.Body.Bytes(), []byte("openapi: 3.0.3")) {
 		t.Fatalf("GET /openapi.yaml: expected OpenAPI document")
 	}
+	if !bytes.Contains(specRecorder.Body.Bytes(), []byte("/v1/rag/query:")) {
+		t.Fatalf("GET /openapi.yaml: expected RAG query path in OpenAPI document")
+	}
 
 	docsRequest := httptest.NewRequest(http.MethodGet, "/docs", nil)
 	docsRecorder := httptest.NewRecorder()

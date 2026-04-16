@@ -7,7 +7,7 @@ Files:
 
 Import both files into Postman, select the `Fitness Tracker API - Local Seeded` environment, then run the collection from the top.
 
-The collection assumes the local API is running at `http://localhost:8080` and the seed command has been run. It logs in with the seeded admin account:
+The collection assumes the local API is running at `http://localhost:8082` and the seed command has been run. It logs in with the seeded admin account:
 
 - Email: `alex@example.com`
 - Password: `password123`
