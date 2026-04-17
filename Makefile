@@ -67,7 +67,7 @@ run:
 	@echo ""
 	@echo "Full stack endpoints:"
 	@if [ "$(HAS_FRONTEND)" = "1" ]; then echo "  Front-End        http://localhost:$(FRONTEND_HOST_PORT)"; fi
-	@echo "  API              http://localhost:$(API_HOST_PORT)"
+	@echo "  API              https://localhost:$(API_HOST_PORT)"
 	@echo "  Exercise Library http://localhost:$(EXERCISE_LIB_HOST_PORT)"
 	@echo "  Coach UI         http://localhost:$(COACH_UI_HOST_PORT)"
 	@echo "  Grafana          http://localhost:$(GRAFANA_HOST_PORT)"

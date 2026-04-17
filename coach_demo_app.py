@@ -4,13 +4,36 @@ import json
 import os
 import time
 import re
+import urllib3
+from urllib.parse import urlparse
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 EXERCISE_LIB_URL = os.getenv("EXERCISE_LIB_URL", "http://localhost:8000")
 MODEL = os.getenv("LLM_MODEL", "google/gemini-2.0-flash-001")
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8080/v1")
+BASE_URL = os.getenv("BASE_URL", "https://localhost:8080/v1")
+VERIFY_TLS = os.getenv("VERIFY_TLS", "0").strip().lower() not in {"0", "false", "no", "off"}
 DEFAULT_EMAIL = "alex@example.com"
 DEFAULT_PASSWORD = "password123"
+
+if not VERIFY_TLS:
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+_BASE_ORIGIN = urlparse(BASE_URL)
+
+
+def is_backend_url(url):
+    parsed = urlparse(url)
+    return parsed.scheme == _BASE_ORIGIN.scheme and parsed.netloc == _BASE_ORIGIN.netloc
+
+
+def request_url(method, url, **kwargs):
+    if not VERIFY_TLS and is_backend_url(url):
+        kwargs.setdefault("verify", False)
+    return requests.request(method, url, **kwargs)
+
+
+def backend_request(method, endpoint, **kwargs):
+    return request_url(method, f"{BASE_URL}{endpoint}", **kwargs)
 
 OPENROUTER_HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -44,7 +67,7 @@ def get_api_headers():
 
 def _detect_image_base_url():
     try:
-        r = requests.head(f"{BASE_URL}/exercise-images/test", timeout=2)
+        r = backend_request("HEAD", "/exercise-images/test", timeout=2)
         if r.status_code != 404:
             return BASE_URL
     except Exception:
@@ -70,7 +93,7 @@ def fetch_image_bytes(url):
         return None
 
     try:
-        resp = requests.get(url, timeout=10)
+        resp = request_url("GET", url, timeout=10)
         resp.raise_for_status()
         return resp.content
     except requests.RequestException:
@@ -134,8 +157,10 @@ def build_exercise_lookup_query(name=None, muscle=None, equipment=None, level=No
 
 def login(email, password):
     try:
-        resp = requests.post(
-            f"{BASE_URL}/auth/login", json={"email": email, "password": password}
+        resp = backend_request(
+            "POST",
+            "/auth/login",
+            json={"email": email, "password": password},
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -185,8 +210,7 @@ When answering questions:
 
 def api_request(method, endpoint, params=None):
     try:
-        url = f"{BASE_URL}{endpoint}"
-        resp = requests.request(method, url, headers=get_api_headers(), params=params)
+        resp = backend_request(method, endpoint, headers=get_api_headers(), params=params)
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:
@@ -195,8 +219,7 @@ def api_request(method, endpoint, params=None):
 
 def api_post_request(endpoint, body):
     try:
-        url = f"{BASE_URL}{endpoint}"
-        resp = requests.post(url, headers=get_api_headers(), json=body)
+        resp = backend_request("POST", endpoint, headers=get_api_headers(), json=body)
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:

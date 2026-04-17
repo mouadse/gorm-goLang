@@ -211,6 +211,37 @@ func TestIntegrationRulesContextExcludesFutureWeekWorkouts(t *testing.T) {
 	}
 }
 
+func TestIntegrationRulesContextAllowsNoWorkoutForDay(t *testing.T) {
+	date := time.Date(2026, time.March, 5, 12, 0, 0, 0, time.UTC)
+
+	db := openServicesTestDB(t,
+		&models.User{},
+		&models.Workout{},
+		&models.WorkoutExercise{},
+		&models.WorkoutSet{},
+		&models.Meal{},
+		&models.MealFood{},
+		&models.Food{},
+	)
+	user := createTestUser(t, db)
+
+	svc := NewIntegrationRulesService(db)
+	ctx, err := svc.GetWorkoutNutritionContext(user.ID, date)
+	if err != nil {
+		t.Fatalf("get workout nutrition context: %v", err)
+	}
+
+	if ctx.HasWorkout {
+		t.Fatalf("expected no workout for %s", date.Format("2006-01-02"))
+	}
+	if ctx.WorkoutType != "" {
+		t.Fatalf("expected empty workout type, got %q", ctx.WorkoutType)
+	}
+	if ctx.WorkoutDuration != 0 {
+		t.Fatalf("expected zero workout duration, got %d", ctx.WorkoutDuration)
+	}
+}
+
 func TestWorkoutAnalyticsGetWeeklyStatsUsesFullSundayWeeks(t *testing.T) {
 	now := time.Now().UTC()
 	currentWeekStart := startOfWeekUTC(now)

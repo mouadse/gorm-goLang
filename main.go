@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -66,22 +66,26 @@ func runAPI() error {
 		WriteTimeout:      getDurationEnv("HTTP_WRITE_TIMEOUT", defaultWriteTimeout),
 		IdleTimeout:       getDurationEnv("HTTP_IDLE_TIMEOUT", defaultIdleTimeout),
 		MaxHeaderBytes:    getIntEnv("HTTP_MAX_HEADER_BYTES", defaultMaxHeaderBytes),
+		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
+	}
+	certFile, keyFile, err := resolveTLSCertificateFiles()
+	if err != nil {
+		return fmt.Errorf("tls configuration failed: %w", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), getDurationEnv("HTTP_SHUTDOWN_TIMEOUT", defaultShutdownTimeout))
-		defer cancel()
-		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("graceful shutdown failed: %v", err)
-		}
-	}()
-
-	log.Printf("fitness-tracker API listening on %s", httpServer.Addr)
-	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	log.Printf("fitness-tracker API listening on http://%s and https://%s", httpServer.Addr, httpServer.Addr)
+	if err := serveHTTPAndTLSOnSamePort(
+		ctx,
+		httpServer,
+		certFile,
+		keyFile,
+		getDurationEnv("HTTP_SHUTDOWN_TIMEOUT", defaultShutdownTimeout),
+	); err != nil {
 		return err
 	}
 	return nil

@@ -164,18 +164,18 @@ services:
     volumes:
       - ./ui/ui.py:/ui/ui.py
     ports:
-      - "8501:8501"
+      - "8502:8502"
     depends_on:
       api:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501', timeout=2)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8502', timeout=2)"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 30s
-    command: ["streamlit", "run", "ui.py", "--server.address=0.0.0.0", "--server.port=8501"]
+    command: ["streamlit", "run", "ui.py", "--server.address=0.0.0.0", "--server.port=8502"]
 
 volumes:
   qdrant_data:

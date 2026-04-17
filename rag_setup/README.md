@@ -37,7 +37,7 @@ A Dockerized RAG system that ingests PDFs, stores vectors in Qdrant, answers wit
    ```
    Endpoints:
    - API: `http://localhost:8080`
-   - Streamlit UI: `http://localhost:8501`
+   - Streamlit UI: `http://localhost:8502`
    - Qdrant: `http://localhost:6333`
 
 5. **Ingest Documents:**

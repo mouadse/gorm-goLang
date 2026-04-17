@@ -256,10 +256,19 @@ func (s *IntegrationRulesService) GetWorkoutNutritionContext(userID uuid.UUID, d
 		Goal:   user.Goal,
 	}
 
-	// Get workout for the date
+	var err error
+
+	// Get workout for the date. Use Find instead of First so "no workout today"
+	// stays a normal business case rather than a noisy ErrRecordNotFound log.
 	var workout models.Workout
-	err := s.db.Where("user_id = ? AND date >= ? AND date < ?", userID, dayStart, nextDay).First(&workout).Error
-	if err == nil {
+	workoutResult := s.db.
+		Where("user_id = ? AND date >= ? AND date < ?", userID, dayStart, nextDay).
+		Limit(1).
+		Find(&workout)
+	if workoutResult.Error != nil {
+		return nil, workoutResult.Error
+	}
+	if workoutResult.RowsAffected > 0 {
 		ctx.HasWorkout = true
 		ctx.WorkoutType = workout.Type
 		ctx.WorkoutDuration = workout.Duration
