@@ -14,7 +14,7 @@ type User struct {
 	Email         string         `gorm:"type:varchar(255);uniqueIndex:idx_users_email,where:deleted_at IS NULL;not null" json:"email"`
 	PasswordHash  string         `gorm:"type:varchar(255);not null" json:"-"`
 	Name          string         `gorm:"type:varchar(255);not null" json:"name"`
-	Avatar        string         `gorm:"type:varchar(512)" json:"avatar"`
+	Avatar        string         `gorm:"type:text" json:"avatar"`
 	Age           int            `gorm:"type:int" json:"age"` // Deprecated: Use DateOfBirth instead
 	DateOfBirth   *time.Time     `gorm:"type:date" json:"date_of_birth"`
 	Weight        float64        `gorm:"type:decimal(7,2)" json:"weight"`

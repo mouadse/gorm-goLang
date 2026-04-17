@@ -79,6 +79,10 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	if err := migrateUserAvatarColumn(db); err != nil {
+		return err
+	}
+
 	if err := backfillConversationMessageSequences(db); err != nil {
 		return err
 	}
@@ -200,6 +204,43 @@ func backfillLegacyExerciseColumn(db *gorm.DB, sourceColumn, targetColumn string
 			UpdateColumn(targetColumn, update.Value).Error; err != nil {
 			return fmt.Errorf("backfill %s from %s for exercise %q: %w", targetColumn, sourceColumn, update.ID, err)
 		}
+	}
+
+	return nil
+}
+
+func migrateUserAvatarColumn(db *gorm.DB) error {
+	if !db.Migrator().HasTable(&models.User{}) || !db.Migrator().HasColumn(&models.User{}, "avatar") {
+		return nil
+	}
+
+	columnTypes, err := db.Migrator().ColumnTypes(&models.User{})
+	if err != nil {
+		return fmt.Errorf("inspect users table schema: %w", err)
+	}
+
+	for _, columnType := range columnTypes {
+		if !strings.EqualFold(columnType.Name(), "avatar") {
+			continue
+		}
+
+		databaseType := strings.ToUpper(columnType.DatabaseTypeName())
+		if strings.Contains(databaseType, "TEXT") {
+			return nil
+		}
+
+		log.Println("migrating users.avatar column to text")
+		switch db.Dialector.Name() {
+		case "postgres":
+			if err := db.Exec("ALTER TABLE users ALTER COLUMN avatar TYPE text").Error; err != nil {
+				return fmt.Errorf("alter users.avatar to text: %w", err)
+			}
+		default:
+			if err := db.Migrator().AlterColumn(&models.User{}, "Avatar"); err != nil {
+				return fmt.Errorf("alter users.avatar column: %w", err)
+			}
+		}
+		return nil
 	}
 
 	return nil
