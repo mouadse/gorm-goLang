@@ -4,8 +4,6 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    HF_HOME=/home/appuser/.cache/huggingface \
-    HF_HUB_DISABLE_XET=1 \
     RAG_STATE_DIR=/app/state
 
 # Set working directory
@@ -30,7 +28,6 @@ COPY . .
 
 RUN groupadd --gid 1000 appuser \
     && useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin appuser \
-    && mkdir -p /home/appuser/.cache/huggingface \
     && mkdir -p /app/state \
     && chown -R appuser:appuser /app /home/appuser
 

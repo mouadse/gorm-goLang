@@ -13,7 +13,7 @@ class MainQueryEngineTests(unittest.TestCase):
         self.main._cache_hits = 0
         self.main._cache_misses = 0
 
-    def test_query_engine_uses_configurable_topk_for_hybrid(self):
+    def test_query_engine_uses_configurable_topk(self):
         captured = {}
 
         class FakeIndex:
@@ -38,20 +38,17 @@ class MainQueryEngineTests(unittest.TestCase):
                 "from_vector_store",
                 return_value=FakeIndex(),
             ),
+            patch.object(self.main, "setup_settings", return_value=None),
             patch.object(
                 self.main,
                 "get_retrieval_settings",
                 return_value={
-                    "query_mode": "hybrid",
+                    "query_mode": "default",
                     "similarity_top_k": 11,
-                    "sparse_top_k": 6,
                     "similarity_cutoff": 0.25,
                     "search_hnsw_ef": 96,
                     "exact_search": True,
                     "indexed_only": False,
-                    "hybrid_fusion": "rrf",
-                    "hybrid_alpha": 0.4,
-                    "hybrid_rrf_k": 50,
                     "quantization_rescore": True,
                     "quantization_ignore": False,
                     "quantization_oversampling": 2.0,
@@ -61,63 +58,14 @@ class MainQueryEngineTests(unittest.TestCase):
             engine = self.main.get_query_engine()
 
         self.assertEqual(engine.name, "engine")
-        self.assertEqual(captured["vector_store_query_mode"], "hybrid")
+        self.assertEqual(captured["vector_store_query_mode"], "default")
         self.assertEqual(captured["similarity_top_k"], 11)
-        self.assertEqual(captured["sparse_top_k"], 6)
         self.assertEqual(captured["vector_store_kwargs"]["search_params"].hnsw_ef, 96)
         self.assertTrue(captured["vector_store_kwargs"]["search_params"].exact)
         self.assertEqual(
             captured["node_postprocessors"][0].similarity_cutoff,
             0.25,
         )
-
-    def test_query_endpoint_falls_back_to_default_when_sparse_model_is_missing(self):
-        class HybridEngine:
-            def query(self, _query_text):
-                raise RuntimeError(
-                    "Load model from /tmp/fastembed_cache/models--Qdrant--Splade_PP_en_v1/"
-                    "snapshots/abc/model.onnx failed. File doesn't exist"
-                )
-
-        class DefaultEngine:
-            def query(self, _query_text):
-                return "dense answer"
-
-        request = self.main.QueryRequest(query="What is Kamal?")
-
-        with patch.object(
-            self.main,
-            "get_query_engine",
-            side_effect=[HybridEngine(), DefaultEngine()],
-        ) as get_query_engine_mock, patch.object(
-            self.main,
-            "get_retrieval_settings",
-            return_value={
-                "query_mode": "hybrid",
-                "similarity_top_k": 8,
-                "sparse_top_k": 8,
-                "similarity_cutoff": 0.0,
-                "search_hnsw_ef": 128,
-                "exact_search": False,
-                "indexed_only": False,
-                "hybrid_fusion": "rrf",
-                "hybrid_alpha": 0.5,
-                "hybrid_rrf_k": 60,
-                "quantization_rescore": True,
-                "quantization_ignore": False,
-                "quantization_oversampling": 3.0,
-            },
-        ):
-            response = self.main.query_rag(request)
-
-        self.assertEqual(response.answer, "dense answer")
-        self.assertEqual(response.mode_used, "default")
-        self.assertEqual(get_query_engine_mock.call_count, 2)
-        first_call = get_query_engine_mock.call_args_list[0]
-        second_call = get_query_engine_mock.call_args_list[1]
-        self.assertEqual(first_call.kwargs["retrieval_settings"]["query_mode"], "hybrid")
-        self.assertEqual(second_call.kwargs["retrieval_settings"]["query_mode"], "default")
-        self.assertTrue(second_call.kwargs["use_cache"])
 
     def test_query_cache_preserves_query_case(self):
         class EchoEngine:
@@ -130,16 +78,12 @@ class MainQueryEngineTests(unittest.TestCase):
 
         engine = EchoEngine()
         retrieval_settings = {
-            "query_mode": "hybrid",
+            "query_mode": "default",
             "similarity_top_k": 8,
-            "sparse_top_k": 8,
             "similarity_cutoff": 0.0,
             "search_hnsw_ef": 128,
             "exact_search": False,
             "indexed_only": False,
-            "hybrid_fusion": "rrf",
-            "hybrid_alpha": 0.5,
-            "hybrid_rrf_k": 60,
             "quantization_rescore": True,
             "quantization_ignore": False,
             "quantization_oversampling": 3.0,

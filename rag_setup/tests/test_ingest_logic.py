@@ -19,6 +19,7 @@ class FakeClient:
         self._points = initial_points
         self._exists = exists
         self.deleted_collections = []
+        self.created_collections = []
         self.updated_collections = []
         self.created_payload_indexes = []
 
@@ -36,7 +37,8 @@ class FakeClient:
         self._exists = False
         self._points = 0
 
-    def create_collection(self, **_kwargs):
+    def create_collection(self, **kwargs):
+        self.created_collections.append(kwargs)
         self._exists = True
 
     def update_collection(self, **kwargs):
@@ -152,6 +154,16 @@ class IngestLogicTests(unittest.TestCase):
         self.assertEqual(enriched.metadata["page_number"], 7)
         self.assertIn("source_stem", enriched.excluded_embed_metadata_keys)
         self.assertIn("page_number", enriched.excluded_llm_metadata_keys)
+
+    def test_ensure_collection_schema_creates_dense_only_unnamed_vector(self):
+        fake_client = FakeClient(initial_points=0, exists=False)
+
+        self.ingest._ensure_collection_schema(fake_client, "books")
+
+        self.assertEqual(len(fake_client.created_collections), 1)
+        vectors_config = fake_client.created_collections[0]["vectors_config"]
+        self.assertNotIsInstance(vectors_config, dict)
+        self.assertEqual(vectors_config.size, 1536)
 
 
 if __name__ == "__main__":

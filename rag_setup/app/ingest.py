@@ -12,8 +12,7 @@ from shared import (
     get_qdrant_payload_indexes,
     get_qdrant_vector_store,
     get_ingest_config,
-    build_qdrant_dense_config,
-    build_qdrant_sparse_config,
+    build_qdrant_vectors_config,
     build_qdrant_quantization_config,
     build_qdrant_hnsw_config,
     build_qdrant_optimizer_config,
@@ -172,8 +171,7 @@ def _ensure_collection_schema(client, collection_name):
     from qdrant_client import models
 
     collection_settings = get_qdrant_collection_settings()
-    dense_config = build_qdrant_dense_config(collection_settings)
-    sparse_config = build_qdrant_sparse_config(collection_settings)
+    vectors_config = build_qdrant_vectors_config(collection_settings)
     quantization_config = build_qdrant_quantization_config(collection_settings)
     hnsw_config = build_qdrant_hnsw_config(collection_settings)
     optimizer_config = build_qdrant_optimizer_config(collection_settings)
@@ -182,10 +180,7 @@ def _ensure_collection_schema(client, collection_name):
     if not client.collection_exists(collection_name):
         client.create_collection(
             collection_name=collection_name,
-            vectors_config={collection_settings["dense_vector_name"]: dense_config},
-            sparse_vectors_config={
-                collection_settings["sparse_vector_name"]: sparse_config
-            },
+            vectors_config=vectors_config,
             shard_number=collection_settings["shard_number"],
             replication_factor=collection_settings["replication_factor"],
             write_consistency_factor=collection_settings["write_consistency_factor"],
@@ -200,9 +195,6 @@ def _ensure_collection_schema(client, collection_name):
             hnsw_config=hnsw_config,
             optimizers_config=optimizer_config,
             quantization_config=quantization_config or models.Disabled(),
-            sparse_vectors_config={
-                collection_settings["sparse_vector_name"]: sparse_config
-            },
         )
 
     for payload_index in payload_indexes:

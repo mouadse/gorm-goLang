@@ -14,6 +14,7 @@ def install_external_stubs():
     llms_pkg = types.ModuleType("llama_index.llms")
     openrouter_mod = types.ModuleType("llama_index.llms.openrouter")
     embeddings_pkg = types.ModuleType("llama_index.embeddings")
+    openai_embedding_mod = types.ModuleType("llama_index.embeddings.openai")
     fastembed_mod = types.ModuleType("llama_index.embeddings.fastembed")
     postprocessor_mod = types.ModuleType("llama_index.core.postprocessor")
     vector_stores_pkg = types.ModuleType("llama_index.vector_stores")
@@ -110,6 +111,10 @@ def install_external_stubs():
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
+    class DummyOpenAIEmbedding:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
     class DummyFastEmbedEmbedding:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
@@ -167,6 +172,7 @@ def install_external_stubs():
     core_mod.StorageContext = DummyStorageContext
     core_mod.VectorStoreIndex = DummyVectorStoreIndex
     openrouter_mod.OpenRouter = DummyOpenRouter
+    openai_embedding_mod.OpenAIEmbedding = DummyOpenAIEmbedding
     fastembed_mod.FastEmbedEmbedding = DummyFastEmbedEmbedding
     postprocessor_mod.SimilarityPostprocessor = DummySimilarityPostprocessor
     qdrant_vs_mod.QdrantVectorStore = DummyQdrantVectorStore
@@ -182,6 +188,7 @@ def install_external_stubs():
     sys.modules["llama_index.llms"] = llms_pkg
     sys.modules["llama_index.llms.openrouter"] = openrouter_mod
     sys.modules["llama_index.embeddings"] = embeddings_pkg
+    sys.modules["llama_index.embeddings.openai"] = openai_embedding_mod
     sys.modules["llama_index.embeddings.fastembed"] = fastembed_mod
     sys.modules["llama_index.vector_stores"] = vector_stores_pkg
     sys.modules["llama_index.vector_stores.qdrant"] = qdrant_vs_mod

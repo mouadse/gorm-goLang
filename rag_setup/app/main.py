@@ -19,7 +19,6 @@ class QueryRequest(BaseModel):
     mode: str | None = None
     exact_search: bool | None = None
     similarity_top_k: int | None = None
-    sparse_top_k: int | None = None
     include_sources: bool = False
 
 
@@ -67,28 +66,10 @@ def ensure_settings_initialized():
         _settings_initialized = True
 
 
-def _is_missing_sparse_model_error(exception):
-    error_message = str(exception)
-    # Ensure the error is specifically about the SPLADE model missing,
-    # rather than catching generic file errors that could mask real issues.
-    is_splade_error = "Splade_PP_en_v1" in error_message
-    is_missing_file = (
-        "File doesn't exist" in error_message
-        or "model.onnx failed" in error_message
-        or "not found" in error_message.lower()
-    )
-    return is_splade_error and is_missing_file
 
 
 def _normalize_query_mode(query_mode):
-    if query_mode is None:
-        return None
-    normalized = query_mode.strip().lower()
-    if normalized == "dense":
-        normalized = "default"
-    if normalized not in {"default", "sparse", "hybrid"}:
-        return None
-    return normalized
+    return "default" if query_mode else None
 
 
 def _build_retrieval_settings(request: QueryRequest | None = None, overrides=None):
@@ -101,8 +82,6 @@ def _build_retrieval_settings(request: QueryRequest | None = None, overrides=Non
             retrieval_settings["exact_search"] = bool(request.exact_search)
         if request.similarity_top_k is not None:
             retrieval_settings["similarity_top_k"] = max(1, int(request.similarity_top_k))
-        if request.sparse_top_k is not None:
-            retrieval_settings["sparse_top_k"] = max(1, int(request.sparse_top_k))
     if overrides:
         retrieval_settings.update(overrides)
     return retrieval_settings
@@ -112,14 +91,10 @@ def _get_retrieval_signature(retrieval_settings):
     return (
         retrieval_settings["query_mode"],
         retrieval_settings["similarity_top_k"],
-        retrieval_settings["sparse_top_k"],
         retrieval_settings["similarity_cutoff"],
         retrieval_settings["search_hnsw_ef"],
         retrieval_settings["exact_search"],
         retrieval_settings["indexed_only"],
-        retrieval_settings["hybrid_fusion"],
-        retrieval_settings["hybrid_alpha"],
-        retrieval_settings["hybrid_rrf_k"],
         retrieval_settings["quantization_rescore"],
         retrieval_settings["quantization_ignore"],
         retrieval_settings["quantization_oversampling"],
@@ -207,8 +182,6 @@ def _create_query_engine(retrieval_settings=None):
     }
     if node_postprocessors:
         query_engine_kwargs["node_postprocessors"] = node_postprocessors
-    if active_retrieval_settings["query_mode"] == "hybrid":
-        query_engine_kwargs["sparse_top_k"] = active_retrieval_settings["sparse_top_k"]
 
     return index.as_query_engine(**query_engine_kwargs)
 
@@ -290,35 +263,7 @@ def query_rag(request: QueryRequest):
         
         query_engine = get_query_engine(retrieval_settings=retrieval_settings)
         used_retrieval_settings = dict(retrieval_settings)
-        try:
-            response = query_engine.query(request.query)
-        except Exception as exc:
-            if not _is_missing_sparse_model_error(exc):
-                raise
-
-            used_retrieval_settings["query_mode"] = "default"
-            query_engine = get_query_engine(
-                retrieval_settings=used_retrieval_settings, use_cache=True
-            )
-            
-            # Check cache again for the fallback mode
-            fallback_cache_key = (
-                f"{base_query}:{_get_retrieval_signature(used_retrieval_settings)}"
-            )
-            with _query_cache_lock:
-                if fallback_cache_key in _query_cache:
-                    entry = _query_cache[fallback_cache_key]
-                    if current_time - entry["timestamp"] < _query_cache_ttl_seconds:
-                        _cache_hits += 1
-                        return QueryResponse(
-                            answer=entry["answer"],
-                            mode_used=entry["mode_used"],
-                            sources=entry["sources"] if request.include_sources else None,
-                        )
-                    else:
-                        del _query_cache[fallback_cache_key]
-                        
-            response = query_engine.query(request.query)
+        response = query_engine.query(request.query)
 
         answer = str(response)
         sources = _build_sources(response)
@@ -354,8 +299,7 @@ def query_rag(request: QueryRequest):
                 detail=(
                     "Query failed: TLS hostname verification failed for an external dependency. "
                     "This usually indicates captive-portal/proxy interception. "
-                    "Authenticate/fix network egress and retry, or use pre-cached models with "
-                    "RAG_EMBED_LOCAL_ONLY=1."
+                    "Authenticate/fix network egress and retry."
                 ),
             )
         raise HTTPException(status_code=500, detail=f"Query failed: {error_message}")

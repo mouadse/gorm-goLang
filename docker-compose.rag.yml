@@ -10,10 +10,11 @@ x-rag-build: &rag_build
 x-rag-env: &rag_env
   QDRANT_URL: http://rag-qdrant:6333
   QDRANT_COLLECTION: ${QDRANT_COLLECTION:-books}
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
   OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-3-flash-preview}
   OPENROUTER_MAX_TOKENS: ${OPENROUTER_MAX_TOKENS:-512}
-  RAG_QUERY_MODE: ${RAG_QUERY_MODE:-hybrid}
+  RAG_QUERY_MODE: ${RAG_QUERY_MODE:-default}
   RAG_SIMILARITY_TOP_K: ${RAG_SIMILARITY_TOP_K:-8}
   RAG_SPARSE_TOP_K: ${RAG_SPARSE_TOP_K:-8}
   RAG_SIMILARITY_CUTOFF: ${RAG_SIMILARITY_CUTOFF:-0.0}
@@ -28,12 +29,7 @@ x-rag-env: &rag_env
   RAG_QUANTIZATION_OVERSAMPLING: ${RAG_QUANTIZATION_OVERSAMPLING:-3.0}
   RAG_CHUNK_SIZE: ${RAG_CHUNK_SIZE:-512}
   RAG_CHUNK_OVERLAP: ${RAG_CHUNK_OVERLAP:-64}
-  RAG_EMBED_DIMENSION: ${RAG_EMBED_DIMENSION:-768}
-  HF_TOKEN: ${HF_TOKEN:-}
-  HF_HOME: /home/appuser/.cache/huggingface
-  FASTEMBED_CACHE_PATH: /home/appuser/.cache/huggingface/fastembed
-  HF_HUB_DISABLE_XET: ${HF_HUB_DISABLE_XET:-1}
-  RAG_EMBED_LOCAL_ONLY: ${RAG_EMBED_LOCAL_ONLY:-0}
+  RAG_EMBED_DIMENSION: ${RAG_EMBED_DIMENSION:-1536}
   RAG_STATE_DIR: /app/state
   QDRANT_TIMEOUT_SECONDS: ${QDRANT_TIMEOUT_SECONDS:-10}
   QDRANT_SHARD_NUMBER: ${QDRANT_SHARD_NUMBER:-1}
@@ -99,7 +95,6 @@ services:
     volumes:
       - ./rag_setup/books:/books
       - ./rag_setup/runtime_overrides/shared.py:/app/shared.py:ro
-      - rag_hf_cache:/home/appuser/.cache/huggingface
       - rag_state:/app/state
     depends_on:
       rag-qdrant:
@@ -128,11 +123,9 @@ services:
     environment:
       <<: *rag_env
       RAG_EMBED_BATCH_SIZE: ${RAG_EMBED_BATCH_SIZE:-64}
-      RAG_EMBED_PARALLEL: ${RAG_EMBED_PARALLEL:-0}
     volumes:
       - ./rag_setup/books:/books
       - ./rag_setup/runtime_overrides/shared.py:/app/shared.py:ro
-      - rag_hf_cache:/home/appuser/.cache/huggingface
       - rag_state:/app/state
     depends_on:
       rag-qdrant:
@@ -151,11 +144,9 @@ services:
     environment:
       <<: *rag_env
       RAG_EMBED_BATCH_SIZE: ${RAG_EMBED_BATCH_SIZE:-64}
-      RAG_EMBED_PARALLEL: ${RAG_EMBED_PARALLEL:-0}
     volumes:
       - ./rag_setup/books:/books
       - ./rag_setup/runtime_overrides/shared.py:/app/shared.py:ro
-      - rag_hf_cache:/home/appuser/.cache/huggingface
       - rag_state:/app/state
     depends_on:
       rag-qdrant:
@@ -195,7 +186,6 @@ services:
 
 volumes:
   rag_qdrant_data:
-  rag_hf_cache:
   rag_state:
 
 networks:
