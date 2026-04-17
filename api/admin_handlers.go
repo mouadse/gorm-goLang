@@ -123,30 +123,57 @@ func (s *Server) handleAdminRealtimeWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	// Subscribe to push events (user signups, etc.)
+	eventCh := s.adminRealtime.Subscribe()
+	defer s.adminRealtime.Unsubscribe(eventCh)
+
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	for {
-		metrics, err := s.collectRealtimeMetrics(r.Context())
-		if err != nil {
-			log.Printf("collect realtime metrics failed: %v", err)
-			return
-		}
-		data, err := json.Marshal(metrics)
-		if err != nil {
-			log.Printf("marshal realtime metrics failed: %v", err)
-			return
-		}
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			return
-		}
+	// Send an initial snapshot immediately
+	if err := s.sendRealtimeSnapshot(conn, r.Context()); err != nil {
+		return
+	}
 
+	for {
 		select {
 		case <-r.Context().Done():
 			return
+
+		case eventData, ok := <-eventCh:
+			if !ok {
+				return
+			}
+			// Push the event (e.g. user_signup) immediately
+			if err := conn.WriteMessage(websocket.TextMessage, eventData); err != nil {
+				return
+			}
+			// Follow up with a fresh metrics snapshot so the dashboard
+			// can update counters without waiting for the next tick.
+			if err := s.sendRealtimeSnapshot(conn, r.Context()); err != nil {
+				return
+			}
+
 		case <-ticker.C:
+			if err := s.sendRealtimeSnapshot(conn, r.Context()); err != nil {
+				return
+			}
 		}
 	}
+}
+
+func (s *Server) sendRealtimeSnapshot(conn *websocket.Conn, ctx context.Context) error {
+	metrics, err := s.collectRealtimeMetrics(ctx)
+	if err != nil {
+		log.Printf("collect realtime metrics failed: %v", err)
+		return err
+	}
+	data, err := json.Marshal(metrics)
+	if err != nil {
+		log.Printf("marshal realtime metrics failed: %v", err)
+		return err
+	}
+	return conn.WriteMessage(websocket.TextMessage, data)
 }
 
 func (s *Server) collectRealtimeMetrics(ctx context.Context) (map[string]any, error) {
@@ -155,10 +182,18 @@ func (s *Server) collectRealtimeMetrics(ctx context.Context) (map[string]any, er
 		return nil, err
 	}
 
+	totalUsers, newUsers7d, err := s.adminSvc.GetUserCountMetrics(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]any{
+		"type":           "metrics_update",
 		"active_users":   realtime.ActiveUsers,
 		"workouts_today": realtime.WorkoutsToday,
 		"meals_today":    realtime.MealsToday,
+		"total_users":    totalUsers,
+		"new_users_7d":   newUsers7d,
 		"timestamp":      realtime.Timestamp,
 	}, nil
 }

@@ -48,9 +48,12 @@ The backend provides a robust API for full-spectrum fitness tracking:
 ## Quick Start
 
 ### 1. Prepare Environment
+From the `Backend/` directory:
 ```bash
 cp .env.example .env
 ```
+
+Run the orchestration Makefile from `Backend/` for the standalone backend stack. When this repo sits beside the monorepo `Front-End/` checkout, the same commands also include the Nginx-served frontend automatically.
 
 Set at least:
 - `JWT_SECRET`
@@ -58,6 +61,7 @@ Set at least:
 - `HF_TOKEN` if your RAG setup needs authenticated Hugging Face downloads
 
 ### 2. Start the Full Dev Stack
+From the `Backend/` directory:
 ```bash
 make run
 ```
@@ -70,6 +74,8 @@ This now starts, in one command:
 - Prometheus and Grafana
 - AI coach UI
 - RAG Qdrant, an automatic RAG bootstrap ingest job, the RAG API, and the RAG UI
+
+If `../Front-End` is present, `make run` also starts the production-built React frontend behind Nginx.
 
 ### 3. Ingest RAG Documents When Needed
 ```bash
@@ -86,7 +92,7 @@ curl -X POST http://localhost:8082/v1/rag/query \
   -d '{"query":"What is Kamal and what does it do?","include_sources":true}'
 ```
 
-If a host port is already occupied on your machine, override it in `.env` instead of editing compose files. The stack now supports `API_HOST_PORT`, `EXERCISE_LIB_HOST_PORT`, `COACH_UI_HOST_PORT`, `GRAFANA_HOST_PORT`, `PROMETHEUS_HOST_PORT`, `PGADMIN_HOST_PORT`, `POSTGRES_HOST_PORT`, `WORKER_METRICS_HOST_PORT`, `RAG_API_PORT`, `RAG_UI_PORT`, and `RAG_QDRANT_PORT`.
+If a host port is already occupied on your machine, override it in `.env` instead of editing compose files. The stack now supports `FRONTEND_HOST_PORT`, `API_HOST_PORT`, `EXERCISE_LIB_HOST_PORT`, `COACH_UI_HOST_PORT`, `GRAFANA_HOST_PORT`, `PROMETHEUS_HOST_PORT`, `PGADMIN_HOST_PORT`, `POSTGRES_HOST_PORT`, `WORKER_METRICS_HOST_PORT`, `RAG_API_PORT`, `RAG_UI_PORT`, and `RAG_QDRANT_PORT`.
 
 If RAG is saturating your machine, cap it with `.env` knobs: `RAG_API_CPUS`, `RAG_INGEST_CPUS`, `RAG_QDRANT_CPUS`, `RAG_UI_CPUS`, `RAG_CPU_THREADS`, `RAG_EMBED_THREADS`, `RAG_EMBED_BATCH_SIZE`, `RAG_EMBED_PARALLEL`, `QDRANT_MAX_INDEXING_THREADS`, `QDRANT_MAX_SEARCH_THREADS`, `QDRANT_MAX_OPTIMIZATION_THREADS`, and `QDRANT_OPTIMIZER_CPU_BUDGET`.
 
@@ -102,6 +108,9 @@ If RAG is saturating your machine, cap it with `.env` knobs: `RAG_API_CPUS`, `RA
 - **Qdrant**: `http://localhost:6334`
 - **pgAdmin**: `http://localhost:8081` via `make admin`
 
+When `../Front-End` is present:
+- **Front-End**: `http://localhost:5173`
+
 ## Common Commands
 
 ```bash
@@ -113,6 +122,7 @@ make rag-ingest   # incremental RAG ingest
 make rag-reingest # full RAG rebuild
 make db-shell     # open psql inside postgres
 make test         # go test + race detector
+make test-frontend # frontend Vitest suite when ../Front-End is present
 ```
 
 ## Configuration

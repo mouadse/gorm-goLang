@@ -495,6 +495,10 @@ func (s *Server) handleRegisterWithSessions(w http.ResponseWriter, r *http.Reque
 	s.metrics.UsersRegistered.Inc()
 	s.metrics.AuthAttemptsTotal.WithLabelValues("register", "success").Inc()
 
+	// Notify all connected admin dashboards about the new user immediately.
+	totalUsers, newUsers7d, _ := s.adminSvc.GetUserCountMetrics(r.Context())
+	s.adminRealtime.NotifyUserSignup(totalUsers, newUsers7d)
+
 	writeJSON(w, http.StatusCreated, authSessionResponse{
 		Token:        tokens.AccessToken,
 		AccessToken:  tokens.AccessToken,

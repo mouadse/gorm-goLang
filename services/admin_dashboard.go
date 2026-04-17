@@ -232,6 +232,24 @@ func (s *AdminDashboardService) GetExecutiveSummary(ctx context.Context) (*Execu
 	return summary, nil
 }
 
+// GetUserCountMetrics returns total_users and new_users_7d counts for
+// inclusion in the realtime WebSocket snapshot.
+func (s *AdminDashboardService) GetUserCountMetrics(ctx context.Context) (int64, int64, error) {
+	_ = ctx
+	var totalUsers int64
+	if err := s.db.Model(&models.User{}).Where("deleted_at IS NULL").Count(&totalUsers).Error; err != nil {
+		return 0, 0, err
+	}
+
+	sevenDaysAgo := time.Now().UTC().AddDate(0, 0, -7)
+	var newUsers7d int64
+	if err := s.db.Model(&models.User{}).Where("created_at >= ? AND deleted_at IS NULL", sevenDaysAgo).Count(&newUsers7d).Error; err != nil {
+		return 0, 0, err
+	}
+
+	return totalUsers, newUsers7d, nil
+}
+
 // GetRealtimeMetrics returns the current admin realtime metrics snapshot.
 func (s *AdminDashboardService) GetRealtimeMetrics(ctx context.Context) (*RealtimeMetrics, error) {
 	_ = ctx

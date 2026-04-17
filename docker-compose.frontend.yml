@@ -1,0 +1,31 @@
+services:
+  frontend:
+    build:
+      context: ../Front-End
+      dockerfile: Dockerfile
+    container_name: fitness-frontend
+    ports:
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-5173}:8080"
+    environment:
+      FRONTEND_PUBLIC_API_URL: ${FRONTEND_PUBLIC_API_URL:-/api}
+      FRONTEND_PUBLIC_EXERCISE_IMAGE_BASE_URL: ${FRONTEND_PUBLIC_EXERCISE_IMAGE_BASE_URL:-/exercise-lib}
+      FRONTEND_PUBLIC_ADMIN_REALTIME_WS_AUTH_MODE: ${FRONTEND_PUBLIC_ADMIN_REALTIME_WS_AUTH_MODE:-query}
+    depends_on:
+      app:
+        condition: service_healthy
+      exercise-lib:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    init: true
+    networks:
+      - fitness-network
+
+networks:
+  fitness-network:
+    # Merged with Backend/docker-compose.yml which defines the network.

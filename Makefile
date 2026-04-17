@@ -1,4 +1,6 @@
-.PHONY: help run up down restart logs ps config build clean test db-shell admin rag-ingest rag-reingest rag-shell
+.PHONY: help run up down restart logs ps config build clean test test-backend test-frontend db-shell admin rag-ingest rag-reingest rag-shell
+
+.DEFAULT_GOAL := help
 
 ifneq (,$(wildcard ./.env))
 include .env
@@ -7,6 +9,7 @@ endif
 
 API_HOST_PORT ?= 8082
 EXERCISE_LIB_HOST_PORT ?= 8000
+FRONTEND_HOST_PORT ?= 5173
 COACH_UI_HOST_PORT ?= 8503
 GRAFANA_HOST_PORT ?= 3000
 PROMETHEUS_HOST_PORT ?= 9090
@@ -17,7 +20,10 @@ RAG_API_PORT ?= 8088
 RAG_UI_PORT ?= 8502
 RAG_QDRANT_PORT ?= 6334
 
-COMPOSE = DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose \
+FRONTEND_APP_DIR := ../Front-End
+FRONTEND_COMPOSE_FILE := docker-compose.frontend.yml
+
+COMPOSE_FILES = \
 	-f docker-compose.yml \
 	-f docker-compose.coach.yml \
 	-f docker-compose.rag.yml
@@ -25,9 +31,20 @@ COMPOSE = DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose \
 BUILD_SERVICES = app exercise-lib coach-ui rag-api rag-ui
 STACK_SERVICES = postgres exercise-lib migrate seed app worker prometheus grafana coach-ui rag-qdrant rag-api rag-ui
 
+ifneq (,$(wildcard $(FRONTEND_APP_DIR)))
+COMPOSE_FILES += -f $(FRONTEND_COMPOSE_FILE)
+BUILD_SERVICES += frontend
+STACK_SERVICES += frontend
+HAS_FRONTEND := 1
+else
+HAS_FRONTEND := 0
+endif
+
+COMPOSE = DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose $(COMPOSE_FILES)
+
 help:
 	@echo "Available commands:"
-	@echo "  make run          Build what changed and start the full dev stack"
+	@echo "  make run          Build what changed and start the full stack"
 	@echo "  make down         Stop the stack"
 	@echo "  make restart      Restart the running stack"
 	@echo "  make logs         Follow logs for the full stack"
@@ -38,7 +55,8 @@ help:
 	@echo "  make rag-reingest Run a full RAG reindex"
 	@echo "  make rag-shell    Open a shell in the RAG ingest image"
 	@echo "  make db-shell     Open psql in the postgres container"
-	@echo "  make test         Run Go tests and the race detector"
+	@echo "  make test         Run backend Go test suites"
+	@if [ "$(HAS_FRONTEND)" = "1" ]; then echo "  make test-frontend Run the frontend Vitest suite"; fi
 	@echo "  make clean        Remove containers, volumes, and local images"
 
 run:
@@ -48,6 +66,7 @@ run:
 	$(COMPOSE) up -d --remove-orphans $(STACK_SERVICES)
 	@echo ""
 	@echo "Full stack endpoints:"
+	@if [ "$(HAS_FRONTEND)" = "1" ]; then echo "  Front-End        http://localhost:$(FRONTEND_HOST_PORT)"; fi
 	@echo "  API              http://localhost:$(API_HOST_PORT)"
 	@echo "  Exercise Library http://localhost:$(EXERCISE_LIB_HOST_PORT)"
 	@echo "  Coach UI         http://localhost:$(COACH_UI_HOST_PORT)"
@@ -82,7 +101,7 @@ build:
 
 admin:
 	$(COMPOSE) up -d pgadmin
-	@echo "pgAdmin: http://localhost:8081"
+	@echo "pgAdmin: http://localhost:$(PGADMIN_HOST_PORT)"
 
 db-shell:
 	$(COMPOSE) exec postgres psql -U postgres -d fitness_tracker
@@ -98,9 +117,15 @@ rag-reingest:
 rag-shell:
 	$(COMPOSE) --profile tools run --rm rag-ingest sh
 
-test:
+test: test-backend
+
+test-backend:
 	GOCACHE=/tmp/go-cache go test ./...
 	GOCACHE=/tmp/go-cache go test -race ./...
+
+test-frontend:
+	@if [ "$(HAS_FRONTEND)" != "1" ]; then echo "Front-End checkout not found at $(FRONTEND_APP_DIR)"; exit 1; fi
+	npm --prefix $(FRONTEND_APP_DIR) run test
 
 clean:
 	$(COMPOSE) down --remove-orphans --volumes --rmi local

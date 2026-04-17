@@ -220,21 +220,48 @@ func appendVary(header http.Header, value string) {
 	header.Add("Vary", value)
 }
 
-func Authenticate(db *gorm.DB, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
-		if authHeader == "" {
-			writeError(w, http.StatusUnauthorized, errors.New("missing authorization header"))
-			return
-		}
-
+func accessTokenFromRequest(r *http.Request, allowWebSocketQueryToken bool) (string, error) {
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if authHeader != "" {
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			writeError(w, http.StatusUnauthorized, errors.New("invalid authorization format"))
+			return "", errors.New("invalid authorization format")
+		}
+		return parts[1], nil
+	}
+
+	if allowWebSocketQueryToken && isWebSocketHandshake(r) {
+		if token := strings.TrimSpace(r.URL.Query().Get("access_token")); token != "" {
+			return token, nil
+		}
+	}
+
+	return "", errors.New("missing authorization header")
+}
+
+func isWebSocketHandshake(r *http.Request) bool {
+	if !strings.EqualFold(strings.TrimSpace(r.Header.Get("Upgrade")), "websocket") {
+		return false
+	}
+
+	for _, part := range strings.Split(r.Header.Get("Connection"), ",") {
+		if strings.EqualFold(strings.TrimSpace(part), "upgrade") {
+			return true
+		}
+	}
+
+	return false
+}
+
+func authenticate(db *gorm.DB, next http.Handler, allowWebSocketQueryToken bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenString, err := accessTokenFromRequest(r, allowWebSocketQueryToken)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, err)
 			return
 		}
 
-		userID, tokenAuthVersion, err := services.ParseAccessToken(parts[1])
+		userID, tokenAuthVersion, err := services.ParseAccessToken(tokenString)
 		if err != nil {
 			if errors.Is(err, services.ErrMissingJWTSecret) {
 				writeError(w, http.StatusInternalServerError, err)
@@ -267,6 +294,14 @@ func Authenticate(db *gorm.DB, next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), authenticatedUserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func Authenticate(db *gorm.DB, next http.Handler) http.Handler {
+	return authenticate(db, next, false)
+}
+
+func authenticateWebSocketQueryToken(db *gorm.DB, next http.Handler) http.Handler {
+	return authenticate(db, next, true)
 }
 
 // RequireAdmin ensures the authenticated user has the "admin" role.

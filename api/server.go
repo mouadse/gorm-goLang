@@ -31,6 +31,7 @@ type Server struct {
 	twoFactorLimit  *twoFactorAttemptLimiter
 	twoFactorTokens *twoFactorChallengeStore
 	adminSvc        *services.AdminDashboardService
+	adminRealtime   *AdminRealtimeHub
 	llmClient       services.LLMClient
 	coachSvc        *services.CoachService
 	exerciseLibSvc  *services.ExerciseLibClient
@@ -41,6 +42,7 @@ type Server struct {
 func NewServer(db *gorm.DB) *Server {
 	m := metrics.New()
 	adminSvc := services.NewAdminDashboardService(db, m)
+	adminRealtimeHub := NewAdminRealtimeHub()
 
 	server := &Server{
 		db:              db,
@@ -57,6 +59,7 @@ func NewServer(db *gorm.DB) *Server {
 		twoFactorLimit:  newTwoFactorAttemptLimiter(),
 		twoFactorTokens: newTwoFactorChallengeStore(),
 		adminSvc:        adminSvc,
+		adminRealtime:   adminRealtimeHub,
 		llmClient:       services.NewOpenRouterClient("", ""),
 		exerciseLibSvc:  services.NewExerciseLibClient(m),
 		ragSvc:          services.NewRAGClient(m),
@@ -271,7 +274,7 @@ func (s *Server) registerRoutes() {
 	admin("GET /v1/admin/moderation/stats", s.handleAdminModerationStats)
 	admin("GET /v1/admin/system/health", s.handleAdminSystemHealth)
 	admin("GET /v1/admin/audit-logs", s.handleAdminListAuditLogs)
-	s.mux.Handle("GET /v1/admin/dashboard/realtime", Authenticate(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleAdminRealtimeWS))))
+	s.mux.Handle("GET /v1/admin/dashboard/realtime", authenticateWebSocketQueryToken(s.db, RequireAdmin(s.db, http.HandlerFunc(s.handleAdminRealtimeWS))))
 
 	// Admin: User Management
 	admin("GET /v1/admin/users", s.handleAdminListUsers)
