@@ -125,7 +125,7 @@ services:
       dockerfile: Dockerfile
     container_name: fitness-exercise-lib
     env_file:
-      - ./exercises_lib_service/.env
+      - ./.env
     ports:
       - "${EXERCISE_LIB_HOST_PORT:-8000}:8000"
     cpus: "${APP_CPUS:-2.0}"

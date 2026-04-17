@@ -22,6 +22,7 @@ RAG_QDRANT_PORT ?= 6334
 
 FRONTEND_APP_DIR := ../Front-End
 FRONTEND_COMPOSE_FILE := docker-compose.frontend.yml
+ENV_FILE := .env
 
 COMPOSE_FILES = \
 	-f docker-compose.yml \
@@ -40,7 +41,7 @@ else
 HAS_FRONTEND := 0
 endif
 
-COMPOSE = DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose $(COMPOSE_FILES)
+COMPOSE = DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose --env-file $(ENV_FILE) $(COMPOSE_FILES)
 
 help:
 	@echo "Available commands:"

@@ -54,6 +54,7 @@ cp .env.example .env
 ```
 
 Run the orchestration Makefile from `Backend/` for the standalone backend stack. When this repo sits beside the monorepo `Front-End/` checkout, the same commands also include the Nginx-served frontend automatically.
+All compose entrypoints under `Backend/` now resolve their variables from this single `Backend/.env` file when launched through the provided Makefiles or with `docker compose --env-file ../.env ...`, including `rag_setup/` and the exercise library service.
 
 Set at least:
 - `JWT_SECRET`

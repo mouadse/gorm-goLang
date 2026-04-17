@@ -5,9 +5,9 @@ services:
       target: runtime
     cpus: "${APP_CPUS:-2.0}"
     ports:
-      - "8000:8000"
+      - "${EXERCISE_LIB_HOST_PORT:-8000}:8000"
     env_file:
-      - .env
+      - ../.env
     environment:
       - PORT=8000
       - EXERCISE_DATA_DIR=/app/exercise_data

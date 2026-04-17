@@ -8,7 +8,8 @@
 	exec-api exec-ui exec-qdrant \
 	ingest reingest ingest-shell
 
-COMPOSE ?= docker compose
+ENV_FILE ?= ../.env
+COMPOSE ?= docker compose --env-file $(ENV_FILE)
 TORCH_BACKEND ?= cpu
 TORCH_BUILD_ARG := --build-arg TORCH_BACKEND=$(TORCH_BACKEND)
 
